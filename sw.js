@@ -12,7 +12,7 @@
    The cache name carries a version. Bump SW_VERSION when the shell
    changes; everything under an older name is deleted on activate. */
 
-var SW_VERSION = "v3";
+var SW_VERSION = "v4";
 var SHELL_CACHE = "shelf-shell-" + SW_VERSION;
 var MEDIA_CACHE = "shelf-media-" + SW_VERSION;
 
@@ -29,6 +29,7 @@ var SHELL = [
   "js/dashboard.js",
   "js/hifi.js",
   "js/backup.js",
+  "js/ai.js",
   "js/icons.js",
   "js/app.js",
   "manifest.webmanifest",
