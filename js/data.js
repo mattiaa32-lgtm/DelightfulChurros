@@ -107,19 +107,53 @@ function adopt(rows){
               py:((r[8]||"").trim().match(/^\d{4}$/)||[null])[0],
               p:seen[c],n:tot[c],i:i});});
   return out;}
+/* Applies whatever rows we ended up with, from either source. */
+function applyRows(rows){
+  rows = rows.filter(function(r){ return r.length>=4 && r[0]; });
+  if(rows.length && /artist/i.test(String(rows[0][0]))) rows.shift();
+  if(rows.length < 5) throw 0;
+  RECS = adopt(rows);
+  RECS.forEach(function(r){ if(!COLORS[r.c]) COLORS[r.c]="#8A8A8A"; });
+  renderCatChips();
+  render();
+  warmDiscogsCache();
+  warmDescCache();
+}
+
+/* Two ways in.
+
+   The published CSV is what the app has always used. It works without
+   any setup, but Google serves it from a cache that can lag several
+   minutes behind an edit — so a record added through the app was
+   genuinely in the sheet and still invisible here.
+
+   Once the Apps Script write-back is configured, /api/sheet can read
+   the sheet directly, which is live. So: try the live read first, and
+   fall back to the CSV if write-back isn't set up or the call fails. */
 function loadSheet(){
-  if(!SHEET_CSV_URL){markDataReady();return;}
-  fetch(SHEET_CSV_URL,{cache:"no-store"})
-    .then(function(res){if(!res.ok)throw 0;return res.text();})
-    .then(function(txt){
-      var rows=parseCSV(txt).filter(function(r){return r.length>=4&&r[0];});
-      if(/artist/i.test(rows[0][0]))rows.shift();
-      if(rows.length<5)throw 0;
-      RECS=adopt(rows);
-      RECS.forEach(function(r){if(!COLORS[r.c])COLORS[r.c]="#8A8A8A";});
-      renderCatChips();
-      render();
-      warmDiscogsCache();
-      warmDescCache();
-      markDataReady();})
-    .catch(function(){markDataReady();});}
+  fetch("/api/sheet",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action:"read"})
+  })
+  .then(function(res){ return res.ok ? res.json() : null; })
+  .then(function(d){
+    if(!d || !d.values || !d.values.length) throw 0;
+    applyRows(d.values.map(function(r){
+      return r.map(function(c){ return c==null ? "" : String(c); });
+    }));
+    markDataReady();
+  })
+  .catch(function(){ loadSheetCSV(); });
+}
+
+function loadSheetCSV(){
+  if(!SHEET_CSV_URL){ markDataReady(); return; }
+  /* a cache-buster on top of no-store: the published CSV is served by
+     Google's own cache, which ignores request headers */
+  var url = SHEET_CSV_URL + (SHEET_CSV_URL.indexOf("?")>-1?"&":"?") + "_=" + Date.now();
+  fetch(url,{cache:"no-store"})
+    .then(function(res){ if(!res.ok) throw 0; return res.text(); })
+    .then(function(txt){ applyRows(parseCSV(txt)); markDataReady(); })
+    .catch(function(){ markDataReady(); });
+}
