@@ -12,7 +12,10 @@
 // specs the user has confirmed, checking the real engineering
 // relationships between components, and saying what to upgrade first.
 
-const MODEL = "gemini-3.5-flash-lite";
+import { callGemini } from "./_gemini.js";
+
+/* Model choice now lives in _gemini.js: quotas are per model, so a
+   request refused by one is retried against the next. */
 
 const SPEC_FIELDS = {
   turntable:  ["drive type", "speeds", "tonearm", "tonearm effective mass", "built-in phono stage", "wow and flutter"],
@@ -192,71 +195,48 @@ export default async function handler(req, res) {
     useSearch = false;
   }
 
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/" +
-              MODEL + ":generateContent";
-
-  function payload(withSearch) {
-    const b = {
-      system_instruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: userText }] }],
-      generationConfig: { maxOutputTokens: 3000, thinkingConfig: { thinkingBudget: 0 } }
+  function makeBody(withSearch) {
+    return function (model) {
+      const b = {
+        system_instruction: { parts: [{ text: system }] },
+        contents: [{ role: "user", parts: [{ text: userText }] }],
+        generationConfig: {
+          maxOutputTokens: 3000,
+          thinkingConfig: { thinkingBudget: 0 }
+        }
+      };
+      if (withSearch) b.tools = [{ google_search: {} }];
+      else b.generationConfig.responseMimeType = "application/json";
+      return JSON.stringify(b);
     };
-    // Grounded search and forced JSON mime type can't always be combined,
-    // so for spec lookups we ask for JSON in the prompt and parse leniently.
-    if (withSearch) b.tools = [{ google_search: {} }];
-    else b.generationConfig.responseMimeType = "application/json";
-    return JSON.stringify(b);
-  }
-
-  async function call(withSearch) {
-    return fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: payload(withSearch)
-    });
   }
 
   try {
-    let apiRes = await call(useSearch);
-    // If grounding isn't available on this key/model, retry ungrounded so
-    // the feature degrades instead of failing outright \u2014 flagged in the
-    // response so the client can warn that specs are unverified.
+    let out = await callGemini(apiKey, makeBody(useSearch));
     let grounded = useSearch;
-    /* Google Search grounding is metered separately from ordinary
-       generation and its free-tier ceiling is far lower, so a grounded
-       call can be refused while plain generation still has budget. A
-       429 on a grounded request therefore retries WITHOUT search rather
-       than failing: unverified specs you can correct beat no specs at
-       all, and the response is flagged so the UI can say so. */
-    if (useSearch && (apiRes.status === 400 || apiRes.status === 403 ||
-                      apiRes.status === 429)) {
-      const retry = await call(false);
-      if (retry.ok || apiRes.status !== 429) { apiRes = retry; grounded = false; }
+    /* Grounding has its own, much smaller allowance than plain
+       generation, so if it is refused we retry ungrounded rather than
+       failing outright. */
+    if (useSearch && !out.ok) {
+      const plain = await callGemini(apiKey, makeBody(false));
+      if (plain.ok) { out = plain; grounded = false; }
     }
-
-    if (!apiRes.ok) {
-      const t = await apiRes.text();
+    if (!out.ok) {
       /* Pull out Google's own quota id when present \u2014 it names exactly
          which limit was hit (per-day vs per-minute, and for which
          model), which is the difference between "wait a minute" and
          "wait until tomorrow". */
-      let quotaId = null;
-      const qm = t.match(/"quotaId"\s*:\s*"([^"]+)"/);
-      if (qm) quotaId = qm[1];
-      const daily = /PerDay/i.test(quotaId || "") || /per day|daily/i.test(t);
-      return res.status(apiRes.status === 429 ? 429 : 502).json({
+      return res.status(out.status === 429 ? 429 : 502).json({
         error: "upstream error",
-        upstreamStatus: apiRes.status,
-        quota: daily ? "daily" : "rate",
-        quotaId: quotaId,
-        detail: t.slice(0, 300)
+        upstreamStatus: out.status,
+        quota: out.quota || "rate",
+        quotaId: out.quotaId || null,
+        detail: out.detail || ""
       });
     }
 
-    const data = await apiRes.json();
-    const cand = data && data.candidates && data.candidates[0];
-    const parts = cand && cand.content && cand.content.parts;
-    const raw = (parts || []).map(function (x) { return x.text || ""; }).join("")
+    const cand = out.cand;
+    const raw = String(out.text || "")
       .replace(/```json/gi, "").replace(/```/g, "").trim();
 
     let parsed = null;
