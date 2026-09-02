@@ -24,7 +24,10 @@ function connStatus(cb){
 }
 
 function renderConnect(){
-  var el = document.getElementById("connbody");
+  /* If the container is missing the panel would open blank with no clue
+     why, so fall back to the box itself rather than silently doing
+     nothing. */
+  var el = document.getElementById("connbody") || document.getElementById("connbox");
   if (!el) return;
   el.innerHTML = "<p class='hint'>Checking\u2026</p>";
   connStatus(function(d){
