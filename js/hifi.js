@@ -151,6 +151,12 @@ function renderGearRows(){
    Wikipedia result simply stands on its own instead of the whole lookup
    failing. Cached per component name like everything else. */
 function wikiGear(name,cb){
+  /* fire cb exactly once, and never later than 8s, so a stalled request
+     can't hold up the whole lookup */
+  var fired=false;
+  var original=cb;
+  cb=function(v){if(fired)return;fired=true;clearTimeout(t);original(v);};
+  var t=setTimeout(function(){cb(null);},8000);
   var key="wgear:"+norm(name);
   var c=null; try{c=localStorage.getItem(key);}catch(e){}
   if(c){try{return cb(JSON.parse(c));}catch(e){return cb(null);}}
@@ -210,11 +216,25 @@ function lookupGear(k){
     cur[k].name=cur[k].name||name;
     gearSave(cur);
   }
+  var done=false;
   function finish(){
+    if(done)return;                 /* only ever conclude once */
+    done=true;
+    clearTimeout(guard);
     if(btn){btn.textContent="Look up";btn.disabled=false;}
     renderGearRows();
     openGear(k);
   }
+  /* Hard backstop. Every path below is supposed to call finish(), but a
+     request that never settles (a hung connection, a source that never
+     responds) would otherwise leave the button spinning forever. After
+     20 seconds we show whatever was gathered and hand control back. */
+  var guard=setTimeout(function(){
+    var cur=gearAll();
+    if(cur[k]&&!(cur[k].specs&&cur[k].specs.length))cur[k].specsUnavailable=true;
+    gearSave(cur);
+    finish();
+  },20000);
 
   /* step 1 \u2014 Wikipedia. No key, no quota, so this is the part that
      always works. */
