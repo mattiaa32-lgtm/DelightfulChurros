@@ -73,13 +73,29 @@ export default async function handler(req, res) {
   const forward = Object.assign({}, body, { secret: secret });
   delete forward.passphrase;
 
-  try {
-    const r = await fetch(url, {
+  /* Apps Script answers a POST with a 302 to script.googleusercontent.com.
+     Following that automatically is the trap: per the fetch spec a 302
+     turns a POST into a GET and drops the body, so the script receives an
+     empty GET, does nothing, and returns an HTML page. The call looks like
+     it worked while nothing was written. So redirects are followed by
+     hand, re-POSTing the body each time. */
+  async function post(target, depth) {
+    const r = await fetch(target, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(forward),
-      redirect: "follow"          // Apps Script bounces through a redirect
+      redirect: "manual"
     });
+    if ((r.status === 301 || r.status === 302 || r.status === 303 ||
+         r.status === 307 || r.status === 308) && depth < 5) {
+      const loc = r.headers.get("location");
+      if (loc) return post(loc, depth + 1);
+    }
+    return r;
+  }
+
+  try {
+    const r = await post(url, 0);
     const text = await r.text();
     let data;
     try { data = JSON.parse(text); }
@@ -89,7 +105,17 @@ export default async function handler(req, res) {
         detail: text.slice(0, 200)
       });
     }
-    return res.status(r.ok ? 200 : 502).json(data);
+    /* The script always answers with an object carrying ok or error.
+       Anything else means the request never reached the script properly
+       \u2014 report that rather than passing back a hollow success. */
+    if (!data || (data.ok !== true && !data.error)) {
+      return res.status(502).json({
+        error: "the sheet script didn't confirm the write",
+        detail: text.slice(0, 200)
+      });
+    }
+    if (data.error) return res.status(502).json(data);
+    return res.status(200).json(data);
   } catch (err) {
     return res.status(502).json({
       error: "couldn't reach the sheet",
