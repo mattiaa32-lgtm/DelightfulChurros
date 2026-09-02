@@ -11,7 +11,10 @@
 // Deliberately NO overall numeric score. A model-generated "7.4/10"
 // looks precise and isn't reproducible; bands and prose are honest.
 
-const MODEL = "gemini-3.5-flash-lite";
+import { callGemini } from "./_gemini.js";
+
+/* Model choice now lives in _gemini.js: quotas are per model, so a
+   request refused by one is retried against the next. */
 
 const COLLECTION_SYSTEM = [
   "You assess a serious vinyl collector's collection. You are knowledgeable, direct and",
@@ -94,40 +97,27 @@ export default async function handler(req, res) {
     ? CATEGORY_SYSTEM + "\n\nCATEGORY: " + p.category + "\n\nTHEIR RECORDS IN IT:\n" + body
     : COLLECTION_SYSTEM + "\n\nTHEIR COLLECTION:\n" + body;
 
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/" +
-              MODEL + ":generateContent";
-
-  function payload(thinking) {
-    const b = {
+  function buildBody(model) {
+    return JSON.stringify({
       system_instruction: { parts: [{ text: system }] },
       contents: [{ role: "user", parts: [{ text: "Return the JSON now." }] }],
-      generationConfig: { maxOutputTokens: 1400, responseMimeType: "application/json" }
-    };
-    if (thinking) b.generationConfig.thinkingConfig = { thinkingBudget: 0 };
-    return JSON.stringify(b);
-  }
-
-  async function call(thinking) {
-    return fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: payload(thinking)
+      generationConfig: {
+        maxOutputTokens: 1400,
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 0 }
+      }
     });
   }
 
   try {
-    let apiRes = await call(true);
-    if (apiRes.status === 400) apiRes = await call(false);
-    if (!apiRes.ok) {
-      const t = await apiRes.text();
-      return res.status(apiRes.status === 429 ? 429 : 502).json({ error: "upstream error", upstreamStatus: apiRes.status,
-          quota: /per day|daily|PerDay/i.test(t) ? "daily" : "rate",
-                               detail: t.slice(0, 300) });
+    const out = await callGemini(apiKey, buildBody);
+    if (!out.ok) {
+      return res.status(out.status === 429 ? 429 : 502).json({
+        error: "upstream error", upstreamStatus: out.status,
+        quota: out.quota || "rate", quotaId: out.quotaId || null,
+        detail: out.detail || "" });
     }
-    const data = await apiRes.json();
-    const parts = data && data.candidates && data.candidates[0] &&
-                  data.candidates[0].content && data.candidates[0].content.parts;
-    const raw = String((parts && parts[0] && parts[0].text) || "")
+    const raw = String(out.text || "")
       .replace(/```json/gi, "").replace(/```/g, "").trim();
     let parsed = null;
     try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
