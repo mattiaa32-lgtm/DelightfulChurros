@@ -153,7 +153,8 @@ function lookupGear(k){
     body:JSON.stringify({mode:"specs",kind:k,name:name})
   }).then(function(res){
     if(res.status===429){return res.json().catch(function(){return {};})
-      .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;throw e;});}
+      .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;
+        e.quotaId=q&&q.quotaId;e.detail=q&&q.detail;throw e;});}
     if(!res.ok){
       return res.json().catch(function(){return {};}).then(function(b){
         var e=new Error("failed");e.detail=(b&&(b.detail||b.error))||null;throw e;});
@@ -183,8 +184,12 @@ function lookupGear(k){
        quota problem and a bad model name need different responses */
     alert(err.message==="busy"
       ? (err.quota==="daily"
-          ? "That's the free tier's daily quota. It resets at midnight Pacific."
-          : "Hit the per-minute rate limit. Try again in a minute.")
+          ? "That's the free tier's DAILY quota, which resets at midnight Pacific \u2014 "+
+            "waiting a few minutes won't help.\n\n"+
+            (err.quotaId?"Google reported: "+err.quotaId:"")
+          : "Rate limited even after retrying.\n\n"+
+            (err.quotaId?"Google reported: "+err.quotaId+"\n\n":"")+
+            (err.detail?err.detail:""))
       : (err.detail
           ? "The lookup came back in an unexpected shape:\n\n"+err.detail+
             "\n\nThe name is saved; try Look up again."
@@ -284,7 +289,8 @@ function loadSystem(force){
     body:JSON.stringify({mode:"system",gear:g})
   }).then(function(res){
     if(res.status===429){return res.json().catch(function(){return {};})
-      .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;throw e;});}
+      .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;
+        e.quotaId=q&&q.quotaId;e.detail=q&&q.detail;throw e;});}
     if(!res.ok)throw new Error("failed");
     return res.json();
   }).then(function(a){
