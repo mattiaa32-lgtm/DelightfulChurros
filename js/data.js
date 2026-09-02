@@ -7,7 +7,8 @@ var API_BASE="/api/";
    Live data from a published Google Sheet: paste the CSV link below.
    Sheets > File > Share > Publish to web > pick the sheet > CSV.
    Columns: Artist | Record name | Category | Cube | Discogs id |
-            Cover URL | Description | First released | Pressing year
+            Cover URL | Description | First released | Pressing year |
+            Position
    The last three are optional and work the same way: the app fetches
    them itself (Cover URL from Discogs/iTunes; Description written by
    Gemini (free tier) via a small Vercel function \u2014 see api/describe.js)
@@ -92,21 +93,102 @@ function parseCSV(t){var rows=[],row=[],cell="",q=false;
   if(cell.length||row.length){row.push(cell);rows.push(row);}
   return rows;}
 var CUBEMAP={"1":[0,0],"2":[0,1],"3":[1,0],"4":[1,1]};
+var ARTICLES = /^(the|a|an|los|las|les|le|la|el|die|der|das|het|de)\s+/i;
+
+function sortName(s){
+  return norm(String(s || "").replace(ARTICLES, "")).trim();
+}
+
+/* Filing convention.
+
+   An earlier version guessed that any two-word name was a person and
+   filed it under the second word. That is wrong far more often than it
+   is right: King Crimson, Pink Floyd, Black Sabbath and Deep Purple are
+   all bands, and all would have been misfiled under Crimson, Floyd,
+   Sabbath and Purple.
+
+   So the default is the band convention \u2014 file under the name as
+   written, minus any leading article. To file a person under their
+   surname, write them in the sheet the way a library would: "Davis,
+   Miles". That is explicit, needs no guessing, and is already how a
+   couple of entries in the collection are written. */
+function artistSortKey(a){
+  var raw = String(a || "").trim();
+  var m = /^(.*),\s*(.+)$/.exec(raw);
+  if (m) {
+    /* "Davis, Miles" files under Davis; "Chemical Brothers, The" is the
+       article convention and files under Chemical Brothers. */
+    if (ARTICLES.test(m[2] + " ")) return sortName(m[1]);
+    return norm(sortName(m[1]) + " " + sortName(m[2]));
+  }
+  return sortName(raw);
+}
+
+function recordSortKey(r){
+  return artistSortKey(r.a) + "|" + sortName(r.t);
+}
+
+
+/* Turns sheet rows into records, in shelf order.
+   ---------------------------------------------------------------
+   Order used to be implicit: whatever order the rows happened to be in.
+   That works until you want to move a record without moving its row,
+   so there is now an explicit Position column (J).
+
+   Position is per cube and sparse — 10, 20, 30 — so a record can be
+   inserted between two others without renumbering everything around it.
+   Rows with no position fall back to the filing rule (artist, then
+   title, articles ignored) and sort after the positioned ones, so a
+   half-filled column still behaves sensibly. */
 function adopt(rows){
-  var out=[],tot={},seen={};
-  rows.forEach(function(r){var c=(String(r[3]).match(/[1-4]/)||["1"])[0];tot[c]=(tot[c]||0)+1;});
-  rows.forEach(function(r,i){
-    var c=(String(r[3]).match(/[1-4]/)||["1"])[0],m=CUBEMAP[c];
-    seen[c]=(seen[c]||0)+1;
-    out.push({a:r[0].trim(),t:r[1].trim(),c:r[2].trim(),k:+c,r:m[0],co:m[1],
-              d:(r[4]||"").trim()||null,img:(r[5]||"").trim()||null,
-              desc:(r[6]||"").trim()||null,
-              /* frozen years from the sheet (columns H and I) \u2014 when
-                 present these are used as-is and nothing is looked up */
-              fy:((r[7]||"").trim().match(/^\d{4}$/)||[null])[0],
-              py:((r[8]||"").trim().match(/^\d{4}$/)||[null])[0],
-              p:seen[c],n:tot[c],i:i});});
-  return out;}
+  var recs = rows.map(function(r){
+    var c = (String(r[3]).match(/[1-4]/) || ["1"])[0], m = CUBEMAP[c];
+    var posRaw = (r[9] === undefined || r[9] === null) ? "" : String(r[9]).trim();
+    var pos = /^-?\d+(\.\d+)?$/.test(posRaw) ? parseFloat(posRaw) : null;
+    return {
+      a:(r[0]||"").trim(), t:(r[1]||"").trim(), c:(r[2]||"").trim(),
+      k:+c, r:m[0], co:m[1],
+      d:(r[4]||"").trim()||null,
+      img:(r[5]||"").trim()||null,
+      desc:(r[6]||"").trim()||null,
+      /* frozen years from the sheet (columns H and I) \u2014 when
+         present these are used as-is and nothing is looked up */
+      fy:((r[7]||"").trim().match(/^\d{4}$/)||[null])[0],
+      py:((r[8]||"").trim().match(/^\d{4}$/)||[null])[0],
+      pos: pos,
+      row: 0            /* filled in below: the sheet row, for writing back */
+    };
+  });
+
+  /* Remember which sheet row each record came from, before sorting, so
+     an edit can be written back to the right line. Row 1 is the header,
+     so the first record is row 2. */
+  recs.forEach(function(rec, i){ rec.row = i + 2; });
+
+  recs.sort(function(x, y){
+    if (x.k !== y.k) return x.k - y.k;                 /* cube first */
+    var xp = x.pos, yp = y.pos;
+    if (xp !== null && yp !== null) return xp - yp;    /* both positioned */
+    if (xp !== null) return -1;                        /* positioned first */
+    if (yp !== null) return 1;
+    return recordSortKey(x).localeCompare(recordSortKey(y));  /* filing rule */
+  });
+
+  /* Position within the cube, and the cube's total, for the "4 of 46"
+     line on each record. Computed after sorting so they match what is
+     actually on screen. */
+  var tot = {};
+  recs.forEach(function(rec){ tot[rec.k] = (tot[rec.k] || 0) + 1; });
+  var seen = {};
+  recs.forEach(function(rec, i){
+    seen[rec.k] = (seen[rec.k] || 0) + 1;
+    rec.p = seen[rec.k];
+    rec.n = tot[rec.k];
+    rec.i = i;
+  });
+  return recs;
+}
+
 /* Applies whatever rows we ended up with, from either source. */
 function applyRows(rows){
   rows = rows.filter(function(r){ return r.length>=4 && r[0]; });
