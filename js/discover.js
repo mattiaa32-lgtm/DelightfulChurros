@@ -83,9 +83,12 @@ function discLinks(r){
   var q=encodeURIComponent((r.artist||"")+" "+(r.title||""));
   var dq=q+(r.pressing_search?"+"+encodeURIComponent(r.pressing_search):"");
   return "<div class='rlinks'>"+
-    "<a href='https://open.spotify.com/search/"+q+"' target='_blank' rel='noopener'>Listen on Spotify</a>"+
-    "<a href='https://www.discogs.com/search/?q="+dq+"&type=release' target='_blank' rel='noopener'>Find on Discogs</a>"+
-    "<a href='https://www.youtube.com/results?search_query="+q+"' target='_blank' rel='noopener'>YouTube</a>"+
+    "<a href='https://open.spotify.com/search/"+q+"' target='_blank' rel='noopener'>"+
+      svcIcon("spotify",true)+"Spotify</a>"+
+    "<a href='https://www.discogs.com/search/?q="+dq+"&type=release' target='_blank' rel='noopener'>"+
+      svcIcon("discogs",true)+"Discogs</a>"+
+    "<a href='https://www.youtube.com/results?search_query="+q+"' target='_blank' rel='noopener'>"+
+      svcIcon("youtube",true)+"YouTube</a>"+
     "</div>";
 }
 /* cover art for a recommendation: reuses the same iTunes lookup and
