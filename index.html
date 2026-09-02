@@ -54,7 +54,12 @@
       <input id="adddiscogs" type="text" placeholder="Discogs release id" aria-label="Discogs release id">
       <button class="chip" id="adddiscogs-search">Find on Discogs</button>
     </div>
+    <div class="dgresults" id="addresults"></div>
     <div class="placement" id="placement"></div>
+    <div class="addrow owner-only">
+      <button class="chip" id="addsave">Add to my sheet</button>
+      <span class="hint" id="addmsg"></span>
+    </div>
   </div>
   <div id="qrbox">
     <input id="qrurl" type="url" placeholder="https://your-shelf-app-url" aria-label="Page address for the QR code">
@@ -74,7 +79,7 @@
   <p class="foot">
     Tap a record for its cube, its place in the run and what sits either side.<br>
     <a href="#" id="qrlink">Make a QR code for the shelf</a><br>
-    <a href="#" id="addlink">Add a record</a><br>
+    <a href="#" id="addlink" class="owner-only">Add a record</a><br>
     <a href="#" id="exportlink">Freeze resolved covers &amp; descriptions for your sheet</a><br>
     <a href="#" id="backuplink">Back up this device</a> &middot;
     <a href="#" id="restorelink">Restore from a backup</a>
