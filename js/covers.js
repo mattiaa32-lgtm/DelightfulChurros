@@ -82,9 +82,14 @@ function cover(r,cb,front){
      decade of the music, not of the repress.
    - pressYear: the year of the specific pressing on the shelf. */
 function cachedYear(r){          /* first release — used for decades */
-  if(!r.d)return "";
-  var y=cacheGet("dfirst:"+r.d);
-  return y&&y!=="0"?y:"";
+  /* Discogs first, then whatever the MusicBrainz / web-search fallback
+     resolved (which also covers records with no Discogs id at all). */
+  if(r.d){
+    var y=cacheGet("dfirst:"+r.d);
+    if(y&&y!=="0")return y;
+  }
+  var y2=cacheGet("yfix:"+norm(r.a)+"|"+norm(r.t));
+  return (y2&&y2!=="0")?y2:"";
 }
 function pressYear(r){
   if(!r.d)return "";
@@ -369,4 +374,98 @@ function fillArt(scope){
       if(k>-1)paintArt(k,u);
     });
   });
+}
+
+/* ================= filling the remaining release years ==============
+   Discogs answers most of them, but it can't answer for a record with
+   no Discogs id in the sheet, and it occasionally has no year on either
+   the release or its master. Two fallbacks run for whatever is left:
+
+   1. MusicBrainz \u2014 its release-group carries `first-release-date`,
+      which is precisely "when the album first came out". Free, no key,
+      structured data rather than a guess. Rate-limited to ~1 request a
+      second, which their terms ask for.
+   2. /api/year \u2014 Gemini with Google Search grounding, for the handful
+      MusicBrainz doesn't know. Slower and quota-bound, so it only ever
+      sees records that got past step 1.
+
+   Results are keyed by artist+title (not Discogs id), so records with no
+   id are covered too, and are cached permanently like every other
+   lookup. A record is only asked about once. */
+function atKey(r){return norm(r.a)+"|"+norm(r.t);}
+function resolvedFirstYear(r){
+  var y=r.d?cacheGet("dfirst:"+r.d):null;
+  if(y&&y!=="0")return y;
+  var y2=cacheGet("yfix:"+atKey(r));
+  return (y2&&y2!=="0")?y2:"";
+}
+var MB_MIN_GAP=1100, mbLast=0;
+function mbFetch(url){
+  return new Promise(function(resolve,reject){
+    var wait=Math.max(0,mbLast+MB_MIN_GAP-Date.now());
+    setTimeout(function(){
+      mbLast=Date.now();
+      fetch(url).then(function(res){
+        if(!res.ok)return reject(new Error("http"));
+        res.json().then(resolve,reject);
+      },reject);
+    },wait);
+  });
+}
+function mbFirstYear(r,cb){
+  var q=encodeURIComponent('artist:"'+artistQ(r.a)+'" AND releasegroup:"'+titleQ(r.t)+'"');
+  mbFetch("https://musicbrainz.org/ws/2/release-group/?query="+q+"&fmt=json&limit=1")
+    .then(function(d){
+      var g=d&&d["release-groups"]&&d["release-groups"][0];
+      var dt=g&&(g["first-release-date"]||"");
+      var m=/^(\d{4})/.exec(dt||"");
+      cb(m?m[1]:null);
+    })
+    .catch(function(){cb(null);});
+}
+function aiYear(r,cb){
+  if(aiHalted||aiBudgetExhausted())return cb(null);
+  aiSpend();
+  fetch(API_BASE+"year?artist="+encodeURIComponent(artistQ(r.a))+
+        "&title="+encodeURIComponent(titleQ(r.t)))
+    .then(function(res){
+      if(res.status===429){aiHalt();throw 0;}
+      if(!res.ok)throw 0;
+      return res.json();
+    })
+    .then(function(d){cb(d&&d.year?String(d.year):null);})
+    .catch(function(){cb(null);});
+}
+var yearQ=[],yearQueued={},yearRunning=false;
+function pumpYears(){
+  if(yearRunning||!yearQ.length)return;
+  yearRunning=true;
+  var r=yearQ.shift(),key="yfix:"+atKey(r);
+  function finish(y){
+    cacheSet(key,y||"0");
+    if(y&&typeof renderDashComputed==="function"&&
+       !document.getElementById("view-dash").hidden){
+      renderDashComputed();          /* keep the chart live while it fills */
+    }
+    yearRunning=false;
+    setTimeout(pumpYears,120);
+  }
+  mbFirstYear(r,function(y){
+    if(y)return finish(y);
+    aiYear(r,function(y2){finish(y2);});
+  });
+}
+/* Runs after the Discogs sweep has had its turn, so it only picks up
+   what Discogs genuinely couldn't answer. */
+function warmYearCache(){
+  RECS.forEach(function(r){
+    var k=atKey(r);
+    if(yearQueued[k])return;
+    if(resolvedFirstYear(r))return;              /* already known */
+    if(cacheGet("yfix:"+k))return;               /* already tried */
+    if(r.d&&!cacheGet("dfirst:"+r.d))return;     /* let Discogs try first */
+    yearQueued[k]=1;
+    yearQ.push(r);
+  });
+  pumpYears();
 }
