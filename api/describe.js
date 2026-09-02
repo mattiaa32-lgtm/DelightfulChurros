@@ -14,7 +14,10 @@
 // (year usually comes from Discogs, category from your sheet) that
 // help Gemini avoid guessing at things it isn't sure of.
 
-const MODEL = "gemini-3.5-flash-lite";
+import { callGemini } from "./_gemini.js";
+
+/* Model choice now lives in _gemini.js: quotas are per model, so a
+   request refused by one is retried against the next. */
 
 const SYSTEM_PROMPT = [
   "You label records in a vinyl collection app.",
@@ -58,61 +61,29 @@ export default async function handler(req, res) {
     "\nRelease year (from Discogs, if known): " + (year || "unknown") +
     "\n\nWrite the two-clause description now.";
 
-  const url =
-    "https://generativelanguage.googleapis.com/v1beta/models/" +
-    MODEL + ":generateContent";
-
-  function buildBody(includeThinking) {
-    const body = {
+  function buildBody(model) {
+    return JSON.stringify({
       system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 120 }
-    };
-    // Disabling "thinking" keeps these one-line labels fast and cheap,
-    // but not every model accepts the setting \u2014 if it's rejected we
-    // retry without it rather than failing the whole request.
-    if (includeThinking) {
-      body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
-    }
-    return JSON.stringify(body);
-  }
-
-  async function callGemini(includeThinking) {
-    return fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey
-      },
-      body: buildBody(includeThinking)
+      generationConfig: {
+        maxOutputTokens: 120,
+        thinkingConfig: { thinkingBudget: 0 }
+      }
     });
   }
 
   try {
-    let apiRes = await callGemini(true);
-    if (apiRes.status === 400) {
-      apiRes = await callGemini(false);
+    const out = await callGemini(apiKey, buildBody);
+    if (!out.ok) {
+      return res.status(out.status === 429 ? 429 : 502).json({
+        error: "upstream error",
+        upstreamStatus: out.status,
+        quota: out.quota || "rate",
+        quotaId: out.quotaId || null,
+        detail: out.detail || ""
+      });
     }
-
-    if (!apiRes.ok) {
-      const errText = await apiRes.text();
-      // Pass the upstream status through (as our own status where it's
-      // meaningful, e.g. 429 rate-limited) so the client can back off
-      // and retry rather than treating every failure the same.
-      return res.status(apiRes.status === 429 ? 429 : 502).json({
-          error: "upstream error",
-          upstreamStatus: apiRes.status,
-          quota: /per day|daily|PerDay/i.test(errText) ? "daily" : "rate",
-          detail: errText.slice(0, 300)
-        });
-    }
-
-    const data = await apiRes.json();
-    const cand = data && data.candidates && data.candidates[0];
-    const parts = cand && cand.content && cand.content.parts;
-    const text = ((parts && parts[0] && parts[0].text) || "").trim();
-
-    return res.status(200).json({ text: text });
+    return res.status(200).json({ text: out.text, model: out.model });
   } catch (err) {
     return res.status(500).json({ error: String(err && err.message ? err.message : err) });
   }
