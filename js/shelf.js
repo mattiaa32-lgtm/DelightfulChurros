@@ -49,6 +49,9 @@ function open(i){
       "<div class='d-desc' data-i='"+r.i+"'>"+(r.desc?esc(r.desc):"")+"</div></div></div>"+
     "<div class='shelf'>"+holes(r)+"</div>"+
     "<dl class='facts'>"+
+      /* first release first, then the specific pressing on the shelf */
+      (cachedYear(r)?"<dt>First released</dt><dd data-yr='first'>"+esc(cachedYear(r))+"</dd>":"")+
+      (pressYear(r)?"<dt>This pressing</dt><dd data-yr='press'>"+esc(pressYear(r))+"</dd>":"")+
       "<dt>Section</dt><dd>"+esc(r.c)+"</dd>"+
       "<dt>Position in cube</dt><dd>"+r.p+" of "+r.n+" \u00b7 "+CUBE_NAMES[r.r*2+r.co]+
         "<div class='bar'><span style='left:calc("+((r.p-0.5)/r.n*100).toFixed(1)+"% - 1.5px)'></span></div></dd>"+
