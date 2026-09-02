@@ -8,6 +8,11 @@
 <meta name="theme-color" content="#12100E">
 <title>Shelf</title>
 <link rel="stylesheet" href="css/app.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="apple-mobile-web-app-title" content="Shelf">
 </head>
 <body>
 <header>
@@ -52,7 +57,10 @@
   <p class="foot">
     Tap a record for its cube, its place in the run and what sits either side.<br>
     <a href="#" id="qrlink">Make a QR code for the shelf</a><br>
-    <a href="#" id="exportlink">Freeze resolved covers &amp; descriptions for your sheet</a>
+    <a href="#" id="exportlink">Freeze resolved covers &amp; descriptions for your sheet</a><br>
+    <a href="#" id="backuplink">Back up this device</a> &middot;
+    <a href="#" id="restorelink">Restore from a backup</a>
+    <input type="file" id="restorefile" accept="application/json" hidden>
   </p>
   </div>
 
@@ -124,7 +132,14 @@
     <div class="chatlog" id="chatlog"></div>
     <div class="prompts" id="prompts"></div>
     <div class="askrow">
-      <button class="iconbtn" id="askmic" aria-label="Dictate" hidden>&#127908;</button>
+      <button class="iconbtn" id="askmic" aria-label="Dictate" hidden>
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+             stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+          <rect x="9.25" y="3" width="5.5" height="10" rx="2.75"></rect>
+          <path d="M5.5 11a6.5 6.5 0 0 0 13 0"></path>
+          <line x1="12" y1="17.5" x2="12" y2="21"></line>
+        </svg>
+      </button>
       <input id="askq" type="text" autocomplete="off"
              placeholder="What are you in the mood for?" aria-label="Ask for a listening suggestion">
       <button class="iconbtn" id="asksend" aria-label="Send">&#8593;</button>
@@ -146,6 +161,7 @@
 <script src="js/chat.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/hifi.js"></script>
+<script src="js/backup.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
