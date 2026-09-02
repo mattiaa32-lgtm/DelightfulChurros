@@ -313,7 +313,11 @@ function descAI(r,cb){
            "&title="+encodeURIComponent(titleQ(r.t))+
            "&category="+encodeURIComponent(r.c||"")+
            "&year="+encodeURIComponent(cachedYear(r));
-    fetch(API_BASE+"describe?"+qs)
+    /* through the shared scheduler, as BACKGROUND \u2014 previously this
+       called fetch directly and so competed with taps for the same
+       per-minute quota, which is how an interactive lookup could come
+       back rate-limited while the sweep carried on regardless. */
+    aiFetchBg(API_BASE+"describe?"+qs)
       .then(function(res){
         if(res.status===429){
           /* Stop the whole sweep rather than retrying this record: the
@@ -434,7 +438,7 @@ function mbFirstYear(r,cb){
 function aiYear(r,cb){
   if(aiHalted||aiBudgetExhausted())return cb(null);
   aiSpend();
-  fetch(API_BASE+"year?artist="+encodeURIComponent(artistQ(r.a))+
+  aiFetchBg(API_BASE+"year?artist="+encodeURIComponent(artistQ(r.a))+
         "&title="+encodeURIComponent(titleQ(r.t)))
     .then(function(res){
       if(res.status===429){aiHalt();throw 0;}
