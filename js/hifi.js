@@ -263,9 +263,16 @@ function lookupGear(k){
        panel just says specs couldn't be fetched. */
     aiFetchUser(API_BASE+"gear",{
       method:"POST",headers:{"Content-Type":"application/json"},
+      /* the AI gets the label exactly as typed \u2014 "(from the 90s)" or
+         a variant suffix like 2MR is meaningful to it, even though it
+         had to be stripped for the Wikipedia search */
       body:JSON.stringify({mode:"specs",kind:k,name:name})
     }).then(function(res){
-      if(!res.ok)throw 0;
+      if(!res.ok){
+        return res.json().catch(function(){return {};}).then(function(b){
+          var e=new Error("failed");
+          e.attempted=b&&b.attempted; e.quota=b&&b.quota; throw e;});
+      }
       return res.json();
     }).then(function(d){
       save({
@@ -279,10 +286,13 @@ function lookupGear(k){
         found:!!(d&&d.found)
       });
       finish();
-    }).catch(function(){
+    }).catch(function(err){
       /* quota gone or lookup failed \u2014 keep whatever Wikipedia gave us */
       var cur=gearAll();
-      if(cur[k])cur[k].specsUnavailable=!(cur[k].specs&&cur[k].specs.length);
+      if(cur[k]){
+        cur[k].specsUnavailable=!(cur[k].specs&&cur[k].specs.length);
+        if(err&&err.attempted&&err.attempted.length)cur[k].triedModels=err.attempted;
+      }
       gearSave(cur);
       finish();
     });
@@ -300,9 +310,10 @@ function openGear(k){
     "<div class='d-title'>"+esc(c.name)+"</div>"+
     (c.maker?"<div class='rmeta'>"+esc(c.maker)+"</div>":"")+
     (c.image?"<img class='gimg' src='"+esc(c.image)+"' alt='' loading='lazy'>":"")+
-    (c.specsUnavailable?"<p class='hint'>Specifications couldn't be fetched right now. "+
-      "Anything below comes from Wikipedia; you can type specs in yourself and they'll "+
-      "be kept.</p>":"")+
+    (c.specsUnavailable?"<p class='hint'>Specifications couldn't be fetched right now \u2014 "+
+      "every available model is out of quota. Type any specs in yourself and they'll be kept."+
+      (c.triedModels?"<br><span style='opacity:.7'>Tried: "+esc(c.triedModels.join(", "))+
+      "</span>":"")+"</p>":"")+
     (c.summary?"<p class='gsum'>"+esc(c.summary)+"</p>":"")+
     (c.sound?"<p class='rsounds'>"+esc(c.sound)+"</p>":"")+
     ((c.specs&&c.specs.length)?
