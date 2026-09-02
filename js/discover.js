@@ -28,16 +28,50 @@ function discLinks(r){
 }
 /* cover art for a recommendation: reuses the same iTunes lookup and
    cache the shelf uses, via a stand-in record object */
+/* ---- artwork for recommended records -----------------------------
+   These aren't in the collection, so there's no Discogs id to work
+   from — only artist and title. iTunes handles the well-known ones but
+   misses plenty of the obscure records Discover is meant to surface, so
+   MusicBrainz + the Cover Art Archive (both free, keyless and
+   CORS-friendly) act as a second pass. If both come up empty the card
+   keeps a lettered placeholder rather than an empty box. */
+function recArtFallback(artist,title,cb){
+  var key="mbart:"+norm(artist)+"|"+norm(title);
+  var c=cacheGet(key);
+  if(c)return cb(c==="0"?null:c);
+  var q=encodeURIComponent('artist:"'+artist+'" AND releasegroup:"'+title+'"');
+  fetch("https://musicbrainz.org/ws/2/release-group/?query="+q+"&fmt=json&limit=1")
+    .then(function(res){if(!res.ok)throw 0;return res.json();})
+    .then(function(d){
+      var g=d&&d["release-groups"]&&d["release-groups"][0];
+      if(!g||!g.id)throw 0;
+      var url="https://coverartarchive.org/release-group/"+g.id+"/front-500";
+      cacheSet(key,url);
+      cb(url);
+    })
+    .catch(function(){cacheSet(key,"0");cb(null);});
+}
+function setRecArt(el,url,cb){
+  var img=new Image();
+  img.onload=function(){el.innerHTML="";el.appendChild(img);};
+  img.onerror=function(){if(cb)cb();};      /* e.g. Cover Art Archive 404 */
+  img.src=url; img.alt="";
+}
 function fillRecArt(scope){
   [].forEach.call((scope||document).querySelectorAll(".rart[data-a]"),function(el){
     if(el.dataset.done)return; el.dataset.done="1";
-    var stub={a:el.dataset.a,t:el.dataset.t,img:null};
+    var a=el.dataset.a,t=el.dataset.t;
+    if(!el.innerHTML.trim()){
+      el.innerHTML="<span class='rph'>"+esc((a||"?").charAt(0).toUpperCase())+"</span>";
+    }
+    var stub={a:a,t:t,img:null};
     cover(stub,function(u){
-      if(!u)return;
-      var img=new Image();
-      img.onload=function(){el.innerHTML="";el.appendChild(img);};
-      img.src=u; img.alt="";
+      if(u)return setRecArt(el,u,function(){tryFallback();});
+      tryFallback();
     },true);   /* foreground: these cards are on screen now */
+    function tryFallback(){
+      recArtFallback(a,t,function(u2){ if(u2)setRecArt(el,u2); });
+    }
   });
 }
 /* shared card renderer — used by Discover, the chat's "something new"
