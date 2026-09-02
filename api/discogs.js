@@ -16,14 +16,20 @@
 //   "release"    { id }             one release, full detail
 //   "collection" { page, perPage }  your collection, a page at a time
 //
-// Reads only. Nothing here can modify your Discogs account.
+//   "addToCollection" { id, passphrase }   owner only — modifies Discogs
+//
+// Everything except addToCollection is read-only. That one action can
+// change your Discogs account, so it requires the owner passphrase, the
+// same gate the sheet writes use — otherwise anyone who opened the
+// shelf could add records to your collection.
 
 const UA = "ShelfVinylApp/1.0 +https://github.com/";
 
-async function dg(path, token) {
+async function dg(path, token, method) {
   const sep = path.indexOf("?") > -1 ? "&" : "?";
   const res = await fetch("https://api.discogs.com" + path + sep +
                           "token=" + encodeURIComponent(token), {
+    method: method || "GET",
     headers: { "User-Agent": UA, "Accept": "application/json" }
   });
   const text = await res.text();
@@ -130,6 +136,35 @@ export default async function handler(req, res) {
         pages: pg.pages || 1,
         total: pg.items || items.length
       });
+    }
+
+    if (body.action === "addToCollection") {
+      const owner = process.env.OWNER_PASSPHRASE;
+      const given = String(body.passphrase || "");
+      let ok = false;
+      if (owner && given.length === owner.length) {
+        let diff = 0;
+        for (let i = 0; i < given.length; i++) diff |= given.charCodeAt(i) ^ owner.charCodeAt(i);
+        ok = diff === 0;
+      }
+      if (!ok) return res.status(403).json({ error: "not unlocked for editing" });
+
+      const user = process.env.DISCOGS_USER;
+      if (!user) return res.status(400).json({ error: "DISCOGS_USER not set" });
+      const id = String(body.id || "").replace(/\D/g, "");
+      if (!id) return res.status(400).json({ error: "id required" });
+
+      // folder 1 is "Uncategorized"; folder 0 is the read-only "All" view
+      const out = await dg("/users/" + encodeURIComponent(user) +
+                           "/collection/folders/1/releases/" + id, token, "POST");
+      if (!out.ok) {
+        return res.status(out.status === 429 ? 429 : 502).json({
+          error: "couldn't add to Discogs",
+          status: out.status,
+          detail: out.raw
+        });
+      }
+      return res.status(200).json({ ok: true, added: id });
     }
 
     return res.status(400).json({ error: "unknown action" });
