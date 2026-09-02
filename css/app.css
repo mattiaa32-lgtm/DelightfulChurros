@@ -560,3 +560,9 @@ html.is-guest .owner-only{display:none!important}
 .firstrun{padding:26px 0 10px;max-width:46ch}
 .firstrun .fr-h{font-size:17px;font-weight:600;letter-spacing:-.02em;margin:0 0 10px}
 .firstrun p{font-size:13.5px;color:var(--muted);line-height:1.6;margin:0 0 10px}
+
+/* ---- Discogs connection panel ---- */
+#connbox{display:none;padding:16px 0 4px;border-bottom:1px solid var(--line)}
+#connbox.show{display:block}
+.connwho{font-size:14px;margin:0 0 8px}
+.connwho b{color:var(--accent)}
