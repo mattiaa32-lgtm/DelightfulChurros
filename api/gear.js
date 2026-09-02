@@ -231,6 +231,7 @@ export default async function handler(req, res) {
         upstreamStatus: out.status,
         quota: out.quota || "rate",
         quotaId: out.quotaId || null,
+        attempted: out.attempted || [],
         detail: out.detail || ""
       });
     }
