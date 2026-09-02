@@ -380,11 +380,15 @@ function fillArt(scope){
   [].forEach.call(nodes,function(el){
     if(el.dataset.done)return; el.dataset.done="1";
     var r=RECS[+el.dataset.i];
+    /* Rows on screen are foreground work. Going through the shared
+       background queue meant the visible list filled in over ~35s, so
+       covers looked broken until you tapped a record (which used the
+       immediate path). */
     cover(r,function(u){
       if(!u)return;
       var k=findIndexByAT(r.a,r.t);
       if(k>-1)paintArt(k,u);
-    });
+    },true);
   });
 }
 
@@ -436,7 +440,8 @@ function mbFirstYear(r,cb){
     .catch(function(){cb(null);});
 }
 function aiYear(r,cb){
-  if(aiHalted||aiBudgetExhausted())return cb(null);
+  /* second arg: did we actually get to ask? */
+  if(aiHalted||aiBudgetExhausted())return cb(null,false);
   aiSpend();
   aiFetchBg(API_BASE+"year?artist="+encodeURIComponent(artistQ(r.a))+
         "&title="+encodeURIComponent(titleQ(r.t)))
@@ -445,16 +450,23 @@ function aiYear(r,cb){
       if(!res.ok)throw 0;
       return res.json();
     })
-    .then(function(d){cb(d&&d.year?String(d.year):null);})
-    .catch(function(){cb(null);});
+    .then(function(d){cb(d&&d.year?String(d.year):null,true);})
+    .catch(function(){cb(null,false);});
 }
 var yearQ=[],yearQueued={},yearRunning=false;
 function pumpYears(){
   if(yearRunning||!yearQ.length)return;
   yearRunning=true;
   var r=yearQ.shift(),key="yfix:"+atKey(r);
-  function finish(y){
-    cacheSet(key,y||"0");
+  /* `looked` records whether the sources were actually consulted. If the
+     AI was skipped because the daily quota is gone, the answer is "not
+     checked yet", NOT "no year exists" \u2014 writing "0" in that case
+     permanently marked hundreds of records as unknown, which is why the
+     decade charts collapsed back to N/A. */
+  function finish(y,looked){
+    if(y)cacheSet(key,y);
+    else if(looked)cacheSet(key,"0");
+    else {delete yearQueued[atKey(r)];}   /* leave it for next time */
     if(y&&typeof renderDashComputed==="function"&&
        !document.getElementById("view-dash").hidden){
       renderDashComputed();          /* keep the chart live while it fills */
@@ -463,8 +475,8 @@ function pumpYears(){
     setTimeout(pumpYears,120);
   }
   mbFirstYear(r,function(y){
-    if(y)return finish(y);
-    aiYear(r,function(y2){finish(y2);});
+    if(y)return finish(y,true);
+    aiYear(r,function(y2,didAsk){finish(y2,didAsk);});
   });
 }
 /* Runs after the Discogs sweep has had its turn, so it only picks up
@@ -481,3 +493,17 @@ function warmYearCache(){
   });
   pumpYears();
 }
+
+/* One-off: the previous build wrote "0" (meaning "no year exists") for
+   records it never actually managed to check, because the AI quota had
+   run out. Clear those so they can be resolved properly. Runs once. */
+(function(){
+  if(cacheGet("yfixPurged")==="2")return;
+  var kill=[];
+  for(var i=0;i<localStorage.length;i++){
+    var k=localStorage.key(i);
+    if(k&&k.indexOf("yfix:")===0&&localStorage.getItem(k)==="0")kill.push(k);
+  }
+  kill.forEach(cacheDel);
+  cacheSet("yfixPurged","2");
+})();
