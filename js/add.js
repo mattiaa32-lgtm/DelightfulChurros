@@ -90,11 +90,7 @@ function renderPlacement(){
       (p.before ? "After &nbsp;" + esc(p.before.a) + " \u2014 " + esc(p.before.t) + "<br>" : "At the start<br>") +
       (p.after ? "Before " + esc(p.after.a) + " \u2014 " + esc(p.after.t) : "At the end") +
     "</p>" +
-    "<p class='hint'>Filed under \u201c" + esc(artistSortKey(a).split(" ")[0]) + "\u201d. " +
-      "Paste this row into your sheet, then re-open the app:</p>" +
-    "<textarea id='addrow' readonly rows='2'>" +
-      esc([a, t, c, p.cube, (document.getElementById("adddiscogs").value || "").trim()].join("\t")) +
-    "</textarea>";
+    "<p class='hint'>Filed under \u201c" + esc(artistSortKey(a).split(" ")[0]) + "\u201d.</p>";
 }
 
 var pending = {};   /* the Discogs release currently chosen */
@@ -132,11 +128,27 @@ var pending = {};   /* the Discogs release currently chosen */
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "search", q: q })
     })
-    .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+    .then(function(r){
+      /* A missing endpoint returns an HTML 404, which would blow up
+         .json() and land in the catch as a vague network error. Read it
+         as text first so the real cause can be reported. */
+      return r.text().then(function(txt){
+        var d = null;
+        try { d = JSON.parse(txt); } catch (e) {}
+        return { ok: r.ok, status: r.status, d: d, raw: txt };
+      });
+    })
     .then(function(x){
+      if (!x.d) {
+        out.innerHTML = "<p class='hint'>The Discogs endpoint returned " + x.status +
+          " and not JSON \u2014 api/discogs.js is probably not deployed yet.</p>";
+        return;
+      }
       if (!x.ok || !x.d.results) {
         out.innerHTML = "<p class='hint'>" +
-          esc((x.d && (x.d.detail || x.d.error)) || "Couldn't reach Discogs.") + "</p>";
+          esc(x.d.error || "Discogs request failed") +
+          (x.d.detail ? " \u2014 " + esc(String(x.d.detail).slice(0, 120)) : "") +
+          " (HTTP " + x.status + ")</p>";
         return;
       }
       if (!x.d.results.length) { out.innerHTML = "<p class='hint'>Nothing found.</p>"; return; }
@@ -148,7 +160,10 @@ var pending = {};   /* the Discogs release currently chosen */
           "<span class='dgr-s'>" + esc(meta) + "</span></span></button>";
       }).join("");
     })
-    .catch(function(){ out.innerHTML = "<p class='hint'>Couldn't reach Discogs.</p>"; });
+    .catch(function(err){
+      out.innerHTML = "<p class='hint'>Network error reaching /api/discogs: " +
+        esc(String(err && err.message || err)) + "</p>";
+    });
   });
 
   /* Picking a release fills the form from Discogs' own data. */
