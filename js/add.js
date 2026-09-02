@@ -215,10 +215,10 @@ var pending = {};   /* the Discogs release currently chosen */
         ? "Unlock editing first (the button in the header)."
         : "Couldn't write to the sheet: " + err.message; return; }
 
-      /* Discogs is the record of what you own, so a record added here
-         is added there too. The sheet write already succeeded, so a
-         failure at this point is reported but not treated as fatal \u2014
-         the shelf is still correct, it's Discogs that's behind. */
+      /* Only reached once the sheet has actually confirmed the row.
+         Discogs is the record of what you own, so it's updated too; a
+         failure here is reported but not fatal, since the shelf itself
+         is already correct. */
       if (id && document.getElementById("adddiscogs-sync").checked) {
         msg.textContent = "Added to the shelf, adding to Discogs\u2026";
         fetch("/api/discogs", {
