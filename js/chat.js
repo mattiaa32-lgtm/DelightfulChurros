@@ -23,13 +23,22 @@ function setChatMode(m){
   document.getElementById("askq").placeholder = m==="shelf"
     ? "What are you in the mood for?" : "What kind of thing are you after?";
   renderPrompts();
-  addBubble("ai", m==="shelf"
-    ? "Back to your own shelf. What are you in the mood for?"
-    : "Looking beyond your collection now \u2014 what kind of thing are you after?");
+  setChatIntro();
+}
+/* The mode line is a status, not conversation: it sits above the log and
+   is rewritten in place, so flipping the toggle repeatedly doesn't leave
+   a trail of messages in the history. */
+function setChatIntro(){
+  var el=document.getElementById("chatintro");
+  if(!el)return;
+  el.textContent = chatMode==="shelf"
+    ? "Picking from the records you own."
+    : "Looking beyond your collection.";
 }
 function startChat(){
   chatStarted=true;
   renderPrompts();
+  setChatIntro();
   if(!chatHistory.length){
     addBubble("ai","What are you in the mood for? Tell me a vibe, an activity, or how long you've got.");
   }
