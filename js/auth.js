@@ -128,7 +128,11 @@ function sheetWrite(action, payload, cb){
   .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
   .then(function(x){
     if (!x.ok || (x.d && x.d.error)) {
-      if (cb) cb(new Error((x.d && x.d.error) || "write failed"), null);
+      var e = new Error((x.d && x.d.error) || "write failed");
+      /* carry what the sheet actually returned \u2014 an HTML sign-in page
+         and a script error look identical without it */
+      e.detail = x.d && x.d.detail;
+      if (cb) cb(e, null);
       return;
     }
     if (cb) cb(null, x.d);
