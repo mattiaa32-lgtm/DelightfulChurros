@@ -58,6 +58,11 @@ Columns, in order:
 | G | Description | no       | manual override / frozen export               |
 | H | First released | no    | original release year / frozen export         |
 | I | Pressing year  | no    | year of your copy / frozen export             |
+| J | Position       | no    | explicit shelf order within a cube            |
+
+Position (J) is sparse — 10, 20, 30 — so a record can be inserted between two
+others without renumbering the rest. Records with no position sort after the
+positioned ones, using artist then title with leading articles ignored.
 
 Columns F to I are filled automatically at runtime and cached on the device.
 The "Freeze resolved covers & descriptions" link on the Shelf tab exports them
