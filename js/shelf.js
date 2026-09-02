@@ -12,6 +12,19 @@ function render(){
     list.length+(list.length===RECS.length?" records":" of "+RECS.length);
   var el=document.getElementById("results");
   if(!list.length){
+    /* Two different empty states. An empty COLLECTION is first-run and
+       needs instructions; an empty SEARCH just needs a nudge. */
+    if(!RECS.length){
+      el.innerHTML=
+        "<div class='firstrun'>"+
+          "<p class='fr-h'>Nothing on the shelf yet</p>"+
+          "<p>This app reads your collection from a Google Sheet. It's empty, "+
+            "so there's nothing to show.</p>"+
+          "<p>Unlock editing with the button in the header, then add records \u2014 "+
+            "either straight into the sheet, or with <b>Add a record</b> above.</p>"+
+        "</div>";
+      return;
+    }
     el.innerHTML="<p class='empty'>Nothing matching \u201c"+esc(q)+"\u201d.<br>"+
       "Try part of the artist name, or one word from the title.</p>";return;}
   el.innerHTML=list.map(rowHTML).join("");
