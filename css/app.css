@@ -504,3 +504,22 @@ html.ptr-on #ptr{display:flex}
 #ptr.ready .ptr-spin{border-top-color:var(--accent);border-left-color:var(--accent)}
 #ptr.spinning .ptr-spin{animation:ptrspin .7s linear infinite}
 @keyframes ptrspin{to{transform:rotate(360deg)}}
+
+/* ---- owner / guest ---- */
+.ownerbtn{margin-left:auto;background:transparent;border:1px solid var(--line);
+  color:var(--dim);border-radius:5px;padding:4px 10px;font-size:10.5px;
+  font-family:var(--sans);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+html.is-owner .ownerbtn{color:var(--accent);border-color:rgba(180,101,58,.5)}
+.ownerwrap{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);
+  display:flex;align-items:flex-end;justify-content:center}
+.ownerwrap[hidden]{display:none}
+.ownerpanel{width:100%;max-width:640px;background:var(--surface);
+  border-top:1px solid var(--line);border-radius:18px 18px 0 0;
+  box-shadow:0 -18px 50px -12px rgba(0,0,0,.5)}
+.ownerbody{padding:4px 18px max(18px,env(safe-area-inset-bottom))}
+#ownerpass{width:100%;background:var(--surface2);border:1px solid var(--line);
+  color:var(--text);border-radius:6px;padding:11px 13px;font-size:14px;
+  font-family:var(--sans);outline:none;margin:10px 0}
+#ownerpass:focus{border-color:var(--accent)}
+/* guests don't see editing affordances (the server enforces it regardless) */
+html.is-guest .owner-only{display:none!important}
