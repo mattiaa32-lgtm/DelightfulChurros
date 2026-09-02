@@ -83,7 +83,7 @@ function cover(r,cb,front){
    - pressYear: the year of the specific pressing on the shelf. */
 function cachedYear(r){          /* first release — used for decades */
   if(!r.d)return "";
-  var y=cacheGet("dyear:"+r.d);
+  var y=cacheGet("dfirst:"+r.d);
   return y&&y!=="0"?y:"";
 }
 function pressYear(r){
@@ -94,7 +94,7 @@ function pressYear(r){
 function needsDiscogs(r){
   if(!r.d)return false;
   var haveArt=r.img||cacheGet("dcog:"+r.d);
-  var haveYear=cacheGet("dyear:"+r.d)&&cacheGet("dpress:"+r.d);
+  var haveYear=cacheGet("dfirst:"+r.d)&&cacheGet("dpress:"+r.d);
   return !haveArt||!haveYear;
 }
 function fetchMasterYear(masterId,cb){
@@ -111,7 +111,7 @@ function fetchMasterYear(masterId,cb){
 }
 /* Fetches the release once and stores whatever is still missing. */
 function fetchDiscogs(r,cb){
-  var artKey="dcog:"+r.d,yearKey="dyear:"+r.d;
+  var artKey="dcog:"+r.d,yearKey="dfirst:"+r.d;
   var haveArt=cacheGet(artKey),haveYear=cacheGet(yearKey)&&cacheGet("dpress:"+r.d);
   if(haveArt&&haveYear)return cb(haveArt==="0"?null:haveArt);
   fetch("https://api.discogs.com/releases/"+r.d)
@@ -140,7 +140,7 @@ function fetchDiscogs(r,cb){
 function coverDiscogs(r,cb){
   if(!r.d)return cb(null);
   var c=cacheGet("dcog:"+r.d);
-  if(c&&cacheGet("dyear:"+r.d))return cb(c==="0"?null:c);
+  if(c&&cacheGet("dfirst:"+r.d))return cb(c==="0"?null:c);
   fetchDiscogs(r,cb);
 }
 function upgradeDetailArt(r){
