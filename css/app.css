@@ -523,3 +523,17 @@ html.is-owner .ownerbtn{color:var(--accent);border-color:rgba(180,101,58,.5)}
 #ownerpass:focus{border-color:var(--accent)}
 /* guests don't see editing affordances (the server enforces it regardless) */
 html.is-guest .owner-only{display:none!important}
+
+/* ---- Discogs search results in the add panel ---- */
+.dgresults{margin:10px 0 2px}
+.dgr{display:flex;gap:11px;align-items:center;width:100%;text-align:left;
+  background:transparent;border:0;border-bottom:1px solid var(--line);
+  padding:9px 0;cursor:pointer;font-family:var(--sans);color:var(--text)}
+.dgr:last-child{border-bottom:0}
+.dgr img,.dgr-ph{width:42px;height:42px;flex:0 0 42px;border-radius:3px;
+  object-fit:cover;background:var(--surface2)}
+.dgr-m{min-width:0;flex:1}
+.dgr-t{display:block;font-size:13.5px;line-height:1.3;overflow-wrap:break-word}
+.dgr-s{display:block;font-size:11px;color:var(--dim);margin-top:2px}
+.dgr:hover .dgr-t{color:var(--accent)}
+#addmsg{align-self:center}
