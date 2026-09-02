@@ -49,6 +49,23 @@ function specSystem(kind) {
   ].join("\n");
 }
 
+const DETAIL_SYSTEM = [
+  "You summarise what the audio press and owner community actually say about one",
+  "piece of hi-fi equipment. Search the web first \u2014 this is a summary of published",
+  "opinion, not your own impression.",
+  "",
+  "Reply with ONLY a JSON object, no markdown fences:",
+  '{"overview":"2-3 sentences: what it is, where it sits in the market, its reputation",',
+  '"strengths":["short phrase","short phrase"],',
+  '"watch_outs":["short phrase","short phrase"],',
+  '"pairs_with":"one sentence on what it partners well with",',
+  '"verdict":"one sentence \u2014 who it suits"}',
+  "",
+  "2-4 items in each list, each a short phrase rather than a sentence.",
+  "Report the consensus and note where reviewers disagree. If you cannot find real",
+  "coverage of this product, say so plainly in overview rather than inventing praise."
+].join("\n");
+
 const SYSTEM_SYSTEM = [
   "You evaluate a complete hi-fi setup for a vinyl listener. You are a knowledgeable,",
   "direct dealer \u2014 useful, not flattering, and never inventing specifications.",
@@ -111,10 +128,18 @@ export default async function handler(req, res) {
   try { p = JSON.parse(JSON.stringify(req.body || {})); }
   catch (e) { return res.status(400).json({ error: "bad JSON body" }); }
 
-  const isSpecs = p.mode !== "system";
+  const isSpecs = p.mode === "specs" || (!p.mode);
+  const isDetail = p.mode === "detail";
   let system, userText, useSearch;
 
-  if (isSpecs) {
+  if (isDetail) {
+    const name = String(p.name || "").trim();
+    if (!name) return res.status(400).json({ error: "name required" });
+    system = DETAIL_SYSTEM;
+    userText = "Component type: " + (p.kind || "unknown") + "\nProduct: " + name +
+               "\n\nSearch for reviews and owner reports, then return the JSON.";
+    useSearch = true;
+  } else if (isSpecs) {
     const name = String(p.name || "").trim();
     if (!name) return res.status(400).json({ error: "name required" });
     system = specSystem(String(p.kind || "").toLowerCase());
