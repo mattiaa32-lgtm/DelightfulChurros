@@ -20,13 +20,18 @@ function findIndexByDiscogsId(id){
   for(var k=0;k<RECS.length;k++){if(RECS[k].d===id)return k;}
   return -1;
 }
-function cover(r,cb){
+/* `front` jumps the queue. The shelf backfills art for the whole
+   collection at two requests at a time, so without this a handful of
+   cards the user is actually looking at (Discover, chat answers, the
+   wantlist) queue up behind ~180 background jobs and take half a
+   minute to appear — which reads as "covers are broken". */
+function cover(r,cb,front){
   if(r.img)return cb(r.img);
   var key="cov:"+norm(r.a)+"|"+norm(r.t),c=null;
   try{c=localStorage.getItem(key);}catch(e){}
   if(c)return cb(c);
   if(FAILED[key]||failedRecently(key,72))return cb(null);
-  Q.push(function(done){
+  Q[front?"unshift":"push"](function(done){
     var term=encodeURIComponent(query(r));
     jsonp("https://itunes.apple.com/search?term="+term+"&entity=album&limit=1",function(d){
       var u=null;
@@ -51,25 +56,75 @@ function cover(r,cb){
       couldn't find a matching album by artist + title. Everything here
       is cached in localStorage, so each record is only ever fetched
       once per browser. */
-function coverDiscogs(r,cb){
-  if(!r.d)return cb(null);
-  var key="dcog:"+r.d,c=null;
-  try{c=localStorage.getItem(key);}catch(e){}
-  if(c)return cb(c==="0"?null:c);
-  fetch("https://api.discogs.com/releases/"+r.d)
+/* ---- Discogs: cover art AND release year -------------------------
+   These used to be fetched together, gated on whether the record still
+   needed artwork. That meant any record with art already resolved (or
+   with a Cover URL frozen into the sheet) never had its year looked up
+   at all — which is why the decade chart only recognised a handful of
+   records. Year and art are now independent: a record is queued if it
+   is missing EITHER.
+
+   For the year we prefer the MASTER release, which is the original
+   release year rather than the year of whichever pressing is on the
+   shelf — a 2015 reissue of a 1971 record belongs in the 70s. Master
+   years are cached by master id, so different pressings of the same
+   album only cost one lookup between them. Everything here is cached
+   permanently; nothing is re-fetched once known. */
+function cachedYear(r){
+  if(!r.d)return "";
+  var y=cacheGet("dyear:"+r.d);
+  return y&&y!=="0"?y:"";
+}
+function needsDiscogs(r){
+  if(!r.d)return false;
+  var haveArt=r.img||cacheGet("dcog:"+r.d);
+  var haveYear=cacheGet("dyear:"+r.d);
+  return !haveArt||!haveYear;
+}
+function fetchMasterYear(masterId,cb){
+  var mk="myear:"+masterId,m=cacheGet(mk);
+  if(m)return cb(m==="0"?null:m);
+  fetch("https://api.discogs.com/masters/"+masterId)
     .then(function(res){if(!res.ok)throw 0;return res.json();})
     .then(function(d){
-      var im=d&&d.images&&d.images[0],u=(im&&(im.uri||im.uri150))||null;
-      try{localStorage.setItem(key,u||"0");}catch(e){}
-      if(d&&d.year){try{localStorage.setItem("dyear:"+r.d,String(d.year));}catch(e){}}
-      cb(u);
+      var y=(d&&d.year)?String(d.year):null;
+      cacheSet(mk,y||"0");
+      cb(y);
     })
     .catch(function(){cb(null);});
 }
-function cachedYear(r){
-  if(!r.d)return "";
-  var y=null;try{y=localStorage.getItem("dyear:"+r.d);}catch(e){}
-  return y||"";
+/* Fetches the release once and stores whatever is still missing. */
+function fetchDiscogs(r,cb){
+  var artKey="dcog:"+r.d,yearKey="dyear:"+r.d;
+  var haveArt=cacheGet(artKey),haveYear=cacheGet(yearKey);
+  if(haveArt&&haveYear)return cb(haveArt==="0"?null:haveArt);
+  fetch("https://api.discogs.com/releases/"+r.d)
+    .then(function(res){if(!res.ok)throw 0;return res.json();})
+    .then(function(d){
+      if(!haveArt){
+        var im=d&&d.images&&d.images[0],u=(im&&(im.uri||im.uri150))||null;
+        cacheSet(artKey,u||"0");
+        haveArt=u||"0";
+      }
+      if(haveYear){cb(haveArt==="0"?null:haveArt);return;}
+      var pressYear=(d&&d.year)?String(d.year):null;
+      if(d&&d.master_id){
+        fetchMasterYear(d.master_id,function(my){
+          cacheSet(yearKey,my||pressYear||"0");
+          cb(haveArt==="0"?null:haveArt);
+        });
+      }else{
+        cacheSet(yearKey,pressYear||"0");
+        cb(haveArt==="0"?null:haveArt);
+      }
+    })
+    .catch(function(){cb(null);});
+}
+function coverDiscogs(r,cb){
+  if(!r.d)return cb(null);
+  var c=cacheGet("dcog:"+r.d);
+  if(c&&cacheGet("dyear:"+r.d))return cb(c==="0"?null:c);
+  fetchDiscogs(r,cb);
 }
 function upgradeDetailArt(r){
   if(r.img)return;
@@ -85,16 +140,16 @@ function pumpDiscogs(){
   if(discogsRunning||!discogsQ.length)return;
   discogsRunning=true;
   var r=discogsQ.shift(),id=r.d;
-  coverDiscogs(r,function(u){
-    if(u){var k=findIndexByDiscogsId(id);if(k>-1)paintArt(k,u);}
-    setTimeout(function(){discogsRunning=false;pumpDiscogs();},2500);
+  fetchDiscogs(r,function(u){
+    if(u&&!r.img){var k=findIndexByDiscogsId(id);if(k>-1)paintArt(k,u);}
+    /* a master lookup can double the calls for one record, so keep the
+       gap comfortably inside Discogs' ~25/min ceiling */
+    setTimeout(function(){discogsRunning=false;pumpDiscogs();},3000);
   });
 }
 function warmDiscogsCache(){
   RECS.forEach(function(r){
-    if(!r.d||r.img||discogsQueued[r.d])return;
-    var c=null; try{c=localStorage.getItem("dcog:"+r.d);}catch(e){}
-    if(c)return;
+    if(discogsQueued[r.d]||!needsDiscogs(r))return;
     discogsQueued[r.d]=1;
     discogsQ.push(r);
   });
