@@ -215,8 +215,9 @@ function openGear(k){
           esc(s.title)+"</a>";
       }).join("")+"</div>"
       :(c.name?"<p class='hint'>No web sources were used \u2014 treat these specs as unverified.</p>":""))+
+    "<div class='ablock' id='geardetail'></div>"+
     "<div class='rlinks'>"+
-      "<a href='https://www.google.com/search?q="+q+"+specifications' target='_blank' rel='noopener'>Search the web</a>"+
+      "<button class='glink' id='gearmore' data-k='"+k+"'>What reviewers say</button>"+
       "<a href='https://www.google.com/search?q="+q+"&tbm=isch' target='_blank' rel='noopener'>Photos</a>"+
     "</div>"+
     "<button class='close'>Close</button>";
@@ -328,3 +329,67 @@ function loadHifi(){
   renderGearRows();
   loadSystem(false);
 }
+
+/* ---- "what reviewers say": a summary in place of a search link ------
+   Clicking through to a web search meant leaving the app to do the work
+   yourself. This asks the grounded endpoint for a précis of published
+   opinion and renders it here instead. Cached per component, so it is
+   fetched once and then frozen like everything else \u2014 it only refetches
+   if you change the component. */
+function detailKey(name){return "gdet:"+norm(String(name||""));}
+function renderGearDetail(d){
+  var el=document.getElementById("geardetail");
+  if(!el)return;
+  if(!d){el.innerHTML="";return;}
+  function bullets(title,arr){
+    if(!Array.isArray(arr)||!arr.length)return "";
+    return "<div class='ktitle' style='margin-top:11px'>"+title+"</div>"+
+      "<ul class='glist'>"+arr.slice(0,4).map(function(x){
+        return "<li>"+esc(String(x))+"</li>";}).join("")+"</ul>";
+  }
+  el.innerHTML=
+    "<div class='ktitle'>What reviewers say</div>"+
+    (d.overview?"<p class='gsum'>"+esc(d.overview)+"</p>":"")+
+    bullets("Praised for",d.strengths)+
+    bullets("Watch out for",d.watch_outs)+
+    (d.pairs_with?"<p class='rsounds'>"+esc(d.pairs_with)+"</p>":"")+
+    (d.verdict?"<p class='averdict'>"+esc(d.verdict)+"</p>":"");
+}
+function loadGearDetail(k){
+  var c=gearAll()[k];
+  if(!c||!c.name)return;
+  var key=detailKey(c.name),btn=document.getElementById("gearmore");
+  var cached=null;
+  try{cached=localStorage.getItem(key);}catch(e){}
+  if(cached){
+    try{renderGearDetail(JSON.parse(cached));}catch(e){}
+    if(btn)btn.remove();
+    return;
+  }
+  if(btn){btn.textContent="Reading reviews\u2026";btn.disabled=true;}
+  fetch(API_BASE+"gear",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({mode:"detail",kind:k,name:c.name})
+  }).then(function(res){
+    if(res.status===429){return res.json().catch(function(){return {};})
+      .then(function(qq){var e=new Error("busy");e.quota=qq&&qq.quota;throw e;});}
+    if(!res.ok)throw new Error("failed");
+    return res.json();
+  }).then(function(d){
+    try{localStorage.setItem(key,JSON.stringify(d));}catch(e){}
+    renderGearDetail(d);
+    if(btn)btn.remove();
+  }).catch(function(err){
+    if(btn){btn.disabled=false;btn.textContent="What reviewers say";}
+    var el=document.getElementById("geardetail");
+    if(el)el.innerHTML="<p class='hint'>"+(err.message==="busy"
+      ? (err.quota==="daily"
+          ? "That's the free tier's daily quota \u2014 it resets at midnight Pacific."
+          : "Hit the per-minute rate limit \u2014 try again shortly.")
+      : "Couldn't reach the summariser just now.")+"</p>";
+  });
+}
+document.addEventListener("click",function(e){
+  var b=e.target.closest("#gearmore");
+  if(b)loadGearDetail(b.dataset.k);
+});
