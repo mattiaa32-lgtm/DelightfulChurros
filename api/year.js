@@ -64,8 +64,13 @@ export default async function handler(req, res) {
 
   try {
     let apiRes = await call(true);
-    // if grounding isn't available on this key, fall back to ungrounded
-    if (apiRes.status === 400) apiRes = await call(false);
+    /* Grounded search is metered separately and far more tightly than
+       plain generation, so a 429 here retries without search rather
+       than giving up on the year entirely. */
+    if (apiRes.status === 400 || apiRes.status === 403 || apiRes.status === 429) {
+      const retry = await call(false);
+      if (retry.ok || apiRes.status !== 429) apiRes = retry;
+    }
 
     if (!apiRes.ok) {
       const errText = await apiRes.text();
