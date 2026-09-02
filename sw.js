@@ -12,7 +12,7 @@
    The cache name carries a version. Bump SW_VERSION when the shell
    changes; everything under an older name is deleted on activate. */
 
-var SW_VERSION = "v15";
+var SW_VERSION = "v16";
 var SHELL_CACHE = "shelf-shell-" + SW_VERSION;
 var MEDIA_CACHE = "shelf-media-" + SW_VERSION;
 
@@ -107,8 +107,9 @@ self.addEventListener("fetch", function (e) {
   // deploy or a sheet edit lands immediately, cache only as a fallback.
   e.respondWith(
     fetch(req).then(function (res) {
-      if (res && res.ok && (url.origin === self.location.origin ||
-                            url.hostname === "docs.google.com")) {
+      /* The sheet is deliberately NOT cached: a stale collection is
+         worse than none, and it is small enough to refetch. */
+      if (res && res.ok && url.origin === self.location.origin) {
         var copy = res.clone();
         caches.open(SHELL_CACHE).then(function (c) { c.put(req, copy); });
       }
