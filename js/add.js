@@ -97,6 +97,8 @@ function renderPlacement(){
     "</textarea>";
 }
 
+var pending = {};   /* the Discogs release currently chosen */
+
 (function(){
   var link = document.getElementById("addlink");
   if (!link) return;
@@ -115,14 +117,93 @@ function renderPlacement(){
     box.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 
-  /* Straight to a Discogs search for whatever has been typed, so the
-     release (and its id) can be found without leaving the flow. */
+  /* Search Discogs from inside the app. Picking a result fills in the
+     artist, title, id, cover and year, so the only thing left to decide
+     is the category. */
   document.getElementById("adddiscogs-search").addEventListener("click", function(e){
     e.preventDefault();
     var a = (document.getElementById("addartist").value || "").trim();
     var t = (document.getElementById("addtitle").value || "").trim();
-    var q = encodeURIComponent((a + " " + t).trim());
-    window.open("https://www.discogs.com/search/?q=" + q + "&type=release", "_blank", "noopener");
+    var q = (a + " " + t).trim();
+    if (!q) return;
+    var out = document.getElementById("addresults");
+    out.innerHTML = "<p class='hint'>Searching Discogs\u2026</p>";
+    fetch("/api/discogs", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "search", q: q })
+    })
+    .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+    .then(function(x){
+      if (!x.ok || !x.d.results) {
+        out.innerHTML = "<p class='hint'>" +
+          esc((x.d && (x.d.detail || x.d.error)) || "Couldn't reach Discogs.") + "</p>";
+        return;
+      }
+      if (!x.d.results.length) { out.innerHTML = "<p class='hint'>Nothing found.</p>"; return; }
+      out.innerHTML = x.d.results.map(function(r){
+        var meta = [r.year, r.country, r.format, r.label].filter(Boolean).join(" \u00b7 ");
+        return "<button class='dgr' data-id='" + r.id + "' data-title=\"" + esc(r.title) + "\">" +
+          (r.thumb ? "<img src='" + esc(r.thumb) + "' alt='' loading='lazy'>" : "<span class='dgr-ph'></span>") +
+          "<span class='dgr-m'><span class='dgr-t'>" + esc(r.title) + "</span>" +
+          "<span class='dgr-s'>" + esc(meta) + "</span></span></button>";
+      }).join("");
+    })
+    .catch(function(){ out.innerHTML = "<p class='hint'>Couldn't reach Discogs.</p>"; });
+  });
+
+  /* Picking a release fills the form from Discogs' own data. */
+  document.getElementById("addresults").addEventListener("click", function(e){
+    var b = e.target.closest(".dgr");
+    if (!b) return;
+    var id = b.dataset.id;
+    document.getElementById("addresults").innerHTML = "<p class='hint'>Fetching release\u2026</p>";
+    fetch("/api/discogs", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "release", id: id })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && d.artist) document.getElementById("addartist").value = d.artist;
+      if (d && d.title)  document.getElementById("addtitle").value = d.title;
+      document.getElementById("adddiscogs").value = id;
+      pending = d || {};
+      document.getElementById("addresults").innerHTML =
+        "<p class='hint'>Selected: " + esc((d.artist || "") + " \u2014 " + (d.title || "")) +
+        (d.year ? " (" + esc(String(d.year)) + ")" : "") + "</p>";
+      renderPlacement();
+    })
+    .catch(function(){
+      document.getElementById("addresults").innerHTML =
+        "<p class='hint'>Couldn't load that release.</p>";
+    });
+  });
+
+  /* Write the row straight into the sheet \u2014 owner only. */
+  document.getElementById("addsave").addEventListener("click", function(){
+    var a = (document.getElementById("addartist").value || "").trim();
+    var t = (document.getElementById("addtitle").value || "").trim();
+    var c = document.getElementById("addcat").value;
+    var id = (document.getElementById("adddiscogs").value || "").trim();
+    var msg = document.getElementById("addmsg");
+    if (!a || !t) { msg.textContent = "Artist and title are needed."; return; }
+    var p = placeRecord(a, t, c);
+    var cube = p.cube || 1;
+    var row = [a, t, c, cube, id,
+               pending.cover || "", "",              /* cover, description */
+               pending.year || "", pending.year || ""]; /* first released, pressing */
+    msg.textContent = "Saving\u2026";
+    sheetWrite("appendRow", { row: row }, function(err){
+      if (err) { msg.textContent = err.message === "read-only"
+        ? "Unlock editing first (the button in the header)."
+        : "Couldn't write to the sheet: " + err.message; return; }
+      msg.textContent = "Added. Pull down to refresh and it'll appear on the shelf.";
+      ["addartist","addtitle","adddiscogs"].forEach(function(id2){
+        document.getElementById(id2).value = "";
+      });
+      document.getElementById("addresults").innerHTML = "";
+      document.getElementById("placement").innerHTML = "";
+      pending = {};
+    });
   });
 
   ["addartist", "addtitle", "adddiscogs"].forEach(function(id){
