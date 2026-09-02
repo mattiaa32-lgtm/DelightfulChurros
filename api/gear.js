@@ -217,17 +217,33 @@ export default async function handler(req, res) {
     // the feature degrades instead of failing outright \u2014 flagged in the
     // response so the client can warn that specs are unverified.
     let grounded = useSearch;
-    if (useSearch && (apiRes.status === 400 || apiRes.status === 403)) {
-      apiRes = await call(false);
-      grounded = false;
+    /* Google Search grounding is metered separately from ordinary
+       generation and its free-tier ceiling is far lower, so a grounded
+       call can be refused while plain generation still has budget. A
+       429 on a grounded request therefore retries WITHOUT search rather
+       than failing: unverified specs you can correct beat no specs at
+       all, and the response is flagged so the UI can say so. */
+    if (useSearch && (apiRes.status === 400 || apiRes.status === 403 ||
+                      apiRes.status === 429)) {
+      const retry = await call(false);
+      if (retry.ok || apiRes.status !== 429) { apiRes = retry; grounded = false; }
     }
 
     if (!apiRes.ok) {
       const t = await apiRes.text();
+      /* Pull out Google's own quota id when present \u2014 it names exactly
+         which limit was hit (per-day vs per-minute, and for which
+         model), which is the difference between "wait a minute" and
+         "wait until tomorrow". */
+      let quotaId = null;
+      const qm = t.match(/"quotaId"\s*:\s*"([^"]+)"/);
+      if (qm) quotaId = qm[1];
+      const daily = /PerDay/i.test(quotaId || "") || /per day|daily/i.test(t);
       return res.status(apiRes.status === 429 ? 429 : 502).json({
         error: "upstream error",
         upstreamStatus: apiRes.status,
-        quota: /per day|daily|PerDay/i.test(t) ? "daily" : "rate",
+        quota: daily ? "daily" : "rate",
+        quotaId: quotaId,
         detail: t.slice(0, 300)
       });
     }
