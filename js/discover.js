@@ -6,17 +6,79 @@ function todayKey(){
   var d=new Date();
   return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2);
 }
+/* ---- what's already been suggested -------------------------------
+   Two different cooldowns, because "shown" and "actually heard" are
+   different things:
+   • marked as listened → held back for 6 months. You've heard it; it
+     shouldn't crowd out new discoveries, but it can resurface later.
+   • shown but not listened → held back for 45 days only. A record you
+     never got round to is worth putting in front of you again sooner.
+   Records are stored with a timestamp so both windows are rolling
+   rather than "never again". */
+var LISTENED_COOLDOWN_DAYS=180, SHOWN_COOLDOWN_DAYS=45;
+function recKey(r){return (r.artist||"")+" \u2014 "+(r.title||"");}
+function seenStore(){
+  var raw=null;
+  try{raw=JSON.parse(localStorage.getItem("discseen2")||"null");}catch(e){}
+  if(Array.isArray(raw))return raw;
+  /* migrate the old plain-string list, treating everything as shown */
+  var old=[];
+  try{old=JSON.parse(localStorage.getItem("discseen")||"[]");}catch(e){}
+  var now=Date.now();
+  var mig=old.map(function(k){return {k:k,ts:now,listened:false};});
+  saveSeen(mig);
+  return mig;
+}
+function saveSeen(list){
+  try{localStorage.setItem("discseen2",JSON.stringify(list.slice(-400)));}catch(e){}
+}
+/* Only the records still inside their cooldown are sent to the model. */
 function seenList(){
-  try{return JSON.parse(localStorage.getItem("discseen")||"[]");}catch(e){return [];}
+  var now=Date.now(),day=86400000;
+  return seenStore().filter(function(e){
+    var age=(now-(e.ts||0))/day;
+    return age < (e.listened?LISTENED_COOLDOWN_DAYS:SHOWN_COOLDOWN_DAYS);
+  }).map(function(e){return e.k;});
 }
 function rememberSeen(recs){
-  var seen=seenList();
+  var list=seenStore(),now=Date.now();
   recs.forEach(function(r){
-    var s=r.artist+" \u2014 "+r.title;
-    if(seen.indexOf(s)<0)seen.push(s);
+    var k=recKey(r),hit=null;
+    for(var i=0;i<list.length;i++)if(list[i].k===k){hit=list[i];break;}
+    if(hit)hit.ts=now; else list.push({k:k,ts:now,listened:false});
   });
-  try{localStorage.setItem("discseen",JSON.stringify(seen.slice(-200)));}catch(e){}
+  saveSeen(list);
 }
+function isListened(r){
+  var k=recKey(r),list=seenStore();
+  for(var i=0;i<list.length;i++)if(list[i].k===k)return !!list[i].listened;
+  return false;
+}
+function toggleListened(r){
+  var k=recKey(r),list=seenStore(),now=Date.now(),hit=null;
+  for(var i=0;i<list.length;i++)if(list[i].k===k){hit=list[i];break;}
+  if(!hit){hit={k:k,ts:now,listened:false};list.push(hit);}
+  hit.listened=!hit.listened;
+  hit.ts=now;                 /* restart the clock from the mark */
+  saveSeen(list);
+  return hit.listened;
+}
+function listenBtn(r){
+  var on=isListened(r);
+  var data=esc(JSON.stringify({artist:r.artist,title:r.title}));
+  return "<button class='listenbtn"+(on?" on":"")+"' data-listen=\""+data+"\">"+
+    (on?"\u2713 Listened":"Mark as listened")+"</button>";
+}
+document.addEventListener("click",function(e){
+  var b=e.target.closest("[data-listen]");
+  if(!b)return;
+  e.preventDefault();
+  var rec=null;
+  try{rec=JSON.parse(b.getAttribute("data-listen"));}catch(err){return;}
+  var on=toggleListened(rec);
+  b.classList.toggle("on",on);
+  b.textContent=on?"\u2713 Listened":"Mark as listened";
+});
 function discLinks(r){
   var q=encodeURIComponent((r.artist||"")+" "+(r.title||""));
   var dq=q+(r.pressing_search?"+"+encodeURIComponent(r.pressing_search):"");
@@ -92,7 +154,7 @@ function recCardHTML(r){
     (r.why?"<p class='rwhy'>"+esc(r.why)+"</p>":"")+
     (r.pressing?"<p class='rpress'><b>Pressing:</b> "+esc(r.pressing)+
       (r.pressing_why?" \u2014 "+esc(r.pressing_why):"")+"</p>":"")+
-    discLinks(r)+wantBtn(r)+"</div>";
+    discLinks(r)+"<div class='ractions'>"+wantBtn(r)+listenBtn(r)+"</div></div>";
 }
 function renderDaily(recs){
   var body=document.getElementById("discbody");
