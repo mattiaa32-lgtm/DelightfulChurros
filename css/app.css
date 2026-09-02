@@ -1,6 +1,6 @@
-:root{--bg:#131211;--surface:#1C1B19;--surface2:#232220;--line:#312F2B;
-  --text:#EDEAE3;--muted:#948F85;--dim:#6B675F;--accent:#C8763C;
-  --sans:'IBM Plex Sans',system-ui,sans-serif;--spine:'Oswald',sans-serif}
+:root{--bg:#0C0A08;--surface:#141110;--surface2:#1B1714;--line:#241F1B;
+  --text:#F4F0E8;--muted:#8E877E;--dim:#5F5952;--accent:#B4653A;
+  --sans:'Inter','IBM Plex Sans',system-ui,sans-serif;--spine:'Inter',sans-serif}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans)}
 body{padding:0 0 max(24px,env(safe-area-inset-bottom))}
@@ -318,3 +318,45 @@ path[data-cat]:hover{opacity:.85}
 .decbar.nabar{background:transparent;border:1.5px dashed var(--accent,#C8763C);
   box-sizing:border-box}
 .dec.na .decl,.dec.na .decn{color:var(--dim)}
+
+
+/* ================================================================
+   Editorial pass
+   Cards lose their fills and borders; hairline rules and space do the
+   separating instead. Type gets tighter tracking and heavier numerals,
+   and the accent is reserved for data rather than decoration.
+   ================================================================ */
+.brand h1{letter-spacing:-.02em;text-transform:none;font-weight:600;font-size:22px}
+.artist,.d-artist,.ra{font-family:var(--sans);letter-spacing:.06em;font-weight:500}
+.d-title,.rt,.title{letter-spacing:-.015em}
+.d-title,.rt{font-weight:600}
+
+/* flatter surfaces */
+.kpi,.deccard,.rec,.assess{background:transparent;border:0;border-top:1px solid var(--line);
+  border-radius:0;box-shadow:none}
+.kpi{padding:15px 0 17px}
+.kval{font-size:32px;font-weight:600;letter-spacing:-.03em}
+.ktitle{font-size:9.5px;letter-spacing:.17em}
+.deccard,.rec{padding:16px 0}
+.rec .rlinks a,.chip,.listenbtn,.wantbtn,.rfit{border-radius:5px}
+#q,#askq,#qrurl,#exportarea{border-radius:6px}
+.art,.rart,.bigart{border-radius:4px}
+.row{padding:13px 0}
+
+/* charts: neutral bars, accent only on the value */
+.decbar{background:#2A2522;border-top:2px solid var(--accent);border-radius:0}
+.decbar.nabar{background:transparent;border:1px dashed var(--accent)}
+.decn{color:var(--accent)}
+
+/* service marks sit inline with their label */
+.svci{vertical-align:-3px;margin-right:7px;flex:0 0 auto}
+.rec .rlinks a{display:inline-flex;align-items:center}
+.lnk .svci{margin-right:10px}
+
+/* gear detail summary */
+.glist{margin:6px 0 0;padding-left:18px}
+.glist li{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:3px}
+.glink{background:transparent;border:1px solid var(--line);color:var(--muted);
+  border-radius:5px;padding:6px 12px;font-size:11.5px;font-family:var(--sans);cursor:pointer}
+.glink:hover{border-color:var(--muted)}
+.glink:disabled{opacity:.6;cursor:default}
