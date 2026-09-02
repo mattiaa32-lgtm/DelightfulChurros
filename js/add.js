@@ -12,40 +12,8 @@
 /* Same labels the position filter chips use. */
 var CUBE_NAMES={1:"Top left",2:"Top right",3:"Bottom left",4:"Bottom right"};
 
-var ARTICLES = /^(the|a|an|los|las|les|le|la|el|die|der|das|het|de)\s+/i;
-
-function sortName(s){
-  return norm(String(s || "").replace(ARTICLES, "")).trim();
-}
-
-/* Filing convention.
-
-   An earlier version guessed that any two-word name was a person and
-   filed it under the second word. That is wrong far more often than it
-   is right: King Crimson, Pink Floyd, Black Sabbath and Deep Purple are
-   all bands, and all would have been misfiled under Crimson, Floyd,
-   Sabbath and Purple.
-
-   So the default is the band convention \u2014 file under the name as
-   written, minus any leading article. To file a person under their
-   surname, write them in the sheet the way a library would: "Davis,
-   Miles". That is explicit, needs no guessing, and is already how a
-   couple of entries in the collection are written. */
-function artistSortKey(a){
-  var raw = String(a || "").trim();
-  var m = /^(.*),\s*(.+)$/.exec(raw);
-  if (m) {
-    /* "Davis, Miles" files under Davis; "Chemical Brothers, The" is the
-       article convention and files under Chemical Brothers. */
-    if (ARTICLES.test(m[2] + " ")) return sortName(m[1]);
-    return norm(sortName(m[1]) + " " + sortName(m[2]));
-  }
-  return sortName(raw);
-}
-
-function recordSortKey(r){
-  return artistSortKey(r.a) + "|" + sortName(r.t);
-}
+/* Filing helpers (ARTICLES, sortName, artistSortKey, recordSortKey)
+   live in data.js, since the sort order is applied there. */
 
 /* Where would this record sit? Returns the cube, the index within it,
    and the records either side. */
