@@ -41,10 +41,12 @@ function orderedModels() {
 export async function callGemini(apiKey, buildBody, opts) {
   opts = opts || {};
   const models = orderedModels();
+  const attempted = [];
   let last = null;
 
   for (let i = 0; i < models.length; i++) {
     const model = models[i];
+    attempted.push(model);
     let res;
     try {
       res = await fetch(ENDPOINT + model + ":generateContent", {
@@ -73,6 +75,7 @@ export async function callGemini(apiKey, buildBody, opts) {
       status: res.status,
       model,
       quotaId: qm ? qm[1] : null,
+      attempted: attempted.slice(),
       quota: /PerDay/i.test(qm ? qm[1] : "") || /per day|daily/i.test(body)
         ? "daily" : "rate",
       detail: body.slice(0, 300)
@@ -85,5 +88,6 @@ export async function callGemini(apiKey, buildBody, opts) {
     if (preferred === model) preferred = null;
   }
 
-  return last || { ok: false, status: 502, detail: "no model responded" };
+  if (last) last.attempted = attempted;
+  return last || { ok: false, status: 502, detail: "no model responded", attempted };
 }
