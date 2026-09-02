@@ -64,6 +64,16 @@ The "Freeze resolved covers & descriptions" link on the Shelf tab exports them
 so they can be pasted back into the sheet — after that, no lookups are needed
 for those rows on any device.
 
+## Offline
+
+`sw.js` is a service worker that caches the app shell and cover art, so the
+shelf, search, wantlist and setup all work with no connection. It is
+network-first for HTML/CSS/JS, so a deploy always wins over the cache; images
+are cache-first since their URLs never change; and `/api/*` is never cached.
+
+When you change any file in `SHELL`, bump `SW_VERSION` in `sw.js` — older
+caches are deleted automatically on the next activation.
+
 ## Keeping API usage down
 
 The AI is only asked for something once, and the answer is cached on the device:
