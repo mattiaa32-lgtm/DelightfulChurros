@@ -85,13 +85,13 @@ function renderDashComputed(){
     "<div class='kpis'>"+
       kpi("Artists",s.artists,"across "+s.total+" records")+
       kpi("Records per artist",s.perArtist,"deepest: "+esc(s.deepest||"\u2014")+" ("+s.deepestN+")")+
-      kpi("Largest category",s.topShare+"%",esc(s.cats[0]?s.cats[0].cat:"\u2014"),
+      kpi("Largest category",s.topShare+"%",(s.cats[0]?s.cats[0].cat:"\u2014"),
           s.cats[0]?s.cats[0].cat:null)+
       /* the headline number is the Discogs-linked count; the subtitle
          used to quote the *described* count, which made the two look
          inconsistent (98% over "178 of 178") */
-      kpi("Linked to Discogs",s.withId+" of "+s.total,
-          (s.total-s.withId)+" still to link \u00b7 "+s.withDesc+" described")+
+      kpi("Linked to Discogs",Math.round(s.withId/s.total*100)+"%",
+          s.withId+" of "+s.total+" \u00b7 "+(s.total-s.withId)+" still to link")+
     "</div>"+
     (s.decades.length?"<div class='deccard'><div class='ktitle'>By decade</div>"+
       "<div class='decs'>"+s.decades.map(function(d){
@@ -100,7 +100,7 @@ function renderDashComputed(){
           Math.round(d.n/max*100)+"%'></div><div class='decl'>"+
           String(d.d).slice(2)+"s</div><div class='decn'>"+d.n+"</div></button>";
       }).join("")+"</div>"+
-      "<p class='hint'>From Discogs release years, known for "+s.yearsKnown+
+      "<p class='hint'>By original release year (not pressing), known for "+s.yearsKnown+
       " of "+s.total+".</p></div>":"");
 }
 function kpi(label,value,sub,cat){
