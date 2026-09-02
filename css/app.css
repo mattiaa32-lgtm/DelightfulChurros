@@ -312,3 +312,9 @@ path[data-cat]:hover{opacity:.85}
   font-family:var(--sans)}
 .listenbtn:hover{border-color:var(--muted)}
 .listenbtn.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+
+/* "no year yet" bar: outlined rather than filled, so it reads as a gap
+   in the data rather than as another decade */
+.decbar.nabar{background:transparent;border:1.5px dashed var(--accent,#C8763C);
+  box-sizing:border-box}
+.dec.na .decl,.dec.na .decn{color:var(--dim)}
