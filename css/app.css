@@ -555,3 +555,8 @@ html.is-guest .owner-only{display:none!important}
 #addbox{margin-top:10px}
 .synclab{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
 .synclab input{accent-color:var(--accent)}
+
+/* first run: an empty collection is a state, not an error */
+.firstrun{padding:26px 0 10px;max-width:46ch}
+.firstrun .fr-h{font-size:17px;font-weight:600;letter-spacing:-.02em;margin:0 0 10px}
+.firstrun p{font-size:13.5px;color:var(--muted);line-height:1.6;margin:0 0 10px}
