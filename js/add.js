@@ -99,7 +99,7 @@ var pending = {};   /* the Discogs release currently chosen */
   var link = document.getElementById("addlink");
   if (!link) return;
 
-  link.addEventListener("click", function(e){
+  function toggleAdd(e){
     e.preventDefault();
     var box = document.getElementById("addbox");
     box.classList.toggle("show");
@@ -111,7 +111,10 @@ var pending = {};   /* the Discogs release currently chosen */
       }).join("");
     }
     box.scrollIntoView({ behavior: "smooth", block: "center" });
-  });
+  }
+  link.addEventListener("click", toggleAdd);
+  var top = document.getElementById("addtop");
+  if (top) top.addEventListener("click", toggleAdd);
 
   /* Search Discogs from inside the app. Picking a result fills in the
      artist, title, id, cover and year, so the only thing left to decide
@@ -211,7 +214,30 @@ var pending = {};   /* the Discogs release currently chosen */
       if (err) { msg.textContent = err.message === "read-only"
         ? "Unlock editing first (the button in the header)."
         : "Couldn't write to the sheet: " + err.message; return; }
-      msg.textContent = "Added. Pull down to refresh and it'll appear on the shelf.";
+
+      /* Discogs is the record of what you own, so a record added here
+         is added there too. The sheet write already succeeded, so a
+         failure at this point is reported but not treated as fatal \u2014
+         the shelf is still correct, it's Discogs that's behind. */
+      if (id && document.getElementById("adddiscogs-sync").checked) {
+        msg.textContent = "Added to the shelf, adding to Discogs\u2026";
+        fetch("/api/discogs", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "addToCollection", id: id, passphrase: ownerPass() })
+        })
+        .then(function(r){ return r.json().catch(function(){ return {}; }); })
+        .then(function(d){
+          msg.textContent = (d && d.ok)
+            ? "Added to the shelf and your Discogs collection. Pull down to refresh."
+            : "Added to the shelf. Discogs didn't accept it" +
+              (d && d.error ? " (" + d.error + ")" : "") + " \u2014 add it there by hand.";
+        })
+        .catch(function(){
+          msg.textContent = "Added to the shelf. Couldn't reach Discogs to add it there.";
+        });
+      } else {
+        msg.textContent = "Added. Pull down to refresh and it'll appear on the shelf.";
+      }
       ["addartist","addtitle","adddiscogs"].forEach(function(id2){
         document.getElementById(id2).value = "";
       });
