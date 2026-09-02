@@ -130,7 +130,9 @@ function fetchMasterYear(masterId,cb){
   if(m)return cb(m==="0"?null:m);
   discogsFetch("https://api.discogs.com/masters/"+masterId)
     .then(function(d){
-      var y=(d&&d.year)?String(d.year):null;
+      var y=null;
+      if(d&&d.year)y=String(d.year);
+      else if(d&&d.released){var mm=/(\d{4})/.exec(String(d.released));if(mm)y=mm[1];}
       cacheSet(mk,y||"0");
       cb(y);
     })
@@ -149,7 +151,12 @@ function fetchDiscogs(r,cb){
         haveArt=u||"0";
       }
       if(haveYear){cb(haveArt==="0"?null:haveArt);return;}
-      var py=(d&&d.year)?String(d.year):null;
+      /* Discogs sometimes omits `year` but still carries a full
+         `released` date like "1971-10-01" — use that as a fallback so
+         fewer pressings end up with no year at all. */
+      var py=null;
+      if(d&&d.year)py=String(d.year);
+      else if(d&&d.released){var m=/(\d{4})/.exec(String(d.released));if(m)py=m[1];}
       cacheSet("dpress:"+r.d,py||"0");      /* this pressing */
       if(d&&d.master_id){
         fetchMasterYear(d.master_id,function(my){
