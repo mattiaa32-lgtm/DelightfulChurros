@@ -121,7 +121,7 @@ export default async function handler(req, res) {
     if (!apiRes.ok) {
       const t = await apiRes.text();
       return res.status(apiRes.status === 429 ? 429 : 502).json({ error: "upstream error", upstreamStatus: apiRes.status,
-          quota: /per day|daily|PerDay/i.test(errText) ? "daily" : "rate",
+          quota: /per day|daily|PerDay/i.test(t) ? "daily" : "rate",
                                detail: t.slice(0, 300) });
     }
     const data = await apiRes.json();
