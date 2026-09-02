@@ -7,7 +7,10 @@
 // GET /api/year?artist=...&title=...
 // -> { year: "1971", source: "https://..." }  or  { year: null }
 
-const MODEL = "gemini-3.5-flash-lite";
+import { callGemini } from "./_gemini.js";
+
+/* Model choice now lives in _gemini.js: quotas are per model, so a
+   request refused by one is retried against the next. */
 
 const SYSTEM = [
   "You find the ORIGINAL release year of a music album \u2014 the year the album",
@@ -37,56 +40,33 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "GEMINI_API_KEY is not configured on this site" });
   }
 
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/" +
-              MODEL + ":generateContent";
-
-  function body(withSearch) {
-    const b = {
+  function buildBody(model) {
+    return JSON.stringify({
       system_instruction: { parts: [{ text: SYSTEM }] },
       contents: [{
         role: "user",
         parts: [{ text: "Album: " + title + "\nArtist: " + artist +
                         "\n\nWhat year did this album FIRST come out?" }]
       }],
-      generationConfig: { maxOutputTokens: 300 }
-    };
-    if (withSearch) b.tools = [{ google_search: {} }];
-    return JSON.stringify(b);
-  }
-
-  async function call(withSearch) {
-    return fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: body(withSearch)
+      generationConfig: {
+        maxOutputTokens: 300,
+        thinkingConfig: { thinkingBudget: 0 }
+      }
     });
   }
 
   try {
-    let apiRes = await call(true);
-    /* Grounded search is metered separately and far more tightly than
-       plain generation, so a 429 here retries without search rather
-       than giving up on the year entirely. */
-    if (apiRes.status === 400 || apiRes.status === 403 || apiRes.status === 429) {
-      const retry = await call(false);
-      if (retry.ok || apiRes.status !== 429) apiRes = retry;
-    }
-
-    if (!apiRes.ok) {
-      const errText = await apiRes.text();
-      return res.status(apiRes.status === 429 ? 429 : 502).json({
-        error: "upstream error",
-        upstreamStatus: apiRes.status,
-        quota: /per day|daily|PerDay/i.test(errText) ? "daily" : "rate",
-        detail: errText.slice(0, 300)
+    const out = await callGemini(apiKey, buildBody);
+    if (!out.ok) {
+      return res.status(out.status === 429 ? 429 : 502).json({
+        error: "upstream error", upstreamStatus: out.status,
+        quota: out.quota || "rate", quotaId: out.quotaId || null,
+        detail: out.detail || ""
       });
     }
 
-    const data = await apiRes.json();
-    const cand = data && data.candidates && data.candidates[0];
-    const parts = cand && cand.content && cand.content.parts;
-    const raw = ((parts && parts.map(p => p.text || "").join("")) || "")
-      .replace(/```json/gi, "").replace(/```/g, "").trim();
+    const cand = out.cand;
+    const raw = String(out.text || "").replace(/```json/gi, "").replace(/```/g, "").trim();
 
     let year = null;
     try {
