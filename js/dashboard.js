@@ -130,7 +130,10 @@ function decadeCard(title,rows,kind,note,known,total,noId){
       "<div class='decl'>N/A</div><div class='decn'>"+unknown+"</div></button>";
   }
   var foot=note+" Known for "+known+" of "+total+".";
-  if(noId)foot+=" "+noId+" record"+(noId===1?" has":"s have")+" no Discogs link, so no year can be found.";
+  if(kind==="press"&&noId){
+    foot+=" "+noId+" record"+(noId===1?" has":"s have")+" no Discogs link, so the "+
+          "pressing year can't be looked up.";
+  }
   return "<div class='deccard'><div class='ktitle'>"+esc(title)+"</div>"+
     "<div class='decs'>"+bars+"</div>"+
     "<p class='hint'>"+esc(foot)+"</p></div>";
@@ -221,7 +224,9 @@ function openUnknownDive(press){
         "<button class='chip' id='diveclose'>Close</button></div>"+
       "<div class='ahead'>"+(noLink.length+pending.length)+" record"+
         ((noLink.length+pending.length)===1?"":"s")+" without a year</div>"+
-      (noLink.length?"<div class='ablock'><div class='ktitle'>No Discogs link \u2014 add one to your sheet</div>"+
+      (noLink.length?"<div class='ablock'><div class='ktitle'>"+
+        (press?"No Discogs link \u2014 add one to your sheet":
+               "No Discogs link \u2014 being looked up by title instead")+"</div>"+
         "<p class='aitem'>"+list(noLink)+"</p></div>":"")+
       (pending.length?"<div class='ablock'><div class='ktitle'>Not looked up yet \u2014 leave the app open</div>"+
         "<p class='aitem'>"+list(pending.slice(0,40))+
