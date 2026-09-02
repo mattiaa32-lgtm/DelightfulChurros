@@ -87,8 +87,11 @@ function renderDashComputed(){
       kpi("Records per artist",s.perArtist,"deepest: "+esc(s.deepest||"\u2014")+" ("+s.deepestN+")")+
       kpi("Largest category",s.topShare+"%",esc(s.cats[0]?s.cats[0].cat:"\u2014"),
           s.cats[0]?s.cats[0].cat:null)+
-      kpi("Catalogued",Math.round(s.withId/s.total*100)+"%",
-          s.withDesc+" of "+s.total+" described")+
+      /* the headline number is the Discogs-linked count; the subtitle
+         used to quote the *described* count, which made the two look
+         inconsistent (98% over "178 of 178") */
+      kpi("Linked to Discogs",s.withId+" of "+s.total,
+          (s.total-s.withId)+" still to link \u00b7 "+s.withDesc+" described")+
     "</div>"+
     (s.decades.length?"<div class='deccard'><div class='ktitle'>By decade</div>"+
       "<div class='decs'>"+s.decades.map(function(d){
