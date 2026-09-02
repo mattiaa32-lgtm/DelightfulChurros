@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#12100E">
+<title>Shelf</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brand"><h1>Shelf</h1><span class="count" id="count"></span></div>
+    <div class="tabs" id="tabs">
+      <button class="tab" data-v="shelf" aria-pressed="true">Shelf</button>
+      <button class="tab" data-v="discover" aria-pressed="false">Discover</button>
+      <button class="tab" data-v="want" aria-pressed="false">Wantlist</button>
+      <button class="tab" data-v="dash" aria-pressed="false">Collection</button>
+      <button class="tab" data-v="hifi" aria-pressed="false">Setup</button>
+    </div>
+    <div id="shelfhead">
+      <div class="searchrow">
+        <input id="q" type="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+               placeholder="Artist or record name" aria-label="Search by artist or record name">
+        <button class="iconbtn" id="dice" title="Pick one at random" aria-label="Pick one at random">?</button>
+      </div>
+      <div class="chips" id="chips"></div>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+
+  <div id="view-shelf">
+  <div class="chips" id="catchips"></div>
+  <div class="results" id="results"></div>
+  <div id="qrbox">
+    <input id="qrurl" type="url" placeholder="https://your-shelf-app-url" aria-label="Page address for the QR code">
+    <div id="qr"></div>
+    <p class="hint" id="qrhint"></p>
+  </div>
+  <div id="exportbox">
+    <textarea id="exportarea" readonly aria-label="Resolved cover URLs and descriptions, one row per record"></textarea>
+    <p class="hint">One row per record, in the same order as your sheet: Cover URL, then Description,
+      separated by a tab — tap in, select all, copy, then paste into cell F2 of the Collection tab
+      (Sheets fills both columns down for you). Blank cells mean that record hasn't been looked up on
+      this phone yet; open this panel again later, after the app's had time to work through more of
+      the collection in the background, and re-paste to fill in the rest. Once a row has a value, the
+      app always uses it and never looks that record up again.</p>
+  </div>
+  <p class="foot">
+    Tap a record for its cube, its place in the run and what sits either side.<br>
+    <a href="#" id="qrlink">Make a QR code for the shelf</a><br>
+    <a href="#" id="exportlink">Freeze resolved covers &amp; descriptions for your sheet</a>
+  </p>
+  </div>
+
+  <div id="view-discover" hidden>
+    <div class="dischead">
+      <div>
+        <div class="disctitle" id="discdate"></div>
+        <div class="hint" id="discsub">Records you don't own yet, picked for your taste.</div>
+      </div>
+      <button class="chip" id="advtoggle" aria-pressed="false">Adventurous</button>
+    </div>
+    <div id="discbody"></div>
+    <p class="foot">
+      Today's picks stay put until tomorrow — they won't shuffle while you're using the app.<br>
+      <a href="#" id="discnew">Refresh suggestions</a> &middot;
+      <a href="#" id="discseen">Show what I've been recommended</a>
+    </p>
+  </div>
+
+  <div id="view-dash" hidden>
+    <div class="dischead">
+      <div><div class="disctitle">Collection</div>
+        <div class="hint">Counts are live from your sheet; the assessment updates when records change.</div></div>
+    </div>
+    <div id="dashstats"></div>
+    <div class="dischead"><div><div class="disctitle">Assessment</div></div></div>
+    <div id="dashjudge"></div>
+    <div id="dashdive" hidden></div>
+    <p class="foot">Tap a category in the chart or legend for a deep dive.<br>
+      <a href="#" id="dashrefresh">Regenerate assessment</a></p>
+  </div>
+
+  <div id="view-want" hidden>
+    <div class="dischead">
+      <div><div class="disctitle">Wantlist</div>
+        <div class="hint" id="wantcount"></div></div>
+    </div>
+    <div id="wantbody"></div>
+    <p class="foot">Saved from Discover, the chat, and category deep dives. Stored on this device.</p>
+  </div>
+
+  <div id="view-hifi" hidden>
+    <div class="dischead">
+      <div><div class="disctitle">Setup</div>
+        <div class="hint">Name each component and the app looks up its specs, with sources.</div></div>
+    </div>
+    <div id="gearchain"></div>
+    <div id="gearrows"></div>
+    <div class="dischead"><div><div class="disctitle">System evaluation</div></div></div>
+    <div id="sysbody"></div>
+    <p class="foot">Tap any box in the chain, or "details", to see specs and sources.<br>
+      <a href="#" id="sysrefresh">Re-evaluate system</a></p>
+  </div>
+</main>
+
+<button id="fab" aria-label="Ask what to play">&#9835;</button>
+<div class="chatwrap" id="chatwrap" hidden role="dialog" aria-modal="true" aria-label="Ask what to play">
+  <div class="chatpanel" id="chatpanel">
+    <div class="chathead">
+      <div class="grab" id="chatgrab"></div>
+      <div class="chattitle">Ask</div>
+      <div class="chips" id="chatmode">
+        <button class="chip" data-m="shelf" aria-pressed="true">From my shelf</button>
+        <button class="chip" data-m="new" aria-pressed="false">Something new</button>
+      </div>
+      <button class="chatclose" id="chatclose" aria-label="Close">&#215;</button>
+    </div>
+    <div class="chatlog" id="chatlog"></div>
+    <div class="prompts" id="prompts"></div>
+    <div class="askrow">
+      <button class="iconbtn" id="askmic" aria-label="Dictate" hidden>&#127908;</button>
+      <input id="askq" type="text" autocomplete="off"
+             placeholder="What are you in the mood for?" aria-label="Ask for a listening suggestion">
+      <button class="iconbtn" id="asksend" aria-label="Send">&#8593;</button>
+    </div>
+  </div>
+</div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="dtitle">
+  <div class="card" id="card"></div>
+</div>
+<div class="sheet" id="gearsheet" role="dialog" aria-modal="true">
+  <div class="card" id="gearcard"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/covers.js"></script>
+<script src="js/shelf.js"></script>
+<script src="js/want.js"></script>
+<script src="js/discover.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/hifi.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
