@@ -299,5 +299,10 @@ document.getElementById("dashrefresh").addEventListener("click",function(e){
 var dashDrawn=false;
 function loadDash(){
   renderDashComputed();       /* always cheap, always current */
-  if(!dashDrawn){dashDrawn=true;loadAssessment(false);}
+  /* wait for the live sheet before hashing the collection, so the
+     cached assessment is found instead of being regenerated */
+  onDataReady(function(){
+    renderDashComputed();
+    if(!dashDrawn){dashDrawn=true;loadAssessment(false);}
+  });
 }
