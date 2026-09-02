@@ -56,8 +56,10 @@ Columns, in order:
 | E | Discogs id  | no       | release id; enables exact pressing artwork    |
 | F | Cover URL   | no       | manual override / frozen export               |
 | G | Description | no       | manual override / frozen export               |
+| H | First released | no    | original release year / frozen export         |
+| I | Pressing year  | no    | year of your copy / frozen export             |
 
-Columns F and G are filled automatically at runtime and cached on the device.
+Columns F to I are filled automatically at runtime and cached on the device.
 The "Freeze resolved covers & descriptions" link on the Shelf tab exports them
 so they can be pasted back into the sheet — after that, no lookups are needed
 for those rows on any device.
