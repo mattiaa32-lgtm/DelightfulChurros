@@ -20,6 +20,23 @@
    run of clean responses, so it settles near whatever the account
    actually allows instead of a number guessed up front. */
 
+/* Gemini's free tier allows about 10 requests per MINUTE across the
+   whole key (and roughly 1,000 a day). Spacing requests evenly wasn't
+   enough on its own: a gap of 4.2s is ~14/min, already over the line,
+   so the sweeps alone could exhaust the minute and leave nothing for a
+   tap. This now enforces a hard rolling-window ceiling as well.
+
+   AI_RPM is deliberately below the real limit, and background work is
+   cut off earlier still (AI_RPM_BG), so there is always headroom for
+   something the user actually asked for.
+
+   If you enable billing on the Google Cloud project the ceiling rises
+   to thousands per minute — you are not charged unless you exceed the
+   free quota — at which point AI_RPM can go up a lot. */
+var AI_RPM = 8;                // total requests allowed per rolling minute
+var AI_RPM_BG = 5;             // background stops here, leaving 3 for taps
+var AI_RPD = 900;              // daily ceiling across every AI endpoint
+
 var AI_GAP_MIN = 4200;         // floor between requests
 var AI_GAP_MAX = 45000;        // ceiling once we've been throttled
 var aiGap = AI_GAP_MIN;
@@ -29,6 +46,33 @@ var aiPausedUntil = 0;         // background sweeps held off until this time
 var aiQueueUser = [];
 var aiQueueBg = [];
 var aiBusy = false;
+var aiPending = null;          // job currently holding the slot
+var aiPendingTimer = null;     // its pre-request delay, cancellable
+var aiWindow = [];             // timestamps of recent requests
+
+function aiPrune(){
+  var cutoff = Date.now() - 60000;
+  while (aiWindow.length && aiWindow[0] < cutoff) aiWindow.shift();
+}
+function aiUsedThisMinute(){ aiPrune(); return aiWindow.length; }
+/* How long until a slot frees up, for the given ceiling. */
+function aiWaitForSlot(limit){
+  aiPrune();
+  if (aiWindow.length < limit) return 0;
+  return Math.max(0, aiWindow[aiWindow.length - limit] + 60000 - Date.now()) + 250;
+}
+function aiDayKey(){
+  var d = new Date();
+  return "airpd:" + d.getFullYear() + "-" + ("0"+(d.getMonth()+1)).slice(-2) +
+         "-" + ("0"+d.getDate()).slice(-2);
+}
+function aiDayCount(){
+  try { return +localStorage.getItem(aiDayKey()) || 0; } catch(e){ return 0; }
+}
+function aiDaySpend(){
+  try { localStorage.setItem(aiDayKey(), String(aiDayCount() + 1)); } catch(e){}
+}
+function aiDayExhausted(){ return aiDayCount() >= AI_RPD; }
 
 function aiPauseBackground(ms){
   aiPausedUntil = Math.max(aiPausedUntil, Date.now() + (ms || 25000));
@@ -52,17 +96,27 @@ function aiPump(){
   if (aiBusy) return;
   var job = null;
   if (aiQueueUser.length) job = aiQueueUser.shift();
-  else if (aiQueueBg.length && !aiBackgroundPaused()) job = aiQueueBg.shift();
+  else if (aiQueueBg.length && !aiBackgroundPaused() && !aiDayExhausted())
+    job = aiQueueBg.shift();
   if (!job) return;
 
   aiBusy = true;
-  var wait = Math.max(0, aiLast + aiGap - Date.now());
+  aiPending = job;
+  /* Two gates: the adaptive gap between requests, and the hard rolling
+     ceiling. Background jobs are held to the lower ceiling so a tap
+     always has slots left. */
+  var limit = (job.priority === "user") ? AI_RPM : AI_RPM_BG;
+  var slotWait = aiWaitForSlot(limit);
+  var wait = Math.max(slotWait, aiLast + aiGap - Date.now());
   /* A user is waiting on this one, so don't sit on it for the full gap;
      a short courtesy delay is enough to avoid bursting. */
   if (job.priority === "user") wait = Math.min(wait, 900);
 
-  setTimeout(function(){
+  aiPendingTimer = setTimeout(function(){
+    aiPendingTimer = null;
     aiLast = Date.now();
+    aiWindow.push(aiLast);
+    aiDaySpend();
     /* A request that never settles would hold aiBusy forever and stall
        the whole queue \u2014 including anything the user taps. Race every
        job against a timeout so a stalled connection can't deadlock it. */
@@ -114,10 +168,10 @@ function aiPump(){
         settled = true; done(); job.reject(err);
       })
       .then(function(){
-        aiBusy = false;
+        aiBusy = false; aiPending = null;
         setTimeout(aiPump, 30);
       }, function(){
-        aiBusy = false;
+        aiBusy = false; aiPending = null;
         setTimeout(aiPump, 30);
       });
   }, wait);
@@ -133,6 +187,17 @@ function aiFetch(url, opts, priority){
       aiQueueUser.push(job);
       /* hold the sweeps back so follow-up taps aren't queued behind them */
       aiPauseBackground(25000);
+      /* A background job that is still sitting in its pre-request delay
+         is holding the slot without having sent anything. Cancel it and
+         put it back, so the tap doesn't wait out a sweep's timer \u2014
+         which could be tens of seconds. */
+      if (aiPending && aiPending.priority !== "user" && aiPendingTimer) {
+        clearTimeout(aiPendingTimer);
+        aiPendingTimer = null;
+        aiQueueBg.unshift(aiPending);
+        aiPending = null;
+        aiBusy = false;
+      }
     } else {
       aiQueueBg.push(job);
     }
