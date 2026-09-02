@@ -168,15 +168,20 @@ export default async function handler(req, res) {
     if (!name) return res.status(400).json({ error: "name required" });
     system = DETAIL_SYSTEM;
     userText = "Component type: " + (p.kind || "unknown") + "\nProduct: " + name +
-               "\n\nSearch for reviews and owner reports, then return the JSON.";
-    useSearch = true;
+               "\n\nReturn the JSON.";
+    /* Grounding is metered separately from ordinary generation and its
+       free-tier allowance runs out long before the general one \u2014 which
+       is why the ungrounded system evaluation kept working while these
+       lookups failed. It is now opt-in: the caller asks for it only when
+       verified sourcing matters more than getting an answer at all. */
+    useSearch = p.grounded === true;
   } else if (isSpecs) {
     const name = String(p.name || "").trim();
     if (!name) return res.status(400).json({ error: "name required" });
     system = specSystem(String(p.kind || "").toLowerCase());
     userText = "Component type: " + (p.kind || "unknown") + "\nProduct: " + name +
-               "\n\nSearch for its specifications, then return the JSON.";
-    useSearch = true;
+               "\n\nReturn the JSON.";
+    useSearch = p.grounded === true;
   } else {
     const g = gearLines(p.gear);
     if (!g) return res.status(400).json({ error: "no gear supplied" });
