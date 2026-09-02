@@ -157,10 +157,22 @@ function wikiGear(name,cb){
   var original=cb;
   cb=function(v){if(fired)return;fired=true;clearTimeout(t);original(v);};
   var t=setTimeout(function(){cb(null);},8000);
-  var key="wgear:"+norm(name);
+  /* Strip the notes people naturally add to a component name \u2014
+     "(from the 90s)", "mk2 – second hand", "x2" \u2014 before searching.
+     Wikipedia matches on the product, and those extra words both skew
+     the search and fail the name check below, so a perfectly findable
+     component looks unfindable. The user's own label is kept for
+     display; only the query is cleaned. */
+  var query=String(name)
+    .replace(/\([^)]*\)/g," ")        /* parenthetical asides */
+    .replace(/\[[^\]]*\]/g," ")
+    .replace(/[\u2013\u2014-]\s*(second hand|used|mint|boxed|spare|x\d+).*$/i," ")
+    .replace(/\s{2,}/g," ")
+    .trim() || String(name);
+  var key="wgear:"+norm(query);
   var c=null; try{c=localStorage.getItem(key);}catch(e){}
   if(c){try{return cb(JSON.parse(c));}catch(e){return cb(null);}}
-  var q=encodeURIComponent(name);
+  var q=encodeURIComponent(query);
   fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+q+
         "&format=json&origin=*&srlimit=3")
     .then(function(res){if(!res.ok)throw 0;return res.json();})
@@ -184,7 +196,7 @@ function wikiGear(name,cb){
         if(!s||!s.extract||s.type==="disambiguation")return tryHit(hits,i+1);
         /* only accept a page that actually mentions the model, so a
            search for "Rega Planar 3" can't land on "Turntable" */
-        var words=norm(name).split(/\s+/).filter(function(x){return x.length>1;});
+        var words=norm(query).split(/\s+/).filter(function(x){return x.length>1;});
         var hay=norm(s.title+" "+s.extract.slice(0,400));
         var hitCount=words.filter(function(x){return hay.indexOf(x)>-1;}).length;
         if(hitCount<Math.max(1,Math.ceil(words.length*0.6)))return tryHit(hits,i+1);
@@ -288,9 +300,9 @@ function openGear(k){
     "<div class='d-title'>"+esc(c.name)+"</div>"+
     (c.maker?"<div class='rmeta'>"+esc(c.maker)+"</div>":"")+
     (c.image?"<img class='gimg' src='"+esc(c.image)+"' alt='' loading='lazy'>":"")+
-    (c.specsUnavailable?"<p class='hint'>Specifications couldn't be fetched \u2014 the AI "+
-      "lookup is out of quota for now. The description below is from Wikipedia; you can "+
-      "type any specs in yourself and they'll be kept.</p>":"")+
+    (c.specsUnavailable?"<p class='hint'>Specifications couldn't be fetched right now. "+
+      "Anything below comes from Wikipedia; you can type specs in yourself and they'll "+
+      "be kept.</p>":"")+
     (c.summary?"<p class='gsum'>"+esc(c.summary)+"</p>":"")+
     (c.sound?"<p class='rsounds'>"+esc(c.sound)+"</p>":"")+
     ((c.specs&&c.specs.length)?
@@ -301,19 +313,21 @@ function openGear(k){
           esc(s.value||"")+"\" aria-label=\""+esc(s.label)+"\"></td></tr>";
       }).join("")+"</table>"+
       "<p class='hint'>Edit any value if you know better \u2014 yours is kept.</p></div>"
-      :"<p class='hint'>No specs found. You can add them by hand once you have them.</p>")+
+      :(c.specsUnavailable?"":"<p class='hint'>No specs found. You can add them by hand once you have them.</p>"))+
     ((c.sources&&c.sources.length)?
       "<div class='ablock'><div class='ktitle'>Sources</div>"+
       c.sources.map(function(s){
         return "<a class='srcl' href='"+esc(s.url)+"' target='_blank' rel='noopener'>"+
           esc(s.title)+"</a>";
       }).join("")+"</div>"
-      :(c.name?"<p class='hint'>No web sources were used \u2014 treat these specs as unverified.</p>":""))+
+      :(c.name&&!c.specsUnavailable?"<p class='hint'>No web sources were used \u2014 treat these specs as unverified.</p>":""))+
     "<div class='ablock' id='geardetail'></div>"+
     "<div class='rlinks'>"+
-      (c.wikiUrl?"<a href='"+esc(c.wikiUrl)+"' target='_blank' rel='noopener'>Wikipedia</a>":"")+
+      (c.wikiUrl?"<a class='glink' href='"+esc(c.wikiUrl)+
+        "' target='_blank' rel='noopener'>Wikipedia</a>":"")+
       "<button class='glink' id='gearmore' data-k='"+k+"'>What reviewers say</button>"+
-      "<a href='https://www.google.com/search?q="+q+"&tbm=isch' target='_blank' rel='noopener'>Photos</a>"+
+      "<a class='glink' href='https://www.google.com/search?q="+q+
+        "&tbm=isch' target='_blank' rel='noopener'>Photos</a>"+
     "</div>"+
     "<button class='close'>Close</button>";
   document.getElementById("gearsheet").classList.add("open");
