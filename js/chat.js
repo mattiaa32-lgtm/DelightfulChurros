@@ -86,7 +86,7 @@ function sendAsk(text){
   if(chatMode==="new"){
     /* discover mode: same endpoint and card layout as the daily picks,
        but driven by what they just asked for */
-    fetch(API_BASE+"recommend",{
+    aiFetchUser(API_BASE+"recommend",{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({mode:"discover",records:collectionPayload(),count:3,
         brief:text,avoid:seenList(),
@@ -125,7 +125,7 @@ function sendAsk(text){
   }
 
   chatHistory.push({role:"user",text:text});
-  fetch(API_BASE+"recommend",{
+  aiFetchUser(API_BASE+"recommend",{
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({mode:"mood",records:collectionPayload(),
                          history:chatHistory.slice(0,-1),message:text})
