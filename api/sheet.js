@@ -73,29 +73,28 @@ export default async function handler(req, res) {
   const forward = Object.assign({}, body, { secret: secret });
   delete forward.passphrase;
 
-  /* Apps Script answers a POST with a 302 to script.googleusercontent.com.
-     Following that automatically is the trap: per the fetch spec a 302
-     turns a POST into a GET and drops the body, so the script receives an
-     empty GET, does nothing, and returns an HTML page. The call looks like
-     it worked while nothing was written. So redirects are followed by
-     hand, re-POSTing the body each time. */
-  async function post(target, depth) {
-    const r = await fetch(target, {
+  /* How Apps Script actually answers a POST: it returns a 302 to
+     script.googleusercontent.com, and that target must be fetched with
+     a GET — Google keeps the result of the execution server-side and
+     serves it there. Re-POSTing to the redirect target (which is what a
+     naive "preserve the method" fix does) gets a Drive error page back.
+     So: POST the first hop, GET the rest. */
+  async function callScript() {
+    const first = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(forward),
       redirect: "manual"
     });
-    if ((r.status === 301 || r.status === 302 || r.status === 303 ||
-         r.status === 307 || r.status === 308) && depth < 5) {
-      const loc = r.headers.get("location");
-      if (loc) return post(loc, depth + 1);
+    if (first.status >= 300 && first.status < 400) {
+      const loc = first.headers.get("location");
+      if (loc) return fetch(loc, { method: "GET", redirect: "follow" });
     }
-    return r;
+    return first;
   }
 
   try {
-    const r = await post(url, 0);
+    const r = await callScript();
     const text = await r.text();
     let data;
     try { data = JSON.parse(text); }
