@@ -97,11 +97,38 @@ function needsDiscogs(r){
   var haveYear=cacheGet("dfirst:"+r.d)&&cacheGet("dpress:"+r.d);
   return !haveArt||!haveYear;
 }
+/* ---- Discogs request limiter -------------------------------------
+   Discogs allows roughly 25 unauthenticated requests a minute. Pacing
+   by RECORD was wrong, because a record needs two calls when it has a
+   master (release + master), so a 3s record gap meant ~40 calls/min —
+   well over the ceiling. Everything now goes through one limiter that
+   spaces individual HTTP calls, and a 429 widens the gap and re-queues
+   the record rather than dropping it, which is why so many records
+   ended up with no year at all. */
+var DG_MIN_GAP=2600, dgLast=0, dgBackoff=0, dgRateHit=false;
+function discogsFetch(url){
+  return new Promise(function(resolve,reject){
+    var wait=Math.max(0,dgLast+DG_MIN_GAP+dgBackoff-Date.now());
+    setTimeout(function(){
+      dgLast=Date.now();
+      fetch(url).then(function(res){
+        if(res.status===429){
+          dgRateHit=true;
+          dgBackoff=Math.min(45000,(dgBackoff||2000)*2);
+          reject(new Error("429"));return;
+        }
+        dgBackoff=Math.max(0,dgBackoff-400);   /* ease back off slowly */
+        if(!res.ok){reject(new Error("http"));return;}
+        res.json().then(resolve,reject);
+      },reject);
+    },wait);
+  });
+}
+
 function fetchMasterYear(masterId,cb){
   var mk="myear:"+masterId,m=cacheGet(mk);
   if(m)return cb(m==="0"?null:m);
-  fetch("https://api.discogs.com/masters/"+masterId)
-    .then(function(res){if(!res.ok)throw 0;return res.json();})
+  discogsFetch("https://api.discogs.com/masters/"+masterId)
     .then(function(d){
       var y=(d&&d.year)?String(d.year):null;
       cacheSet(mk,y||"0");
@@ -114,8 +141,7 @@ function fetchDiscogs(r,cb){
   var artKey="dcog:"+r.d,yearKey="dfirst:"+r.d;
   var haveArt=cacheGet(artKey),haveYear=cacheGet(yearKey)&&cacheGet("dpress:"+r.d);
   if(haveArt&&haveYear)return cb(haveArt==="0"?null:haveArt);
-  fetch("https://api.discogs.com/releases/"+r.d)
-    .then(function(res){if(!res.ok)throw 0;return res.json();})
+  discogsFetch("https://api.discogs.com/releases/"+r.d)
     .then(function(d){
       if(!haveArt){
         var im=d&&d.images&&d.images[0],u=(im&&(im.uri||im.uri150))||null;
@@ -157,11 +183,21 @@ function pumpDiscogs(){
   if(discogsRunning||!discogsQ.length)return;
   discogsRunning=true;
   var r=discogsQ.shift(),id=r.d;
+  dgRateHit=false;
   fetchDiscogs(r,function(u){
     if(u&&!r.img){var k=findIndexByDiscogsId(id);if(k>-1)paintArt(k,u);}
-    /* a master lookup can double the calls for one record, so keep the
-       gap comfortably inside Discogs' ~25/min ceiling */
-    setTimeout(function(){discogsRunning=false;pumpDiscogs();},3000);
+    /* Still missing after the attempt? Put it back so it isn't lost for
+       the session — the limiter above has already widened the gap. */
+    if(needsDiscogs(r)){
+      delete discogsQueued[id];
+      if(dgRateHit&&(r.__tries=(r.__tries||0)+1)<=3){
+        discogsQueued[id]=1;
+        discogsQ.push(r);
+      }
+    }
+    /* pacing is handled by discogsFetch, so no extra delay here */
+    discogsRunning=false;
+    setTimeout(pumpDiscogs,50);
   });
 }
 function warmDiscogsCache(){
