@@ -43,6 +43,18 @@
   <div id="view-shelf">
   <div class="chips" id="catchips"></div>
   <div class="results" id="results"></div>
+  <div id="addbox">
+    <div class="addrow">
+      <input id="addartist" type="text" placeholder="Artist" aria-label="Artist">
+      <input id="addtitle" type="text" placeholder="Record name" aria-label="Record name">
+    </div>
+    <div class="addrow">
+      <select id="addcat" aria-label="Category"></select>
+      <input id="adddiscogs" type="text" placeholder="Discogs release id" aria-label="Discogs release id">
+      <button class="chip" id="adddiscogs-search">Find on Discogs</button>
+    </div>
+    <div class="placement" id="placement"></div>
+  </div>
   <div id="qrbox">
     <input id="qrurl" type="url" placeholder="https://your-shelf-app-url" aria-label="Page address for the QR code">
     <div id="qr"></div>
@@ -61,6 +73,7 @@
   <p class="foot">
     Tap a record for its cube, its place in the run and what sits either side.<br>
     <a href="#" id="qrlink">Make a QR code for the shelf</a><br>
+    <a href="#" id="addlink">Add a record</a><br>
     <a href="#" id="exportlink">Freeze resolved covers &amp; descriptions for your sheet</a><br>
     <a href="#" id="backuplink">Back up this device</a> &middot;
     <a href="#" id="restorelink">Restore from a backup</a>
@@ -167,8 +180,11 @@
 <script src="js/chat.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/hifi.js"></script>
+<script src="js/add.js"></script>
 <script src="js/backup.js"></script>
+<script src="js/ptr.js"></script>
 <script src="js/app.js"></script>
+<script src="js/ptr.js"></script>
 <script>
 /* Offline support. Registered last and guarded, so a browser without
    service workers (or a page opened over file://) just carries on. */
