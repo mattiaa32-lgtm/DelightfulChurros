@@ -211,9 +211,21 @@ var pending = {};   /* the Discogs release currently chosen */
                pending.year || "", pending.year || ""]; /* first released, pressing */
     msg.textContent = "Saving\u2026";
     sheetWrite("appendRow", { row: row }, function(err){
-      if (err) { msg.textContent = err.message === "read-only"
-        ? "Unlock editing first (the button in the header)."
-        : "Couldn't write to the sheet: " + err.message; return; }
+      if (err) {
+        if (err.message === "read-only") {
+          msg.textContent = "Unlock editing first (the button in the header).";
+          return;
+        }
+        msg.innerHTML = "Couldn't write to the sheet: " + esc(err.message) +
+          (err.detail ? "<br><span class='hint' style='opacity:.75'>" +
+            esc(String(err.detail).slice(0, 180)) + "</span>" : "") +
+          (err.detail && /<html|sign in|accounts\.google/i.test(String(err.detail))
+            ? "<br><span class='hint'>Google returned a web page instead of data \u2014 " +
+              "usually the Apps Script deployment's <b>Who has access</b> is not set to " +
+              "<b>Anyone</b>, or a new version hasn't been deployed since the code changed.</span>"
+            : "");
+        return;
+      }
 
       /* Only reached once the sheet has actually confirmed the row.
          Discogs is the record of what you own, so it's updated too; a
