@@ -37,7 +37,7 @@ function fillRecArt(scope){
       var img=new Image();
       img.onload=function(){el.innerHTML="";el.appendChild(img);};
       img.src=u; img.alt="";
-    });
+    },true);   /* foreground: these cards are on screen now */
   });
 }
 /* shared card renderer — used by Discover, the chat's "something new"
