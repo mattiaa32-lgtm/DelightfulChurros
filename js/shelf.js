@@ -59,11 +59,15 @@ function open(i){
     "</dl>"+
     "<div class='links'>"+
       "<a class='lnk' href='"+dc+"' target='_blank' rel='noopener'>"+
-        "<span class='dot' style='background:#EDEAE3'></span>"+
+        svcIcon("discogs",true,17)+
         "<span class='lt'>Discogs<small>"+(r.d?"Your pressing":"Search")+"</small></span></a>"+
       "<a class='lnk' href='"+sp+"' target='_blank' rel='noopener'>"+
-        "<span class='dot' style='background:#1DB954'></span>"+
+        svcIcon("spotify",true,17)+
         "<span class='lt'>Spotify<small>Have a listen</small></span></a>"+
+      "<a class='lnk' href='https://www.youtube.com/results?search_query="+
+        encodeURIComponent(artistQ(r.a)+" "+titleQ(r.t))+"' target='_blank' rel='noopener'>"+
+        svcIcon("youtube",true,17)+
+        "<span class='lt'>YouTube<small>Watch or listen</small></span></a>"+
     "</div>"+
     "<button class='close'>Close</button>";
   document.getElementById("sheet").classList.add("open");
