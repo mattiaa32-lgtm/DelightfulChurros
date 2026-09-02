@@ -64,6 +64,23 @@ function query(r){
   return (a+" "+t).trim();
 }
 
+/* ---- "the collection has settled" -------------------------------
+   The app renders the baked-in copy first, then swaps in the live sheet.
+   Anything keyed on the CONTENTS of the collection (the dashboard
+   assessment is hashed against it) must wait for that swap, or it
+   computes one hash before the sheet lands and a different one after —
+   which looked like the assessment regenerating on every deploy. */
+var dataReady=false, dataWaiters=[];
+function onDataReady(fn){
+  if(dataReady)return fn();
+  dataWaiters.push(fn);
+}
+function markDataReady(){
+  if(dataReady)return;
+  dataReady=true;
+  dataWaiters.splice(0).forEach(function(f){try{f();}catch(e){}});
+}
+
 /* ---- sheet loading ---- */
 function parseCSV(t){var rows=[],row=[],cell="",q=false;
   for(var i=0;i<t.length;i++){var ch=t[i];
@@ -87,7 +104,7 @@ function adopt(rows){
               p:seen[c],n:tot[c],i:i});});
   return out;}
 function loadSheet(){
-  if(!SHEET_CSV_URL)return;
+  if(!SHEET_CSV_URL){markDataReady();return;}
   fetch(SHEET_CSV_URL,{cache:"no-store"})
     .then(function(res){if(!res.ok)throw 0;return res.text();})
     .then(function(txt){
@@ -99,5 +116,6 @@ function loadSheet(){
       renderCatChips();
       render();
       warmDiscogsCache();
-      warmDescCache();})
-    .catch(function(){});}
+      warmDescCache();
+      markDataReady();})
+    .catch(function(){markDataReady();});}
