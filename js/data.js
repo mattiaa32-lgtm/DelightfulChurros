@@ -7,7 +7,7 @@ var API_BASE="/api/";
    Live data from a published Google Sheet: paste the CSV link below.
    Sheets > File > Share > Publish to web > pick the sheet > CSV.
    Columns: Artist | Record name | Category | Cube | Discogs id |
-            Cover URL | Description
+            Cover URL | Description | First released | Pressing year
    The last three are optional and work the same way: the app fetches
    them itself (Cover URL from Discogs/iTunes; Description written by
    Gemini (free tier) via a small Vercel function \u2014 see api/describe.js)
@@ -101,6 +101,10 @@ function adopt(rows){
     out.push({a:r[0].trim(),t:r[1].trim(),c:r[2].trim(),k:+c,r:m[0],co:m[1],
               d:(r[4]||"").trim()||null,img:(r[5]||"").trim()||null,
               desc:(r[6]||"").trim()||null,
+              /* frozen years from the sheet (columns H and I) \u2014 when
+                 present these are used as-is and nothing is looked up */
+              fy:((r[7]||"").trim().match(/^\d{4}$/)||[null])[0],
+              py:((r[8]||"").trim().match(/^\d{4}$/)||[null])[0],
               p:seen[c],n:tot[c],i:i});});
   return out;}
 function loadSheet(){
