@@ -179,7 +179,7 @@ function loadAssessment(force){
   dashBusy=true;
   document.getElementById("dashjudge").innerHTML=
     "<p class='hint'><span class='dots'><span></span><span></span><span></span></span> Assessing the collection\u2026</p>";
-  fetch(API_BASE+"analyze",{
+  aiFetchUser(API_BASE+"analyze",{
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({mode:"collection",records:collectionPayload()})
   }).then(function(res){
@@ -312,7 +312,7 @@ function openCatDive(cat){
   var el=document.getElementById("dashdive");
   el.hidden=false;
   el.innerHTML="<p class='hint'><span class='dots'><span></span><span></span><span></span></span> Looking at "+esc(cat)+"\u2026</p>";
-  fetch(API_BASE+"analyze",{
+  aiFetchUser(API_BASE+"analyze",{
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({mode:"category",category:cat,records:collectionPayload()})
   }).then(function(res){
