@@ -378,9 +378,14 @@ path[data-cat]:hover{opacity:.85}
 @media (max-width:560px){
   .wrap{padding:0 14px}
 
-  .decs{gap:8px;height:92px;padding-bottom:2px}
-  .dec{flex:0 0 42px;min-width:42px}          /* scroll rather than shrink */
-  .decl,.decn{font-size:10.5px;white-space:nowrap}
+  /* Fit the whole chart on screen rather than making it scroll: having
+     to drag sideways to see the last decades defeated the point of the
+     chart. Nine bars at a 340px content width is ~30px each, which is
+     enough for a "60s" label and a count if both are small. */
+  .decs{gap:4px;height:88px;padding-bottom:2px;overflow-x:visible}
+  .dec{flex:1 1 0;min-width:0}
+  .decl,.decn{font-size:9px;white-space:nowrap;letter-spacing:-.01em}
+  .decn{font-weight:600}
 
   /* two up rather than three, so numbers keep their size */
   .kpis{grid-template-columns:repeat(2,1fr);gap:0 14px}
@@ -428,6 +433,8 @@ path[data-cat]:hover{opacity:.85}
   .kpis{grid-template-columns:1fr}
   .kval{font-size:24px}
   .mini{display:none}          /* the row's right-hand position hint */
+  .decs{gap:3px}
+  .decl,.decn{font-size:8.5px}
 }
 
 /* component photo from Wikipedia, when there is one */
@@ -444,3 +451,56 @@ a{color:var(--accent)}
 a:visited{color:var(--accent)}
 .gearcard a:not(.glink),.assess a{color:var(--accent);text-decoration:none;
   border-bottom:1px solid rgba(180,101,58,.4)}
+
+/* ---- pull to refresh (standalone/home-screen only) ---- */
+#ptr{position:fixed;top:0;left:50%;margin-left:-16px;width:32px;height:32px;z-index:60;
+  display:flex;align-items:center;justify-content:center;pointer-events:none;
+  opacity:0;transform:translateY(-60px)}
+html:not(.ptr-on) #ptr{display:none}
+.ptr-spin{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);
+  border-top-color:var(--accent);display:block}
+#ptr.ready .ptr-spin{border-top-color:var(--accent);border-color:var(--accent) var(--line) var(--line)}
+#ptr.spinning .ptr-spin{animation:ptrspin .7s linear infinite}
+@keyframes ptrspin{to{transform:rotate(360deg)}}
+
+/* ---- decade charts fit the screen ----
+   These used to scroll sideways, which meant half the chart was hidden
+   until you dragged it. Bars now shrink to fit whatever width there is;
+   with up to nine columns that is still legible on a phone. */
+.decs{overflow-x:visible}
+.dec{flex:1 1 0;min-width:0}
+.decl,.decn{font-size:10px;white-space:nowrap}
+@media (max-width:560px){
+  .decs{gap:4px;overflow-x:visible}
+  .dec{flex:1 1 0;min-width:0}
+  .decl{font-size:9px;letter-spacing:-.02em}
+  .decn{font-size:9.5px}
+}
+@media (max-width:380px){
+  .decs{gap:3px}
+  .decl,.decn{font-size:8.5px}
+}
+
+/* ---- add a record ---- */
+#addbox{display:none;padding:16px 0 4px}
+#addbox.show{display:block}
+.addrow{display:flex;gap:8px;margin-bottom:9px;flex-wrap:wrap}
+.addrow input,.addrow select{flex:1 1 150px;min-width:0;background:var(--surface2);
+  border:1px solid var(--line);color:var(--text);border-radius:6px;padding:10px 12px;
+  font-size:13.5px;font-family:var(--sans);outline:none}
+.addrow input:focus,.addrow select:focus{border-color:var(--accent)}
+.placement{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
+.placewhere{font-size:15px;margin:6px 0 2px}
+.placewhere b{color:var(--accent)}
+.placenb{font-size:12.5px;color:var(--muted);line-height:1.6}
+
+/* ---- pull to refresh (standalone / home-screen mode only) ---- */
+#ptr{position:fixed;top:0;left:50%;margin-left:-17px;z-index:60;width:34px;height:34px;
+  border-radius:50%;background:var(--surface2);border:1px solid var(--line);
+  display:none;align-items:center;justify-content:center;transform:translateY(-60px);opacity:0}
+html.ptr-on #ptr{display:flex}
+.ptr-spin{width:15px;height:15px;border-radius:50%;border:2px solid var(--line);
+  border-top-color:var(--accent);display:block}
+#ptr.ready .ptr-spin{border-top-color:var(--accent);border-left-color:var(--accent)}
+#ptr.spinning .ptr-spin{animation:ptrspin .7s linear infinite}
+@keyframes ptrspin{to{transform:rotate(360deg)}}
