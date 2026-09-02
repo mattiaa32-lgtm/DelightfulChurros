@@ -139,65 +139,124 @@ function renderGearRows(){
   document.getElementById("gearchain").innerHTML=chainSVG();
 }
 
+/* ---- free, keyless gear lookup via Wikipedia ------------------------
+   The AI path needs quota, and the free Gemini tier runs out. Wikipedia
+   has no key, no quota and decent coverage of hi-fi hardware \u2014 most
+   turntables, cartridges, amplifiers and speakers worth naming have a
+   page or are described on their maker's page. It gives a summary and
+   often a photo, which is most of what the panel shows anyway.
+
+   So: Wikipedia first, always. The AI is then asked for structured
+   specs as a bonus, and if that fails (quota, rate limit, anything) the
+   Wikipedia result simply stands on its own instead of the whole lookup
+   failing. Cached per component name like everything else. */
+function wikiGear(name,cb){
+  var key="wgear:"+norm(name);
+  var c=null; try{c=localStorage.getItem(key);}catch(e){}
+  if(c){try{return cb(JSON.parse(c));}catch(e){return cb(null);}}
+  var q=encodeURIComponent(name);
+  fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+q+
+        "&format=json&origin=*&srlimit=3")
+    .then(function(res){if(!res.ok)throw 0;return res.json();})
+    .then(function(d){
+      var hits=(d&&d.query&&d.query.search)||[];
+      if(!hits.length)throw 0;
+      return tryHit(hits,0);
+    })
+    .then(function(out){
+      if(out){try{localStorage.setItem(key,JSON.stringify(out));}catch(e){}}
+      cb(out||null);
+    })
+    .catch(function(){cb(null);});
+
+  function tryHit(hits,i){
+    if(i>=hits.length)return null;
+    return fetch("https://en.wikipedia.org/api/rest_v1/page/summary/"+
+      encodeURIComponent(hits[i].title.replace(/ /g,"_")))
+      .then(function(r){if(!r.ok)throw 0;return r.json();})
+      .then(function(s){
+        if(!s||!s.extract||s.type==="disambiguation")return tryHit(hits,i+1);
+        /* only accept a page that actually mentions the model, so a
+           search for "Rega Planar 3" can't land on "Turntable" */
+        var words=norm(name).split(/\s+/).filter(function(x){return x.length>1;});
+        var hay=norm(s.title+" "+s.extract.slice(0,400));
+        var hitCount=words.filter(function(x){return hay.indexOf(x)>-1;}).length;
+        if(hitCount<Math.max(1,Math.ceil(words.length*0.6)))return tryHit(hits,i+1);
+        return {
+          title:s.title,
+          summary:s.extract,
+          url:(s.content_urls&&s.content_urls.desktop&&s.content_urls.desktop.page)||"",
+          image:(s.thumbnail&&s.thumbnail.source)||""
+        };
+      })
+      .catch(function(){return tryHit(hits,i+1);});
+  }
+}
+
 /* ---- spec lookup ---- */
 function lookupGear(k){
-  var g=gearAll();
   var input=document.querySelector("#gearrows input[data-k='"+k+"']");
   var name=(input&&input.value||"").trim();
   if(!name)return;
-  var slot=GEAR_SLOTS.filter(function(s){return s.k===k;})[0];
   var btn=document.querySelector(".glook[data-k='"+k+"']");
   if(btn){btn.textContent="\u2026";btn.disabled=true;}
-  fetch(API_BASE+"gear",{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({mode:"specs",kind:k,name:name})
-  }).then(function(res){
-    if(res.status===429){return res.json().catch(function(){return {};})
-      .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;
-        e.quotaId=q&&q.quotaId;e.detail=q&&q.detail;throw e;});}
-    if(!res.ok){
-      return res.json().catch(function(){return {};}).then(function(b){
-        var e=new Error("failed");e.detail=(b&&(b.detail||b.error))||null;throw e;});
-    }
-    return res.json();
-  }).then(function(d){
+
+  function save(patch){
     var cur=gearAll();
-    cur[k]={
-      name:(d&&d.found&&d.resolved_name)?d.resolved_name:name,
-      maker:(d&&d.maker)||"",
-      specs:(d&&Array.isArray(d.specs))?d.specs:[],
-      summary:(d&&d.summary)||"",
-      sound:(d&&d.sound)||"",
-      sources:(d&&d.sources)||[],
-      grounded:!!(d&&d.grounded),
-      found:!!(d&&d.found)
-    };
+    cur[k]=cur[k]||{};
+    Object.keys(patch).forEach(function(p){
+      if(patch[p]!==undefined&&patch[p]!==null&&patch[p]!=="")cur[k][p]=patch[p];
+    });
+    cur[k].name=cur[k].name||name;
     gearSave(cur);
+  }
+  function finish(){
+    if(btn){btn.textContent="Look up";btn.disabled=false;}
     renderGearRows();
     openGear(k);
-  }).catch(function(err){
-    var cur=gearAll();
-    cur[k]=cur[k]||{};cur[k].name=name;
-    gearSave(cur);
-    renderGearRows();
-    /* say what actually went wrong rather than a generic failure \u2014 a
-       quota problem and a bad model name need different responses */
-    alert(err.message==="busy"
-      ? (err.quota==="daily"
-          ? "That's the free tier's DAILY quota, which resets at midnight Pacific \u2014 "+
-            "waiting a few minutes won't help.\n\n"+
-            (err.quotaId?"Google reported: "+err.quotaId:"")
-          : "Rate limited even after retrying.\n\n"+
-            (err.quotaId?"Google reported: "+err.quotaId+"\n\n":"")+
-            (err.detail?err.detail:""))
-      : (err.detail
-          ? "The lookup came back in an unexpected shape:\n\n"+err.detail+
-            "\n\nThe name is saved; try Look up again."
-          : "Couldn't reach the lookup service. The name is saved; try again shortly."));
+  }
+
+  /* step 1 \u2014 Wikipedia. No key, no quota, so this is the part that
+     always works. */
+  wikiGear(name,function(wiki){
+    if(wiki){
+      save({name:wiki.title||name,summary:wiki.summary,
+            image:wiki.image,wikiUrl:wiki.url});
+    }else{
+      save({name:name});
+    }
+
+    /* step 2 \u2014 structured specs from the AI, if there's quota left.
+       Failure here is not an error: the Wikipedia result stands, and the
+       panel just says specs couldn't be fetched. */
+    aiFetchUser(API_BASE+"gear",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({mode:"specs",kind:k,name:name})
+    }).then(function(res){
+      if(!res.ok)throw 0;
+      return res.json();
+    }).then(function(d){
+      save({
+        name:(d&&d.found&&d.resolved_name)?d.resolved_name:undefined,
+        maker:(d&&d.maker)||undefined,
+        specs:(d&&Array.isArray(d.specs)&&d.specs.length)?d.specs:undefined,
+        summary:(d&&d.summary)||undefined,
+        sound:(d&&d.sound)||undefined,
+        sources:(d&&d.sources)||undefined,
+        grounded:!!(d&&d.grounded),
+        found:!!(d&&d.found)
+      });
+      finish();
+    }).catch(function(){
+      /* quota gone or lookup failed \u2014 keep whatever Wikipedia gave us */
+      var cur=gearAll();
+      if(cur[k])cur[k].specsUnavailable=!(cur[k].specs&&cur[k].specs.length);
+      gearSave(cur);
+      finish();
+    });
   });
 }
 
-/* ---- component detail panel ---- */
 function openGear(k){
   var g=gearAll(),c=g[k];
   if(!c||!c.name)return;
@@ -208,8 +267,10 @@ function openGear(k){
     "<div class='d-artist'>"+esc(slot?slot.label:k)+"</div>"+
     "<div class='d-title'>"+esc(c.name)+"</div>"+
     (c.maker?"<div class='rmeta'>"+esc(c.maker)+"</div>":"")+
-    (c.found===false?"<p class='hint'>Couldn't identify this one from a search \u2014 "+
-      "the specs below may be incomplete. Check the model name, or fill them in yourself.</p>":"")+
+    (c.image?"<img class='gimg' src='"+esc(c.image)+"' alt='' loading='lazy'>":"")+
+    (c.specsUnavailable?"<p class='hint'>Specifications couldn't be fetched \u2014 the AI "+
+      "lookup is out of quota for now. The description below is from Wikipedia; you can "+
+      "type any specs in yourself and they'll be kept.</p>":"")+
     (c.summary?"<p class='gsum'>"+esc(c.summary)+"</p>":"")+
     (c.sound?"<p class='rsounds'>"+esc(c.sound)+"</p>":"")+
     ((c.specs&&c.specs.length)?
@@ -230,6 +291,7 @@ function openGear(k){
       :(c.name?"<p class='hint'>No web sources were used \u2014 treat these specs as unverified.</p>":""))+
     "<div class='ablock' id='geardetail'></div>"+
     "<div class='rlinks'>"+
+      (c.wikiUrl?"<a href='"+esc(c.wikiUrl)+"' target='_blank' rel='noopener'>Wikipedia</a>":"")+
       "<button class='glink' id='gearmore' data-k='"+k+"'>What reviewers say</button>"+
       "<a href='https://www.google.com/search?q="+q+"&tbm=isch' target='_blank' rel='noopener'>Photos</a>"+
     "</div>"+
