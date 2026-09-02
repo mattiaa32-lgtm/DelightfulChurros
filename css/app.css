@@ -360,3 +360,72 @@ path[data-cat]:hover{opacity:.85}
   border-radius:5px;padding:6px 12px;font-size:11.5px;font-family:var(--sans);cursor:pointer}
 .glink:hover{border-color:var(--muted)}
 .glink:disabled{opacity:.6;cursor:default}
+
+/* ================================================================
+   Mobile
+   The app is used mostly on a phone, so this isn't a fallback \u2014 it's
+   the primary case. Charts and tables get room to breathe or scroll
+   rather than being squeezed until labels collide.
+   ================================================================ */
+
+/* The decade charts have up to nine bars (seven decades, plus 20s and
+   an N/A column). Squeezed into a phone width the labels overlap and
+   the bars stop being readable, so below 560px they scroll sideways
+   with a guaranteed minimum bar width instead. */
+.decs{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.decs::-webkit-scrollbar{display:none}
+
+@media (max-width:560px){
+  .wrap{padding:0 14px}
+
+  .decs{gap:8px;height:92px;padding-bottom:2px}
+  .dec{flex:0 0 42px;min-width:42px}          /* scroll rather than shrink */
+  .decl,.decn{font-size:10.5px;white-space:nowrap}
+
+  /* two up rather than three, so numbers keep their size */
+  .kpis{grid-template-columns:repeat(2,1fr);gap:0 14px}
+  .kpi{padding:13px 0 15px}
+  .kval{font-size:26px}
+
+  /* the donut and its legend stack instead of competing for width */
+  .chartrow{flex-direction:column;align-items:center;gap:4px}
+  .donut{width:150px;height:150px}
+  .legend{margin-top:10px;width:100%;flex:1 1 auto}
+  .lgi{padding:6px 0;font-size:13px}
+
+  /* record detail: art and text stop fighting on narrow screens */
+  .head{gap:12px}
+  .d-title{font-size:19px}
+  .facts{grid-template-columns:auto 1fr;gap:4px 12px}
+
+  /* discovery cards */
+  .rec .rart{flex:0 0 66px;width:66px;height:66px}
+  .rt{font-size:16.5px}
+  .rlinks{gap:6px}
+  .rec .rlinks a{padding:6px 10px;font-size:11px}
+
+  /* spec table: labels get their own line rather than being crushed */
+  .spectab td{display:block;width:auto}
+  .spectab td:first-child{padding:8px 0 2px;font-size:11px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--dim)}
+  .spectab td:last-child{padding:0 0 8px}
+  .spectab tr{display:block;border-bottom:1px solid var(--line)}
+  .spectab tr:last-child{border-bottom:0}
+
+  /* chat panel gets more of the screen */
+  .chatpanel{max-height:92vh}
+  .chatpanel .chatlog{padding:12px 14px 4px}
+  .bub{max-width:92%}
+
+  /* tabs stay on one line */
+  .tabs{overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:0 0 auto}
+}
+
+/* very narrow phones */
+@media (max-width:380px){
+  .kpis{grid-template-columns:1fr}
+  .kval{font-size:24px}
+  .mini{display:none}          /* the row's right-hand position hint */
+}
