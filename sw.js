@@ -12,7 +12,7 @@
    The cache name carries a version. Bump SW_VERSION when the shell
    changes; everything under an older name is deleted on activate. */
 
-var SW_VERSION = "v1";
+var SW_VERSION = "v2";
 var SHELL_CACHE = "shelf-shell-" + SW_VERSION;
 var MEDIA_CACHE = "shelf-media-" + SW_VERSION;
 
@@ -29,6 +29,7 @@ var SHELL = [
   "js/dashboard.js",
   "js/hifi.js",
   "js/backup.js",
+  "js/icons.js",
   "js/app.js",
   "manifest.webmanifest",
   "icon.svg",
@@ -60,6 +61,13 @@ function isImage(req, url) {
   return req.destination === "image" ||
          /\.(png|jpg|jpeg|webp|gif|svg)(\?|$)/i.test(url.pathname);
 }
+/* Webfonts are immutable and cross-origin; cache them like images so the
+   app doesn't fall back to system type when offline. */
+function isFont(req, url) {
+  return req.destination === "font" ||
+         url.hostname === "fonts.gstatic.com" ||
+         url.hostname === "fonts.googleapis.com";
+}
 
 self.addEventListener("fetch", function (e) {
   var req = e.request;
@@ -73,7 +81,7 @@ self.addEventListener("fetch", function (e) {
   if (url.pathname.indexOf("/api/") === 0) return;
 
   // Cover art and icons: immutable URLs, so cache first and keep them.
-  if (isImage(req, url)) {
+  if (isImage(req, url) || isFont(req, url)) {
     e.respondWith(
       caches.match(req).then(function (hit) {
         if (hit) return hit;
