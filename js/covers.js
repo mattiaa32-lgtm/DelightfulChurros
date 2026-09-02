@@ -82,6 +82,11 @@ function cover(r,cb,front){
      decade of the music, not of the repress.
    - pressYear: the year of the specific pressing on the shelf. */
 function cachedYear(r){          /* first release — used for decades */
+  /* A year frozen into the sheet wins over everything and stops the
+     record ever being looked up again \u2014 same rule as Cover URL and
+     Description. Remove it from the sheet and the app resolves it
+     afresh, which is how you "unfreeze" one record. */
+  if(r.fy)return r.fy;
   /* Discogs first, then whatever the MusicBrainz / web-search fallback
      resolved (which also covers records with no Discogs id at all). */
   if(r.d){
@@ -92,6 +97,7 @@ function cachedYear(r){          /* first release — used for decades */
   return (y2&&y2!=="0")?y2:"";
 }
 function pressYear(r){
+  if(r.py)return r.py;
   if(!r.d)return "";
   var y=cacheGet("dpress:"+r.d);
   return y&&y!=="0"?y:"";
@@ -99,8 +105,10 @@ function pressYear(r){
 function needsDiscogs(r){
   if(!r.d)return false;
   var haveArt=r.img||cacheGet("dcog:"+r.d);
-  var haveYear=cacheGet("dfirst:"+r.d)&&cacheGet("dpress:"+r.d);
-  return !haveArt||!haveYear;
+  /* a year frozen in the sheet counts as known */
+  var haveFirst=r.fy||cacheGet("dfirst:"+r.d);
+  var havePress=r.py||cacheGet("dpress:"+r.d);
+  return !haveArt||!haveFirst||!havePress;
 }
 /* ---- Discogs request limiter -------------------------------------
    Discogs allows roughly 25 unauthenticated requests a minute. Pacing
