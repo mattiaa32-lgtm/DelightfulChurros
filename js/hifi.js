@@ -154,7 +154,10 @@ function lookupGear(k){
   }).then(function(res){
     if(res.status===429){return res.json().catch(function(){return {};})
       .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;throw e;});}
-    if(!res.ok)throw new Error("failed");
+    if(!res.ok){
+      return res.json().catch(function(){return {};}).then(function(b){
+        var e=new Error("failed");e.detail=(b&&(b.detail||b.error))||null;throw e;});
+    }
     return res.json();
   }).then(function(d){
     var cur=gearAll();
@@ -176,11 +179,16 @@ function lookupGear(k){
     cur[k]=cur[k]||{};cur[k].name=name;
     gearSave(cur);
     renderGearRows();
+    /* say what actually went wrong rather than a generic failure \u2014 a
+       quota problem and a bad model name need different responses */
     alert(err.message==="busy"
       ? (err.quota==="daily"
-          ? "That's the free tier's daily quota \u2014 it resets at midnight Pacific, not in a few minutes."
-          : "Hit the per-minute rate limit \u2014 give it a minute and try again.")
-      : "Couldn't look that up just now. The name is saved; try Look up again later.");
+          ? "That's the free tier's daily quota. It resets at midnight Pacific."
+          : "Hit the per-minute rate limit. Try again in a minute.")
+      : (err.detail
+          ? "The lookup came back in an unexpected shape:\n\n"+err.detail+
+            "\n\nThe name is saved; try Look up again."
+          : "Couldn't reach the lookup service. The name is saved; try again shortly."));
   });
 }
 
