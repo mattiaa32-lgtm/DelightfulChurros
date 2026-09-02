@@ -51,7 +51,7 @@ function computedStats(){
     pdecades:byDecade(pyears),
     yearsKnown:years.length,
     pyearsKnown:pyears.length,
-    withId:withId, withDesc:withDesc
+    withId:withId, noId:RECS.length-withId, withDesc:withDesc
   };
 }
 /* donut chart, drawn as SVG arcs in the category colours already used
@@ -102,25 +102,38 @@ function renderDashComputed(){
       kpi("Linked to Discogs",Math.round(s.withId/s.total*100)+"%",
           s.withId+" of "+s.total+" \u00b7 "+(s.total-s.withId)+" still to link")+
     "</div>"+
-    decadeCard("When the music came out",s.decades,"first",
-      "Original release year, from the Discogs master \u2014 a reissue counts "+
-      "in the decade of the album, not of the repress.",s.yearsKnown,s.total)+
-    decadeCard("When my copies were pressed",s.pdecades,"press",
-      "Pressing year of the specific record on your shelf.",s.pyearsKnown,s.total);
+    decadeCard("Master release decades",s.decades,"first",
+      "When each album first came out, from the Discogs master \u2014 a reissue "+
+      "counts in the decade of the album, not of the repress.",
+      s.yearsKnown,s.total,s.noId)+
+    decadeCard("My pressings by decade",s.pdecades,"press",
+      "When the specific copy on your shelf was pressed, from its Discogs release.",
+      s.pyearsKnown,s.total,s.noId);
 }
 /* Both decade charts share one renderer; `kind` decides which drill-down
    opens when a bar is tapped. */
-function decadeCard(title,rows,kind,note,known,total){
+function decadeCard(title,rows,kind,note,known,total,noId){
   if(!rows||!rows.length)return "";
-  var max=Math.max.apply(null,rows.map(function(x){return x.n;}));
+  var unknown=Math.max(0,total-known);
+  var max=Math.max.apply(null,rows.map(function(x){return x.n;}).concat([unknown]));
+  var bars=rows.map(function(d){
+    return "<button class='dec' data-decade='"+d.d+"' data-kind='"+kind+"'>"+
+      "<div class='decbar' style='height:"+Math.round(d.n/max*100)+"%'></div>"+
+      "<div class='decl'>"+String(d.d).slice(2)+"s</div>"+
+      "<div class='decn'>"+d.n+"</div></button>";
+  }).join("");
+  /* records with no year yet, shown as an outlined bar so it reads as a
+     gap in the data rather than as another decade */
+  if(unknown){
+    bars+="<button class='dec na' data-decade='na' data-kind='"+kind+"'>"+
+      "<div class='decbar nabar' style='height:"+Math.round(unknown/max*100)+"%'></div>"+
+      "<div class='decl'>N/A</div><div class='decn'>"+unknown+"</div></button>";
+  }
+  var foot=note+" Known for "+known+" of "+total+".";
+  if(noId)foot+=" "+noId+" record"+(noId===1?" has":"s have")+" no Discogs link, so no year can be found.";
   return "<div class='deccard'><div class='ktitle'>"+esc(title)+"</div>"+
-    "<div class='decs'>"+rows.map(function(d){
-      return "<button class='dec' data-decade='"+d.d+"' data-kind='"+kind+"'>"+
-        "<div class='decbar' style='height:"+Math.round(d.n/max*100)+"%'></div>"+
-        "<div class='decl'>"+String(d.d).slice(2)+"s</div>"+
-        "<div class='decn'>"+d.n+"</div></button>";
-    }).join("")+"</div>"+
-    "<p class='hint'>"+esc(note)+" Known for "+known+" of "+total+".</p></div>";
+    "<div class='decs'>"+bars+"</div>"+
+    "<p class='hint'>"+esc(foot)+"</p></div>";
 }
 function kpi(label,value,sub,cat){
   /* when a KPI is about one category, make the whole tile a target */
@@ -188,8 +201,41 @@ function loadAssessment(force){
 /* Decade drill-down. Deliberately local-only: the records and their
    cached Discogs years are already on the device, so listing them costs
    nothing. No API call is made for this. */
+/* Which records still have no year, and why — either they have no
+   Discogs link at all, or the lookup hasn't reached them yet. */
+function openUnknownDive(press){
+  var noLink=[],pending=[];
+  RECS.forEach(function(r){
+    var y=press?pressYear(r):cachedYear(r);
+    if(y&&/^\d{4}$/.test(y))return;
+    (r.d?pending:noLink).push(r);
+  });
+  var el=document.getElementById("dashdive");
+  el.hidden=false;
+  function list(arr){
+    return arr.map(function(r){return esc(r.a)+", "+esc(r.t);}).join("<br>");
+  }
+  el.innerHTML=
+    "<div class='assess'>"+
+      "<div class='divehead'><span class='ra'>No "+(press?"pressing":"release")+" year</span>"+
+        "<button class='chip' id='diveclose'>Close</button></div>"+
+      "<div class='ahead'>"+(noLink.length+pending.length)+" record"+
+        ((noLink.length+pending.length)===1?"":"s")+" without a year</div>"+
+      (noLink.length?"<div class='ablock'><div class='ktitle'>No Discogs link \u2014 add one to your sheet</div>"+
+        "<p class='aitem'>"+list(noLink)+"</p></div>":"")+
+      (pending.length?"<div class='ablock'><div class='ktitle'>Not looked up yet \u2014 leave the app open</div>"+
+        "<p class='aitem'>"+list(pending.slice(0,40))+
+        (pending.length>40?"<br>\u2026and "+(pending.length-40)+" more":"")+"</p></div>":"")+
+    "</div>";
+  document.getElementById("diveclose").addEventListener("click",function(){
+    el.hidden=true;el.innerHTML="";
+  });
+  el.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
 function openDecadeDive(dec,kind){
-  var lo=+dec,hi=lo+9,hits=[],press=(kind==="press");
+  var press=(kind==="press");
+  if(dec==="na")return openUnknownDive(press);
+  var lo=+dec,hi=lo+9,hits=[];
   RECS.forEach(function(r){
     var y=press?pressYear(r):cachedYear(r);
     if(y&&/^\d{4}$/.test(y)&&+y>=lo&&+y<=hi){
