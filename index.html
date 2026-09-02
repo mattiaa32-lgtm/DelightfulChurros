@@ -47,12 +47,13 @@
   </div>
   <div id="exportbox">
     <textarea id="exportarea" readonly aria-label="Resolved cover URLs and descriptions, one row per record"></textarea>
-    <p class="hint">One row per record, in the same order as your sheet: Cover URL, then Description,
-      separated by a tab — tap in, select all, copy, then paste into cell F2 of the Collection tab
-      (Sheets fills both columns down for you). Blank cells mean that record hasn't been looked up on
-      this phone yet; open this panel again later, after the app's had time to work through more of
-      the collection in the background, and re-paste to fill in the rest. Once a row has a value, the
-      app always uses it and never looks that record up again.</p>
+    <p class="hint" id="freezestatus"></p>
+    <p class="hint">Four columns per record, in sheet order: <b>Cover URL</b>, <b>Description</b>,
+      <b>First released</b>, <b>Pressing year</b> — tab-separated. Tap in, select all, copy, then
+      paste into cell <b>F2</b> of the Collection tab and Sheets fills all four columns down.
+      Once a cell has a value the app uses it and never looks that record up again, on any device.
+      Add a record and it resolves on its own, then shows up here for the next paste. To redo one
+      record, clear its cells in the sheet and the app resolves it afresh.</p>
   </div>
   <p class="foot">
     Tap a record for its cube, its place in the run and what sits either side.<br>
