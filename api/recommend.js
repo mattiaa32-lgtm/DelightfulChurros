@@ -13,7 +13,10 @@
 // If Gemini ever 404s naming a replacement model, swap MODEL below for
 // whatever the error names \u2014 that's the only change needed.
 
-const MODEL = "gemini-3.5-flash-lite";
+import { callGemini } from "./_gemini.js";
+
+/* Model choice now lives in _gemini.js: quotas are per model, so a
+   request refused by one is retried against the next. */
 
 const MOOD_SYSTEM = [
   "You are a friendly, knowledgeable record-shop regular helping someone choose what to play",
@@ -162,48 +165,32 @@ export default async function handler(req, res) {
     });
   }
 
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/" +
-              MODEL + ":generateContent";
-
-  function body(includeThinking) {
+  function buildBody(model) {
     const b = {
       system_instruction: { parts: [{ text: system }] },
       contents: contents,
       generationConfig: {
-        maxOutputTokens: mode === "discover" ? 1400 : 700,
-        responseMimeType: "application/json"
+        maxOutputTokens: mode === "discover" ? 900 : 700,
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 0 }
       }
     };
-    if (includeThinking) b.generationConfig.thinkingConfig = { thinkingBudget: 0 };
     return JSON.stringify(b);
   }
 
-  async function call(includeThinking) {
-    return fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: body(includeThinking)
-    });
-  }
-
   try {
-    let apiRes = await call(true);
-    if (apiRes.status === 400) apiRes = await call(false);
-
-    if (!apiRes.ok) {
-      const errText = await apiRes.text();
-      return res.status(apiRes.status === 429 ? 429 : 502).json({
-          error: "upstream error",
-          upstreamStatus: apiRes.status,
-          quota: /per day|daily|PerDay/i.test(errText) ? "daily" : "rate",
-          detail: errText.slice(0, 300)
-        });
+    const out = await callGemini(apiKey, buildBody);
+    if (!out.ok) {
+      return res.status(out.status === 429 ? 429 : 502).json({
+        error: "upstream error",
+        upstreamStatus: out.status,
+        quota: out.quota || "rate",
+        quotaId: out.quotaId || null,
+        detail: out.detail || ""
+      });
     }
 
-    const data = await apiRes.json();
-    const cand = data && data.candidates && data.candidates[0];
-    const parts = cand && cand.content && cand.content.parts;
-    const raw = stripFences((parts && parts[0] && parts[0].text) || "");
+    const raw = stripFences(out.text || "");
 
     let parsed = null;
     try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
