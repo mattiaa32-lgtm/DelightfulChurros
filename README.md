@@ -74,6 +74,23 @@ are cache-first since their URLs never change; and `/api/*` is never cached.
 When you change any file in `SHELL`, bump `SW_VERSION` in `sw.js` — older
 caches are deleted automatically on the next activation.
 
+## Rate limits
+
+Gemini's free tier allows roughly **10 requests per minute** and ~1,000 per day
+across the whole key. The app enforces its own lower ceilings in `js/ai.js`:
+
+- `AI_RPM` (8) — total requests per rolling minute
+- `AI_RPM_BG` (5) — background sweeps stop here, leaving room for taps
+- `AI_RPD` (900) — daily ceiling across every endpoint
+
+Anything you tap jumps the queue and can preempt a background job that has not
+yet sent its request.
+
+**Enabling billing on the Google Cloud project raises the limit to thousands of
+requests per minute, and you are not charged unless you exceed the free quota.**
+If you do that, `AI_RPM` and `AI_RPM_BG` can be raised a long way and the
+sweeps will finish in a fraction of the time.
+
 ## Keeping API usage down
 
 The AI is only asked for something once, and the answer is cached on the device:
