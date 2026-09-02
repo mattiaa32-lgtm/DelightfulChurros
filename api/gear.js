@@ -111,6 +111,37 @@ function gearLines(gear) {
   return out.join("\n");
 }
 
+/* Pulls the first balanced {...} or [...] out of a reply. Grounded
+   answers frequently add a sentence before or after the JSON, and a
+   greedy regex grabs that too and then fails to parse. */
+function extractJSON(s) {
+  s = String(s || "");
+  for (let i = 0; i < s.length; i++) {
+    const open = s[i];
+    if (open !== "{" && open !== "[") continue;
+    const close = open === "{" ? "}" : "]";
+    let depth = 0, inStr = false, esc = false;
+    for (let j = i; j < s.length; j++) {
+      const ch = s[j];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === "\\") esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') { inStr = true; continue; }
+      if (ch === open) depth++;
+      else if (ch === close) {
+        depth--;
+        if (depth === 0) {
+          try { return JSON.parse(s.slice(i, j + 1)); } catch (e) { break; }
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -163,7 +194,7 @@ export default async function handler(req, res) {
     const b = {
       system_instruction: { parts: [{ text: system }] },
       contents: [{ role: "user", parts: [{ text: userText }] }],
-      generationConfig: { maxOutputTokens: 1600 }
+      generationConfig: { maxOutputTokens: 3000, thinkingConfig: { thinkingBudget: 0 } }
     };
     // Grounded search and forced JSON mime type can't always be combined,
     // so for spec lookups we ask for JSON in the prompt and parse leniently.
@@ -186,16 +217,19 @@ export default async function handler(req, res) {
     // the feature degrades instead of failing outright \u2014 flagged in the
     // response so the client can warn that specs are unverified.
     let grounded = useSearch;
-    if (useSearch && (res.status === 400 || res.status === 403)) {
+    if (useSearch && (apiRes.status === 400 || apiRes.status === 403)) {
       apiRes = await call(false);
       grounded = false;
     }
 
     if (!apiRes.ok) {
       const t = await apiRes.text();
-      return res.status(apiRes.status === 429 ? 429 : 502).json({ error: "upstream error", upstreamStatus: apiRes.status,
-          quota: /per day|daily|PerDay/i.test(errText) ? "daily" : "rate",
-                               detail: t.slice(0, 300) });
+      return res.status(apiRes.status === 429 ? 429 : 502).json({
+        error: "upstream error",
+        upstreamStatus: apiRes.status,
+        quota: /per day|daily|PerDay/i.test(t) ? "daily" : "rate",
+        detail: t.slice(0, 300)
+      });
     }
 
     const data = await apiRes.json();
@@ -205,13 +239,14 @@ export default async function handler(req, res) {
       .replace(/```json/gi, "").replace(/```/g, "").trim();
 
     let parsed = null;
-    try { parsed = JSON.parse(raw); }
-    catch (e) {
-      const m = raw.match(/[{[][\s\S]*[}\]]/);
-      if (m) { try { parsed = JSON.parse(m[0]); } catch (e2) { parsed = null; } }
-    }
+    try { parsed = JSON.parse(raw); } catch (e) { parsed = extractJSON(raw); }
     if (!parsed) {
-      return res.status(502).json({ error: "unparseable reply" });
+      // include what actually came back so this is debuggable rather
+      // than a blank "couldn't look that up"
+      return res.status(502).json({
+        error: "unparseable reply",
+        detail: raw.slice(0, 200) || "(empty response)"
+      });
     }
 
     // surface the pages the grounding actually used, so specs are checkable
