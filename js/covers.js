@@ -30,17 +30,23 @@ function cover(r,cb,front){
   var key="cov:"+norm(r.a)+"|"+norm(r.t),c=null;
   try{c=localStorage.getItem(key);}catch(e){}
   if(c)return cb(c);
-  if(FAILED[key]||failedRecently(key,72))return cb(null);
-  Q[front?"unshift":"push"](function(done){
+  if(FAILED[key]||failedRecently(key,6))return cb(null);
+  function ask(done){
     var term=encodeURIComponent(query(r));
     jsonp("https://itunes.apple.com/search?term="+term+"&entity=album&limit=1",function(d){
       var u=null;
       try{if(d&&d.results&&d.results[0]&&d.results[0].artworkUrl100)
         u=d.results[0].artworkUrl100.replace(/100x100/,"400x400");}catch(e){}
       if(u){cacheSet(key,u);}else{FAILED[key]=1;markFailed(key);}
-      cb(u);done();
+      cb(u);if(done)done();
     });
-  });
+  }
+  /* Foreground requests skip the queue entirely rather than merely
+     jumping it. The background sweep keeps both queue slots busy for
+     minutes on end, so even a front-of-queue item waits; there are only
+     ever a few on-screen cards, so firing them directly is safe. */
+  if(front){ask(null);return;}
+  Q.push(ask);
   pump();
 }
 /* ---- pressing-accurate cover art via the Discogs API ----
@@ -70,15 +76,25 @@ function cover(r,cb,front){
    years are cached by master id, so different pressings of the same
    album only cost one lookup between them. Everything here is cached
    permanently; nothing is re-fetched once known. */
-function cachedYear(r){
+/* Two different years, both worth knowing:
+   - firstYear: when the album originally came out (the Discogs master).
+     This is what the decade chart uses — a reissue belongs to the
+     decade of the music, not of the repress.
+   - pressYear: the year of the specific pressing on the shelf. */
+function cachedYear(r){          /* first release — used for decades */
   if(!r.d)return "";
   var y=cacheGet("dyear:"+r.d);
+  return y&&y!=="0"?y:"";
+}
+function pressYear(r){
+  if(!r.d)return "";
+  var y=cacheGet("dpress:"+r.d);
   return y&&y!=="0"?y:"";
 }
 function needsDiscogs(r){
   if(!r.d)return false;
   var haveArt=r.img||cacheGet("dcog:"+r.d);
-  var haveYear=cacheGet("dyear:"+r.d);
+  var haveYear=cacheGet("dyear:"+r.d)&&cacheGet("dpress:"+r.d);
   return !haveArt||!haveYear;
 }
 function fetchMasterYear(masterId,cb){
@@ -96,7 +112,7 @@ function fetchMasterYear(masterId,cb){
 /* Fetches the release once and stores whatever is still missing. */
 function fetchDiscogs(r,cb){
   var artKey="dcog:"+r.d,yearKey="dyear:"+r.d;
-  var haveArt=cacheGet(artKey),haveYear=cacheGet(yearKey);
+  var haveArt=cacheGet(artKey),haveYear=cacheGet(yearKey)&&cacheGet("dpress:"+r.d);
   if(haveArt&&haveYear)return cb(haveArt==="0"?null:haveArt);
   fetch("https://api.discogs.com/releases/"+r.d)
     .then(function(res){if(!res.ok)throw 0;return res.json();})
@@ -107,14 +123,15 @@ function fetchDiscogs(r,cb){
         haveArt=u||"0";
       }
       if(haveYear){cb(haveArt==="0"?null:haveArt);return;}
-      var pressYear=(d&&d.year)?String(d.year):null;
+      var py=(d&&d.year)?String(d.year):null;
+      cacheSet("dpress:"+r.d,py||"0");      /* this pressing */
       if(d&&d.master_id){
         fetchMasterYear(d.master_id,function(my){
-          cacheSet(yearKey,my||pressYear||"0");
+          cacheSet(yearKey,my||py||"0");    /* original release */
           cb(haveArt==="0"?null:haveArt);
         });
       }else{
-        cacheSet(yearKey,pressYear||"0");
+        cacheSet(yearKey,py||"0");
         cb(haveArt==="0"?null:haveArt);
       }
     })
@@ -198,7 +215,7 @@ function aiSpeedUp(){
 function cacheGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 function cacheSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 function cacheDel(k){try{localStorage.removeItem(k);}catch(e){}}
-var FAILP="!f:";
+var FAILP="!f2:";
 function failedRecently(key,hours){
   var t=cacheGet(FAILP+key);
   if(!t)return false;
