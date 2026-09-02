@@ -102,7 +102,9 @@ export default async function handler(req, res) {
     catch (e) {
       return res.status(502).json({
         error: "sheet did not return JSON",
-        detail: text.slice(0, 200)
+        detail: text.slice(0, 300),
+        status: r.status,
+        finalUrl: r.url || null
       });
     }
     /* The script always answers with an object carrying ok or error.
