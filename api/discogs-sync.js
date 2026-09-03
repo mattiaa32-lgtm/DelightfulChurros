@@ -20,6 +20,7 @@
 // Owner only. dryRun reports what would change without writing.
 
 import { sheetCall } from "./_sheet.js";
+import { suggestCategory } from "./_categorise.js";
 
 const UA = "ShelfVinylApp/1.0";
 
@@ -98,7 +99,11 @@ export default async function handler(req, res) {
           artist: String(artist).replace(/\s*\(\d+\)$/, "").trim(),
           title: String(b.title || "").trim(),
           year: b.year ? String(b.year) : "",
-          cover: b.cover_image || b.thumb || ""
+          cover: b.cover_image || b.thumb || "",
+          /* genres and styles were being thrown away; they are what
+             makes a sensible category suggestion possible */
+          tags: (b.genres || []).concat(b.styles || []),
+          masterId: b.master_id ? String(b.master_id) : ""
         });
       });
       pages = (d.pagination && d.pagination.pages) || 1;
@@ -121,6 +126,18 @@ export default async function handler(req, res) {
     });
 
     // ---- 3. work out the changes ----
+    /* Suggestions must come from the user's own categories, so they are
+       read from the sheet. If the sheet has none yet (a fresh import),
+       the client sends its list instead. */
+    const catSet = {};
+    rows.forEach(function (r) {
+      const c = String(r[2] || "").trim();
+      if (c) catSet[c] = true;
+    });
+    let cats = Object.keys(catSet);
+    if (!cats.length && Array.isArray(body.categories)) cats = body.categories;
+
+    let suggested = 0;
     const cells = [];            // fills for existing rows
     const newRows = [];          // records not in the sheet at all
     const seen = {};
@@ -142,9 +159,18 @@ export default async function handler(req, res) {
         if (!String(r[8] || "").trim() && it.year) {
           cells.push({ row: hit.row, col: 9, value: it.year }); filledYear++;
         }
+        /* a row imported before suggestions existed, still uncategorised */
+        if (!String(r[2] || "").trim()) {
+          const cat = suggestCategory(it.tags, cats, it.artist);
+          if (cat) { cells.push({ row: hit.row, col: 3, value: cat }); suggested++; }
+        }
       } else {
+        /* Category is a SUGGESTION; cube is deliberately left blank, and
+           that blank is what marks the record as still needing review. */
+        const cat = suggestCategory(it.tags, cats, it.artist);
+        if (cat) suggested++;
         // artist, title, category, cube, id, cover, description, first, pressing, position
-        newRows.push([it.artist, it.title, "", "", it.id, it.cover, "", "", it.year, ""]);
+        newRows.push([it.artist, it.title, cat, "", it.id, it.cover, "", "", it.year, ""]);
       }
     });
 
@@ -163,6 +189,7 @@ export default async function handler(req, res) {
       toFill: cells.length,
       filledCover: filledCover,
       filledYear: filledYear,
+      suggested: suggested,
       notInDiscogs: orphans.length,
       orphans: orphans.slice(0, 20),
       sample: newRows.slice(0, 8).map(function (r) { return r[0] + " \u2014 " + r[1]; })
