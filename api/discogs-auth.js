@@ -93,12 +93,28 @@ export default async function handler(req, res) {
            thing from "not connected yet", and reporting both the same
            way makes the connection look like it silently fails. */
         if (r && r.error) {
+          /* The script's own errors each mean something specific, so
+             match on them rather than assuming one cause. */
+          let hint;
+          if (/unauthoris|unauthoriz|401/i.test(r.error)) {
+            hint = "The script rejected the shared secret. SECRET in Code.gs and " +
+                   "SHEET_WEBHOOK_SECRET in Vercel must match exactly \u2014 note that " +
+                   "re-pasting Code.gs resets SECRET to its placeholder, which also " +
+                   "stops records being added.";
+          } else if (/unknown action/i.test(r.error)) {
+            hint = "The script doesn't recognise getConfig, so it's running an older " +
+                   "Code.gs. Deploy a new version to the deployment whose URL is in " +
+                   "SHEET_WEBHOOK_URL.";
+          } else if (/not found/i.test(r.error)) {
+            hint = "The script couldn't find the sheet tab it expects. SHEET_NAME in " +
+                   "Code.gs must match the tab name (default: Collection).";
+          } else {
+            hint = "The sheet script returned an error. Check Code.gs is deployed as a " +
+                   "new version and that SECRET matches SHEET_WEBHOOK_SECRET.";
+          }
           return res.status(200).json({
             connected: false, user: null, configured: !!(key && sec),
-            storeError: r.error,
-            hint: "The Apps Script doesn't recognise getConfig \u2014 deploy a " +
-                  "new version of Code.gs to the deployment whose URL is in " +
-                  "SHEET_WEBHOOK_URL."
+            storeError: r.error, hint: hint
           });
         }
         return res.status(200).json({
