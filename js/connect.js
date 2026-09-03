@@ -13,6 +13,39 @@
    so clearing is a second, explicitly confirmed choice \u2014 and the
    Apps Script copies the tab before emptying it either way. */
 
+/* A badge in the header, so the connection state is visible without
+   opening anything. The last known state is cached and shown instantly,
+   then refreshed in the background \u2014 otherwise the badge flickers
+   through "unknown" on every load while the check round-trips. */
+function paintConnBadge(state, user){
+  var b = document.getElementById("connbadge");
+  if (!b) return;
+  b.className = "connbadge " + state;
+  if (state === "on"){
+    b.title = "Connected to Discogs as " + (user || "your account");
+    b.innerHTML = svcIcon("discogs", false, 13) + "<span>" + esc(user || "Connected") + "</span>";
+  } else if (state === "off"){
+    b.title = "Not connected to Discogs";
+    b.innerHTML = svcIcon("discogs", false, 13) + "<span>Not connected</span>";
+  } else {
+    b.title = "Checking the Discogs connection";
+    b.innerHTML = svcIcon("discogs", false, 13) + "<span>\u2026</span>";
+  }
+}
+function cachedConn(){
+  try { return JSON.parse(localStorage.getItem("connState") || "null"); }
+  catch (e) { return null; }
+}
+function refreshConnBadge(){
+  var c = cachedConn();
+  paintConnBadge(c ? (c.connected ? "on" : "off") : "unknown", c && c.user);
+  connStatus(function(d){
+    var state = { connected: !!d.connected, user: d.user || null };
+    try { localStorage.setItem("connState", JSON.stringify(state)); } catch (e) {}
+    paintConnBadge(state.connected ? "on" : "off", state.user);
+  });
+}
+
 function connStatus(cb){
   fetch("/api/discogs-auth", {
     method:"POST", headers:{"Content-Type":"application/json"},
@@ -104,6 +137,7 @@ function doDisconnect(){
       msg.textContent = wipe
         ? "Disconnected and cleared " + (d.cleared || 0) + " records. Pull down to refresh."
         : "Disconnected.";
+      refreshConnBadge();
       setTimeout(renderConnect, 1200);
     } else {
       msg.textContent = (d && d.error) || "Couldn't disconnect.";
@@ -113,6 +147,14 @@ function doDisconnect(){
 }
 
 (function(){
+  refreshConnBadge();
+  var badge = document.getElementById("connbadge");
+  if (badge) badge.addEventListener("click", function(){
+    var box = document.getElementById("connbox");
+    box.classList.add("show");
+    renderConnect();
+    box.scrollIntoView({ behavior:"smooth", block:"center" });
+  });
   var link = document.getElementById("connlink");
   if (!link) return;
   link.addEventListener("click", function(e){
