@@ -88,6 +88,19 @@ export default async function handler(req, res) {
     if (body.action === "status") {
       try {
         const r = await sheetCall({ action: "getConfig", key: "discogs_user" });
+        /* An old Apps Script deployment has no getConfig and answers
+           with an error instead of a value. That is a very different
+           thing from "not connected yet", and reporting both the same
+           way makes the connection look like it silently fails. */
+        if (r && r.error) {
+          return res.status(200).json({
+            connected: false, user: null, configured: !!(key && sec),
+            storeError: r.error,
+            hint: "The Apps Script doesn't recognise getConfig \u2014 deploy a " +
+                  "new version of Code.gs to the deployment whose URL is in " +
+                  "SHEET_WEBHOOK_URL."
+          });
+        }
         return res.status(200).json({
           connected: !!(r && r.value),
           user: (r && r.value) || null,
@@ -95,7 +108,7 @@ export default async function handler(req, res) {
         });
       } catch (err) {
         return res.status(200).json({ connected: false, user: null,
-          configured: !!(key && sec), detail: String(err.message) });
+          configured: !!(key && sec), storeError: String(err.message) });
       }
     }
 
@@ -211,7 +224,18 @@ export default async function handler(req, res) {
       const idn = who.ok ? await who.json() : {};
       const username = idn.username || "";
 
-      await sheetCall({ action: "setConfig", key: "discogs_token", value: accessToken });
+      /* Discogs has authorised us, but the connection only persists if
+         the token reaches the sheet. Check the write actually confirmed,
+         otherwise this reports success and the app forgets immediately. */
+      const w1 = await sheetCall({ action: "setConfig", key: "discogs_token", value: accessToken });
+      if (!w1 || w1.ok !== true) {
+        return res.status(200).send(page("Authorised, but not saved",
+          "Discogs authorised the connection, but the token couldn't be stored in " +
+          "the sheet, so it won't persist.<br><br>The sheet said: <code>" +
+          esc(JSON.stringify(w1)).slice(0, 200) + "</code><br><br>" +
+          "This usually means the Apps Script deployment is running an older " +
+          "version of Code.gs without getConfig/setConfig."));
+      }
       await sheetCall({ action: "setConfig", key: "discogs_secret", value: accessSecret });
       await sheetCall({ action: "setConfig", key: "discogs_user", value: username });
 
