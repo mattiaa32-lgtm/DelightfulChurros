@@ -23,6 +23,8 @@
 // GET  /api/discogs-auth?step=callback&...     → Discogs returns here
 // POST /api/discogs-auth { action: "status" | "disconnect", passphrase }
 
+import { sheetCall } from "./_sheet.js";
+
 const UA = "ShelfVinylApp/1.0";
 
 function ownerOK(given) {
@@ -37,26 +39,6 @@ function ownerOK(given) {
 
 /* The sheet doubles as the config store, so the token survives a browser
    being cleared and is shared across devices. */
-async function sheetCall(payload) {
-  const url = process.env.SHEET_WEBHOOK_URL;
-  const secret = process.env.SHEET_WEBHOOK_SECRET;
-  if (!url || !secret) throw new Error("sheet is not configured");
-  const first = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(Object.assign({ secret: secret }, payload)),
-    redirect: "manual"
-  });
-  let r = first;
-  if (first.status >= 300 && first.status < 400) {
-    const loc = first.headers.get("location");
-    if (loc) r = await fetch(loc, { method: "GET", redirect: "follow" });
-  }
-  const text = await r.text();
-  try { return JSON.parse(text); }
-  catch (e) { throw new Error("sheet returned: " + text.slice(0, 120)); }
-}
-
 function oauthHeader(fields) {
   return "OAuth " + Object.keys(fields)
     .map((k) => k + '="' + encodeURIComponent(fields[k]) + '"')
