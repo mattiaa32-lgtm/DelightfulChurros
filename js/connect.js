@@ -296,9 +296,14 @@ function doDisconnect(){
         return;
       }
       try { localStorage.setItem("lastSyncAt", String(Date.now())); } catch (e) {}
-      if (d.toAdd || d.toFill){
-        el.textContent = "Added " + d.toAdd + ", filled " + d.toFill +
-                         " blank cell" + (d.toFill === 1 ? "" : "s") +
+      if (d.toAdd || d.toFill || d.suggested){
+        var bits = [];
+        if (d.toAdd) bits.push("added " + d.toAdd);
+        if (d.suggested) bits.push("suggested " + d.suggested + " categor" +
+                                   (d.suggested === 1 ? "y" : "ies"));
+        if (d.toFill) bits.push("filled " + d.toFill + " blank cell" +
+                                (d.toFill === 1 ? "" : "s"));
+        el.textContent = bits.join(", ").replace(/^./, function(c){ return c.toUpperCase(); }) +
                          ". Pull down to refresh.";
       } else {
         el.textContent = "Already up to date \u2014 nothing new on Discogs.";
