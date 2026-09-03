@@ -200,8 +200,11 @@ export default async function handler(req, res) {
         await sheetCall({ action: "setCells", cells: cells.slice(i, i + 200) });
       }
     }
-    for (let i = 0; i < newRows.length; i++) {
-      await sheetCall({ action: "appendRow", row: newRows[i] });
+    /* In blocks rather than one request per record: a full import used
+       to be hundreds of sequential round trips and timed out partway,
+       leaving the sheet half-filled. */
+    for (let i = 0; i < newRows.length; i += 150) {
+      await sheetCall({ action: "appendRows", rows: newRows.slice(i, i + 150) });
     }
 
     await sheetCall({ action: "setConfig", key: "last_sync",
