@@ -44,7 +44,12 @@
 
   <div id="view-shelf">
   <div id="connbox"><div id="connbody"></div></div>
-  <button class="addtop owner-only" id="addlink">+ &nbsp;Add a record</button>
+  <div class="toprow owner-only">
+    <button class="addtop" id="addlink">+ &nbsp;Add a record</button>
+    <button class="addtop synctop" id="synctop" title="Pull anything new from Discogs">
+      &#8635; &nbsp;Sync</button>
+  </div>
+  <p class="hint synced" id="synced"></p>
   <div id="addbox">
     <div class="addrow">
       <input id="addartist" type="text" placeholder="Artist" aria-label="Artist">
