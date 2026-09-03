@@ -566,3 +566,14 @@ html.is-guest .owner-only{display:none!important}
 #connbox.show{display:block}
 .connwho{font-size:14px;margin:0 0 8px}
 .connwho b{color:var(--accent)}
+
+/* Discogs connection badge, in the header */
+.connbadge{display:inline-flex;align-items:center;gap:5px;margin-left:auto;
+  background:transparent;border:1px solid var(--line);border-radius:5px;
+  padding:4px 9px;font-size:10.5px;font-family:var(--sans);letter-spacing:.06em;
+  cursor:pointer;color:var(--dim);max-width:9.5em;overflow:hidden;white-space:nowrap}
+.connbadge span{overflow:hidden;text-overflow:ellipsis}
+.connbadge.on{color:var(--accent);border-color:rgba(180,101,58,.5)}
+.connbadge.off{color:var(--dim)}
+.connbadge.unknown{opacity:.5}
+.connbadge + .ownerbtn{margin-left:6px}
