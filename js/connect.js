@@ -217,3 +217,61 @@ function doDisconnect(){
     }
   });
 })();
+
+
+/* ---- sync from the shelf ------------------------------------------
+   The connection panel is the right home for connecting, but syncing is
+   something you do routinely \u2014 after buying a record \u2014 so it also
+   sits on the shelf itself. Same call, with the result reported in
+   place rather than opening a panel. */
+(function(){
+  var btn = document.getElementById("synctop");
+  if (!btn) return;
+
+  function showLastSync(){
+    var el = document.getElementById("synced");
+    if (!el) return;
+    var t = null;
+    try { t = localStorage.getItem("lastSyncAt"); } catch (e) {}
+    if (!t) { el.textContent = ""; return; }
+    var mins = Math.round((Date.now() - (+t)) / 60000);
+    el.textContent = mins < 1 ? "Synced just now"
+      : mins < 60 ? "Synced " + mins + " min ago"
+      : mins < 1440 ? "Synced " + Math.round(mins / 60) + "h ago"
+      : "Synced " + Math.round(mins / 1440) + "d ago";
+  }
+  showLastSync();
+
+  btn.addEventListener("click", function(){
+    var el = document.getElementById("synced");
+    if (!isOwner()){ el.textContent = "Unlock editing first."; return; }
+    btn.disabled = true;
+    var was = btn.innerHTML;
+    btn.innerHTML = "\u21bb &nbsp;Syncing\u2026";
+    el.textContent = "Checking Discogs\u2026";
+    fetch("/api/discogs-sync", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ passphrase: ownerPass() })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      btn.disabled = false; btn.innerHTML = was;
+      if (!d || !d.ok){
+        el.textContent = (d && (d.detail || d.error)) || "Sync failed.";
+        return;
+      }
+      try { localStorage.setItem("lastSyncAt", String(Date.now())); } catch (e) {}
+      if (d.toAdd || d.toFill){
+        el.textContent = "Added " + d.toAdd + ", filled " + d.toFill +
+                         " blank cell" + (d.toFill === 1 ? "" : "s") +
+                         ". Pull down to refresh.";
+      } else {
+        el.textContent = "Already up to date \u2014 nothing new on Discogs.";
+      }
+    })
+    .catch(function(){
+      btn.disabled = false; btn.innerHTML = was;
+      el.textContent = "Couldn't reach the sync service.";
+    });
+  });
+})();
