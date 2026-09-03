@@ -11,8 +11,14 @@ function readJSON(r){
 }
 function failMsg(x, what){
   if (!x.d){
+    /* 504 is the platform killing a slow function, which is a very
+       different thing from the file being missing. */
+    if (x.status === 504 || x.status === 408){
+      return "The sync timed out partway. Anything it managed to write is saved \u2014 " +
+             "run it again and it will pick up where it stopped.";
+    }
     return "The " + what + " endpoint returned " + x.status + " and not JSON \u2014 " +
-           "api/discogs-sync.js is probably not deployed yet.";
+           "api/discogs-sync.js may not be deployed.";
   }
   return (x.d.detail ? x.d.error + " \u2014 " + String(x.d.detail).slice(0, 140)
                      : (x.d.error || "Request failed")) + " (HTTP " + x.status + ")";
