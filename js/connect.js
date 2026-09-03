@@ -1,3 +1,23 @@
+/* Reads a response defensively. An endpoint that isn't deployed returns
+   an HTML 404 page; calling .json() on that throws, and the resulting
+   catch reports a network problem when the real answer is "that file
+   isn't there". Reading text first keeps the actual cause visible. */
+function readJSON(r){
+  return r.text().then(function(txt){
+    var d = null;
+    try { d = JSON.parse(txt); } catch (e) {}
+    return { ok: r.ok, status: r.status, d: d, raw: txt };
+  });
+}
+function failMsg(x, what){
+  if (!x.d){
+    return "The " + what + " endpoint returned " + x.status + " and not JSON \u2014 " +
+           "api/discogs-sync.js is probably not deployed yet.";
+  }
+  return (x.d.detail ? x.d.error + " \u2014 " + String(x.d.detail).slice(0, 140)
+                     : (x.d.error || "Request failed")) + " (HTTP " + x.status + ")";
+}
+
 /* =================== connecting to Discogs ==========================
    OAuth, so your Discogs password never reaches this app: the Connect
    button sends you to Discogs' own site to log in and authorise, and
@@ -137,10 +157,11 @@ function doSync(dryRun){
     method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({ passphrase: ownerPass(), dryRun: !!dryRun })
   })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    if (!d || !d.ok){
-      out.innerHTML = "<p class='hint'>" + esc((d && (d.detail || d.error)) || "Sync failed.") + "</p>";
+  .then(readJSON)
+  .then(function(x){
+    var d = x.d;
+    if (!x.ok || !d || !d.ok){
+      out.innerHTML = "<p class='hint'>" + esc(failMsg(x, "sync")) + "</p>";
       return;
     }
     var lines = [];
@@ -164,7 +185,10 @@ function doSync(dryRun){
       "New records have no category or cube yet.</p>";
     out.innerHTML = html;
   })
-  .catch(function(){ out.innerHTML = "<p class='hint'>Couldn't reach the sync service.</p>"; });
+  .catch(function(err){
+    out.innerHTML = "<p class='hint'>Network error calling /api/discogs-sync: " +
+      esc(String(err && err.message || err)) + "</p>";
+  });
 }
 
 function doDisconnect(){
@@ -253,11 +277,12 @@ function doDisconnect(){
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ passphrase: ownerPass() })
     })
-    .then(function(r){ return r.json(); })
-    .then(function(d){
+    .then(readJSON)
+    .then(function(x){
       btn.disabled = false; btn.innerHTML = was;
-      if (!d || !d.ok){
-        el.textContent = (d && (d.detail || d.error)) || "Sync failed.";
+      var d = x.d;
+      if (!x.ok || !d || !d.ok){
+        el.textContent = failMsg(x, "sync");
         return;
       }
       try { localStorage.setItem("lastSyncAt", String(Date.now())); } catch (e) {}
@@ -269,9 +294,10 @@ function doDisconnect(){
         el.textContent = "Already up to date \u2014 nothing new on Discogs.";
       }
     })
-    .catch(function(){
+    .catch(function(err){
       btn.disabled = false; btn.innerHTML = was;
-      el.textContent = "Couldn't reach the sync service.";
+      el.textContent = "Network error calling /api/discogs-sync: " +
+        String(err && err.message || err);
     });
   });
 })();
