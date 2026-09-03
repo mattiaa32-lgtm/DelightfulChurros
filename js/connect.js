@@ -90,12 +90,19 @@ function renderConnect(){
           "Records, covers and years come from Discogs; category, cube and " +
           "position stay yours.</p>" +
         "<div class='addrow'>" +
+          "<button class='chip' id='connsync'>Sync from Discogs</button>" +
+          "<button class='chip' id='connpreview'>Preview changes</button>" +
+        "</div>" +
+        "<div id='syncout'></div>" +
+        "<div class='addrow'>" +
           "<button class='chip' id='conndisc'>Disconnect</button>" +
         "</div>" +
         "<label class='synclab'><input type='checkbox' id='connwipe'> " +
           "Also empty the collection, to start over with another account</label>" +
         "<p class='hint' id='connmsg'></p>";
       document.getElementById("conndisc").addEventListener("click", doDisconnect);
+      document.getElementById("connsync").addEventListener("click", function(){ doSync(false); });
+      document.getElementById("connpreview").addEventListener("click", function(){ doSync(true); });
     } else {
       el.innerHTML =
         "<p class='connwho'>Not connected</p>" +
@@ -115,6 +122,49 @@ function renderConnect(){
       });
     }
   });
+}
+
+/* The sync only adds and fills blanks, but it still touches the sheet,
+   so "Preview changes" runs exactly the same comparison and reports what
+   it would do without writing anything. Worth using the first time. */
+function doSync(dryRun){
+  var out = document.getElementById("syncout");
+  if (!isOwner()){ out.innerHTML = "<p class='hint'>Unlock editing first.</p>"; return; }
+  out.innerHTML = "<p class='hint'>" +
+    (dryRun ? "Comparing with Discogs\u2026" : "Syncing\u2026 this can take a minute for a large collection.") +
+    "</p>";
+  fetch("/api/discogs-sync", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ passphrase: ownerPass(), dryRun: !!dryRun })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (!d || !d.ok){
+      out.innerHTML = "<p class='hint'>" + esc((d && (d.detail || d.error)) || "Sync failed.") + "</p>";
+      return;
+    }
+    var lines = [];
+    lines.push("<b>" + d.collection + "</b> in your Discogs collection, <b>" +
+               d.inSheet + "</b> rows in the sheet.");
+    lines.push(dryRun ? "Would add <b>" + d.toAdd + "</b> new record" + (d.toAdd===1?"":"s") + "."
+                      : "Added <b>" + d.toAdd + "</b> new record" + (d.toAdd===1?"":"s") + ".");
+    if (d.toFill) lines.push((dryRun ? "Would fill" : "Filled") + " <b>" + d.toFill +
+      "</b> blank cell" + (d.toFill===1?"":"s") + " (" + d.filledCover + " covers, " +
+      d.filledYear + " years).");
+    if (d.notInDiscogs) lines.push("<b>" + d.notInDiscogs + "</b> row" +
+      (d.notInDiscogs===1?" is":"s are") + " not in Discogs \u2014 left untouched.");
+    var html = "<p class='hint'>" + lines.join("<br>") + "</p>";
+    if (d.sample && d.sample.length){
+      html += "<p class='hint' style='opacity:.75'>" +
+        d.sample.map(esc).join("<br>") +
+        (d.toAdd > d.sample.length ? "<br>\u2026and " + (d.toAdd - d.sample.length) + " more" : "") +
+        "</p>";
+    }
+    if (!dryRun) html += "<p class='hint'>Pull down to refresh and see them on the shelf. " +
+      "New records have no category or cube yet.</p>";
+    out.innerHTML = html;
+  })
+  .catch(function(){ out.innerHTML = "<p class='hint'>Couldn't reach the sync service.</p>"; });
 }
 
 function doDisconnect(){
