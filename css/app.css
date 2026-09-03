@@ -577,3 +577,9 @@ html.is-guest .owner-only{display:none!important}
 .connbadge.off{color:var(--dim)}
 .connbadge.unknown{opacity:.5}
 .connbadge + .ownerbtn{margin-left:6px}
+
+/* add + sync, side by side at the top of the shelf */
+.toprow{display:flex;gap:8px;margin:14px 0 0}
+.toprow .addtop{margin:0}
+.synctop{flex:0 0 auto;width:auto;white-space:nowrap}
+.synced{margin:6px 0 0;min-height:1em}
