@@ -161,7 +161,8 @@ function doSync(dryRun){
     "</p>";
   fetch("/api/discogs-sync", {
     method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ passphrase: ownerPass(), dryRun: !!dryRun })
+    body: JSON.stringify({ passphrase: ownerPass(), dryRun: !!dryRun,
+                           categories: (typeof COLORS!=="undefined") ? Object.keys(COLORS) : [] })
   })
   .then(readJSON)
   .then(function(x){
@@ -175,6 +176,8 @@ function doSync(dryRun){
                d.inSheet + "</b> rows in the sheet.");
     lines.push(dryRun ? "Would add <b>" + d.toAdd + "</b> new record" + (d.toAdd===1?"":"s") + "."
                       : "Added <b>" + d.toAdd + "</b> new record" + (d.toAdd===1?"":"s") + ".");
+    if (d.suggested) lines.push((dryRun ? "Would suggest" : "Suggested") + " a category for <b>" +
+      d.suggested + "</b> record" + (d.suggested===1?"":"s") + " from its Discogs genres.");
     if (d.toFill) lines.push((dryRun ? "Would fill" : "Filled") + " <b>" + d.toFill +
       "</b> blank cell" + (d.toFill===1?"":"s") + " (" + d.filledCover + " covers, " +
       d.filledYear + " years).");
@@ -281,7 +284,8 @@ function doDisconnect(){
     el.textContent = "Checking Discogs\u2026";
     fetch("/api/discogs-sync", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ passphrase: ownerPass() })
+      body: JSON.stringify({ passphrase: ownerPass(),
+                             categories: (typeof COLORS!=="undefined") ? Object.keys(COLORS) : [] })
     })
     .then(readJSON)
     .then(function(x){
