@@ -35,6 +35,16 @@ function renderConnect(){
       el.innerHTML = "<p class='hint'>Couldn't reach the connection service.</p>";
       return;
     }
+    /* The store being unreachable looks identical to "not connected"
+       unless it's said out loud \u2014 which is why connecting appeared to
+       work and then never stick. */
+    if (d.storeError){
+      el.innerHTML =
+        "<p class='connwho'>Not connected \u2014 and the connection can't be saved</p>" +
+        "<p class='hint'>" + esc(d.storeError) + "</p>" +
+        (d.hint ? "<p class='hint'>" + esc(d.hint) + "</p>" : "");
+      return;
+    }
     if (!d.configured){
       el.innerHTML = "<p class='hint'>Discogs OAuth isn't set up on the server yet \u2014 " +
         "DISCOGS_CONSUMER_KEY and DISCOGS_CONSUMER_SECRET need to be set.</p>";
@@ -55,6 +65,7 @@ function renderConnect(){
       document.getElementById("conndisc").addEventListener("click", doDisconnect);
     } else {
       el.innerHTML =
+        "<p class='connwho'>Not connected</p>" +
         "<p class='hint'>You'll be sent to Discogs to log in and authorise. " +
           "Your password never passes through this app, and you can revoke " +
           "access from your Discogs settings at any time.</p>" +
