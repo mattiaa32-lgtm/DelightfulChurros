@@ -118,6 +118,7 @@ function renderConnect(){
         "<div class='addrow'>" +
           "<button class='chip' id='connsync'>Sync from Discogs</button>" +
           "<button class='chip' id='connpreview'>Preview changes</button>" +
+          "<button class='chip' id='connyears'>Fill release years</button>" +
         "</div>" +
         "<div id='syncout'></div>" +
         "<div class='addrow'>" +
@@ -129,6 +130,7 @@ function renderConnect(){
       document.getElementById("conndisc").addEventListener("click", doDisconnect);
       document.getElementById("connsync").addEventListener("click", function(){ doSync(false); });
       document.getElementById("connpreview").addEventListener("click", function(){ doSync(true); });
+      document.getElementById("connyears").addEventListener("click", fillYears);
     } else {
       el.innerHTML =
         "<p class='connwho'>Not connected</p>" +
@@ -198,6 +200,55 @@ function doSync(dryRun){
     out.innerHTML = "<p class='hint'>Network error calling /api/discogs-sync: " +
       esc(String(err && err.message || err)) + "</p>";
   });
+}
+
+/* Filling original release years is minutes of Discogs lookups, well
+   past one request's budget, so the endpoint does a bounded chunk and
+   says what's left. This keeps calling until it's done, showing
+   progress \u2014 and because every chunk is written as it goes, stopping
+   halfway loses nothing. */
+function fillYears(){
+  var out = document.getElementById("syncout");
+  if (!isOwner()){ out.innerHTML = "<p class='hint'>Unlock editing first.</p>"; return; }
+  var btn = document.getElementById("connyears");
+  if (btn){ btn.disabled = true; btn.textContent = "Filling\u2026"; }
+  var total = 0, filled = 0;
+
+  function step(){
+    fetch("/api/discogs-years", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ passphrase: ownerPass(), limit: 40 })
+    })
+    .then(readJSON)
+    .then(function(x){
+      var d = x.d;
+      if (!x.ok || !d || !d.ok){
+        out.innerHTML = "<p class='hint'>" + esc(failMsg(x, "years")) + "</p>";
+        if (btn){ btn.disabled = false; btn.textContent = "Fill release years"; }
+        return;
+      }
+      filled += d.filled;
+      if (total === 0) total = d.remaining + d.checked;
+      if (!d.done){
+        out.innerHTML = "<p class='hint'>Looking up original release years\u2026 " +
+          "<b>" + Math.max(0, total - d.remaining) + "</b> of " + total +
+          " checked, " + filled + " filled.</p>";
+        setTimeout(step, 400);       /* keep going */
+      } else {
+        out.innerHTML = "<p class='hint'>Done \u2014 filled <b>" + filled +
+          "</b> original release year" + (filled === 1 ? "" : "s") +
+          ". Pull down to refresh.</p>";
+        if (btn){ btn.disabled = false; btn.textContent = "Fill release years"; }
+      }
+    })
+    .catch(function(err){
+      out.innerHTML = "<p class='hint'>Stopped: " + esc(String(err && err.message || err)) +
+        ". Anything already filled is saved \u2014 press again to carry on.</p>";
+      if (btn){ btn.disabled = false; btn.textContent = "Fill release years"; }
+    });
+  }
+  out.innerHTML = "<p class='hint'>Starting\u2026</p>";
+  step();
 }
 
 function doDisconnect(){
