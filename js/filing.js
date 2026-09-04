@@ -90,6 +90,7 @@ function renderFiling(){
       "<button class='chip' id='filingapply'>File " + unfiled.length + " record" +
         (unfiled.length === 1 ? "" : "s") + "</button>" +
       "<button class='chip' id='filingrenum'>Renumber positions</button>" +
+      "<button class='chip' id='filingyears'>Save known years</button>" +
     "</div>" +
     "<p class='hint' id='filingmsg'></p>";
 
@@ -105,6 +106,8 @@ function renderFiling(){
   document.getElementById("filingrenum").addEventListener("click", function(){
     applyFiling(true);
   });
+  var yb = document.getElementById("filingyears");
+  if (yb) yb.addEventListener("click", saveKnownYears);
 }
 
 /* Works out every cell that needs writing, then sends them in batches.
@@ -206,3 +209,41 @@ function renderFilingBanner(){
   });
 }
 onDataReady(renderFilingBanner);
+
+/* ---- persist the years the app already worked out ------------------
+   The decade charts have been reading years from this browser's cache,
+   filled by the background lookups. That means they exist on one device
+   and nowhere else: clear the cache, or open the app on a laptop, and
+   they're gone.
+
+   The sheet is the durable copy, so this writes what's already known
+   straight into column H. No API calls, no quota, no waiting — the
+   values are sitting in localStorage already. Whatever genuinely isn't
+   known yet is left for the Discogs master lookup. */
+function saveKnownYears(){
+  var msg = document.getElementById("filingmsg");
+  function say(t){ if (msg) msg.textContent = t; }
+  if (!isOwner()){ say("Unlock editing first."); return; }
+
+  var cells = [];
+  RECS.forEach(function(r){
+    if (r.fy) return;                       /* already in the sheet */
+    var y = (typeof cachedYear === "function") ? cachedYear(r) : "";
+    if (/^\d{4}$/.test(y)) cells.push({ row: r.row, col: 8, value: y });
+  });
+
+  if (!cells.length){
+    say("Nothing to save \u2014 no years cached that aren't already in the sheet.");
+    return;
+  }
+  say("Saving " + cells.length + " year" + (cells.length === 1 ? "" : "s") + "\u2026");
+  sheetWrite("setCells", { cells: cells }, function(err){
+    if (err){
+      say(err.message === "read-only" ? "Unlock editing first."
+                                      : "Couldn't write: " + err.message);
+      return;
+    }
+    say("Saved " + cells.length + " original release year" +
+        (cells.length === 1 ? "" : "s") + " to the sheet. Pull down to refresh.");
+  });
+}
