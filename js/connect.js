@@ -1,7 +1,7 @@
 /* Bumped whenever the client changes in a way you should be able to
    see. Shown in the connection panel, so "have I deployed this yet?"
    is answerable without digging through Vercel. */
-var APP_BUILD = "2026-09-04 \u00b7 years";
+var APP_BUILD = "2026-09-04 \u00b7 auto-years";
 
 /* Reads a response defensively. An endpoint that isn't deployed returns
    an HTML 404 page; calling .json() on that throws, and the resulting
@@ -136,7 +136,7 @@ function renderConnect(){
       document.getElementById("conndisc").addEventListener("click", doDisconnect);
       document.getElementById("connsync").addEventListener("click", function(){ doSync(false); });
       document.getElementById("connpreview").addEventListener("click", function(){ doSync(true); });
-      document.getElementById("connyears").addEventListener("click", fillYears);
+      document.getElementById("connyears").addEventListener("click", function(){ fillYears(); });
     } else {
       el.innerHTML =
         "<p class='connwho'>Not connected</p>" +
@@ -199,8 +199,17 @@ function doSync(dryRun){
         "</p>";
     }
     if (!dryRun) html += "<p class='hint'>Pull down to refresh and see them on the shelf. " +
-      "New records have no category or cube yet.</p>";
+      "New records have no cube yet.</p>";
     out.innerHTML = html;
+    /* A record's original release year is part of importing it, not a
+       separate chore to remember \u2014 so the master lookups run straight
+       after a sync that brought anything in. */
+    if (!dryRun && d.toAdd){
+      var tail = document.createElement("p");
+      tail.className = "hint";
+      out.appendChild(tail);
+      fillYears({ el: tail, asText: true });
+    }
   })
   .catch(function(err){
     out.innerHTML = "<p class='hint'>Network error calling /api/discogs-sync: " +
@@ -213,9 +222,16 @@ function doSync(dryRun){
    says what's left. This keeps calling until it's done, showing
    progress \u2014 and because every chunk is written as it goes, stopping
    halfway loses nothing. */
-function fillYears(){
-  var out = document.getElementById("syncout");
-  if (!isOwner()){ out.innerHTML = "<p class='hint'>Unlock editing first.</p>"; return; }
+function fillYears(opts){
+  opts = opts || {};
+  var out = opts.el || document.getElementById("syncout");
+  var asText = !!opts.asText;              /* plain text target vs innerHTML */
+  function show(t){
+    if (!out) return;
+    if (asText) out.textContent = t.replace(/<[^>]+>/g, "");
+    else out.innerHTML = "<p class='hint'>" + t + "</p>";
+  }
+  if (!isOwner()){ show("Unlock editing first."); return; }
   var btn = document.getElementById("connyears");
   if (btn){ btn.disabled = true; btn.textContent = "Filling\u2026"; }
   var total = 0, filled = 0;
@@ -229,31 +245,35 @@ function fillYears(){
     .then(function(x){
       var d = x.d;
       if (!x.ok || !d || !d.ok){
-        out.innerHTML = "<p class='hint'>" + esc(failMsg(x, "years")) + "</p>";
+        show(esc(failMsg(x, "years")));
         if (btn){ btn.disabled = false; btn.textContent = "Fill release years"; }
+        if (opts.then) opts.then();
         return;
       }
       filled += d.filled;
       if (total === 0) total = d.remaining + d.checked;
       if (!d.done){
-        out.innerHTML = "<p class='hint'>Looking up original release years\u2026 " +
-          "<b>" + Math.max(0, total - d.remaining) + "</b> of " + total +
-          " checked, " + filled + " filled.</p>";
+        show("Looking up original release years\u2026 <b>" +
+             Math.max(0, total - d.remaining) + "</b> of " + total +
+             " checked, " + filled + " filled.");
         setTimeout(step, 400);       /* keep going */
       } else {
-        out.innerHTML = "<p class='hint'>Done \u2014 filled <b>" + filled +
-          "</b> original release year" + (filled === 1 ? "" : "s") +
-          ". Pull down to refresh.</p>";
+        show(filled
+          ? "Done \u2014 filled <b>" + filled + "</b> original release year" +
+            (filled === 1 ? "" : "s") + ". Pull down to refresh."
+          : "Original release years were already complete.");
         if (btn){ btn.disabled = false; btn.textContent = "Fill release years"; }
+        if (opts.then) opts.then();
       }
     })
     .catch(function(err){
-      out.innerHTML = "<p class='hint'>Stopped: " + esc(String(err && err.message || err)) +
-        ". Anything already filled is saved \u2014 press again to carry on.</p>";
+      show("Stopped: " + esc(String(err && err.message || err)) +
+           ". Anything already filled is saved \u2014 press again to carry on.");
       if (btn){ btn.disabled = false; btn.textContent = "Fill release years"; }
+      if (opts.then) opts.then();
     });
   }
-  out.innerHTML = "<p class='hint'>Starting\u2026</p>";
+  show("Starting\u2026");
   step();
 }
 
@@ -362,6 +382,8 @@ function doDisconnect(){
                                 (d.toFill === 1 ? "" : "s"));
         el.textContent = bits.join(", ").replace(/^./, function(c){ return c.toUpperCase(); }) +
                          ". Pull down to refresh.";
+        /* carry straight on into the original-release-year lookups */
+        if (d.toAdd) fillYears({ el: el, asText: true });
       } else {
         el.textContent = "Already up to date \u2014 nothing new on Discogs.";
       }
