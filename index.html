@@ -50,6 +50,8 @@
       &#8635; &nbsp;Sync</button>
   </div>
   <p class="hint synced" id="synced"></p>
+  <p class="filingbanner owner-only" id="filingbanner" hidden></p>
+  <div id="filingbox"><div id="filingbody"></div></div>
   <div id="addbox">
     <div class="addrow">
       <input id="addartist" type="text" placeholder="Artist" aria-label="Artist">
@@ -92,6 +94,7 @@
     Tap a record for its cube, its place in the run and what sits either side.<br>
     <a href="#" id="qrlink">Make a QR code for the shelf</a><br>
     <a href="#" id="exportlink">Freeze resolved covers &amp; descriptions for your sheet</a><br>
+    <a href="#" id="filinglink">File records into cubes</a> &middot;
     <a href="#" id="connlink">Discogs connection</a> &middot;
     <a href="#" id="backuplink">Back up this device</a> &middot;
     <a href="#" id="restorelink">Restore from a backup</a>
@@ -212,6 +215,7 @@
 <script src="js/hifi.js"></script>
 <script src="js/add.js"></script>
 <script src="js/connect.js"></script>
+<script src="js/filing.js"></script>
 <script src="js/backup.js"></script>
 <script src="js/ptr.js"></script>
 <script src="js/auth.js"></script>
