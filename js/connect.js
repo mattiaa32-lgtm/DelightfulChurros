@@ -1,3 +1,8 @@
+/* Bumped whenever the client changes in a way you should be able to
+   see. Shown in the connection panel, so "have I deployed this yet?"
+   is answerable without digging through Vercel. */
+var APP_BUILD = "2026-09-04 \u00b7 years";
+
 /* Reads a response defensively. An endpoint that isn't deployed returns
    an HTML 404 page; calling .json() on that throws, and the resulting
    catch reports a network problem when the real answer is "that file
@@ -126,7 +131,8 @@ function renderConnect(){
         "</div>" +
         "<label class='synclab'><input type='checkbox' id='connwipe'> " +
           "Also empty the collection, to start over with another account</label>" +
-        "<p class='hint' id='connmsg'></p>";
+        "<p class='hint' id='connmsg'></p>" +
+        "<p class='hint' style='opacity:.55'>App build " + esc(APP_BUILD) + "</p>";
       document.getElementById("conndisc").addEventListener("click", doDisconnect);
       document.getElementById("connsync").addEventListener("click", function(){ doSync(false); });
       document.getElementById("connpreview").addEventListener("click", function(){ doSync(true); });
