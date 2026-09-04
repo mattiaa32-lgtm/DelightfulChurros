@@ -590,3 +590,20 @@ html.is-guest .owner-only{display:none!important}
 .toprow .addtop{margin:0}
 .synctop{flex:0 0 auto;width:auto;white-space:nowrap}
 .synced{margin:6px 0 0;min-height:1em}
+
+/* ---- filing categories into cubes ---- */
+#filingbox{display:none;padding:14px 0 4px;border-bottom:1px solid var(--line)}
+#filingbox.show{display:block}
+.filingbanner{margin:8px 0 0;padding:9px 12px;border:1px dashed rgba(180,101,58,.45);
+  border-radius:7px;color:var(--muted);font-size:12.5px}
+.filingbanner a{color:var(--accent)}
+.filerow{display:flex;align-items:center;gap:10px;padding:9px 0;
+  border-bottom:1px solid var(--line)}
+.filerow:last-of-type{border-bottom:0}
+.filecat{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:8px;
+  font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filedot{width:9px;height:9px;border-radius:2px;flex:0 0 9px}
+.filecount{flex:0 0 auto;font-size:11px;color:var(--dim);white-space:nowrap}
+.filesel{flex:0 0 auto;background:var(--surface2);border:1px solid var(--line);
+  color:var(--text);border-radius:5px;padding:6px 8px;font-size:12px;
+  font-family:var(--sans);max-width:8.5em}
