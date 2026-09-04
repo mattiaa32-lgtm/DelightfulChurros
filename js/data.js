@@ -142,12 +142,17 @@ function recordSortKey(r){
    half-filled column still behaves sensibly. */
 function adopt(rows){
   var recs = rows.map(function(r){
-    var c = (String(r[3]).match(/[1-4]/) || ["1"])[0], m = CUBEMAP[c];
+    var rawCube = (r[3] === undefined || r[3] === null) ? "" : String(r[3]).trim();
+    var c = (rawCube.match(/[1-4]/) || ["1"])[0], m = CUBEMAP[c];
     var posRaw = (r[9] === undefined || r[9] === null) ? "" : String(r[9]).trim();
     var pos = /^-?\d+(\.\d+)?$/.test(posRaw) ? parseFloat(posRaw) : null;
     return {
       a:(r[0]||"").trim(), t:(r[1]||"").trim(), c:(r[2]||"").trim(),
       k:+c, r:m[0], co:m[1],
+      /* A blank cube falls back to 1 for display, but "filed" and
+         "happens to be in cube 1" are different things \u2014 this is what
+         the filing screen uses to tell them apart. */
+      cubeSet: /[1-4]/.test(rawCube),
       d:(r[4]||"").trim()||null,
       img:(r[5]||"").trim()||null,
       desc:(r[6]||"").trim()||null,
