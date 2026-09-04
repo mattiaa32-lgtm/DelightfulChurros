@@ -607,3 +607,44 @@ html.is-guest .owner-only{display:none!important}
 .filesel{flex:0 0 auto;background:var(--surface2);border:1px solid var(--line);
   color:var(--text);border-radius:5px;padding:6px 8px;font-size:12px;
   font-family:var(--sans);max-width:8.5em}
+
+/* ================================================================
+   Dropdowns
+   A native <select> ignores most styling and renders as a white system
+   box, which is jarring on a dark UI. appearance:none takes control of
+   the field, and the chevron is drawn as a background image since the
+   native one disappears with it. The option list itself is still drawn
+   by the OS \u2014 that part can't be styled \u2014 so the colours are set
+   explicitly to keep it legible on both platforms.
+   ================================================================ */
+select{
+  -webkit-appearance:none;appearance:none;
+  background-color:var(--surface2);
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238E877E' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  border:1px solid var(--line);
+  color:var(--text);
+  border-radius:6px;
+  padding:9px 30px 9px 12px;
+  font-size:13px;
+  font-family:var(--sans);
+  line-height:1.3;
+  outline:none;
+}
+select:focus{border-color:var(--accent)}
+select option{background:#17130F;color:#F4F0E8}
+
+/* ---- filing panel, sitting in the page rather than on top of it ---- */
+#filingbox{padding:4px 0 8px}
+#filingbox .cubemap{margin:2px 0 0}
+.cmrow{display:flex;align-items:center;gap:10px;padding:10px 0;
+  border-bottom:1px solid var(--line)}
+.cmrow:last-child{border-bottom:0}
+.cmdot{width:9px;height:9px;border-radius:2px;flex:0 0 9px}
+.cmname{flex:1 1 auto;min-width:0;font-size:13px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.cmn{flex:0 0 auto;font-size:11px;color:var(--dim);min-width:2.2em;text-align:right}
+.cmsel{flex:0 0 auto;max-width:9.5em;padding:7px 28px 7px 10px;font-size:12.5px}
+#filingbox .hint{margin:0 0 12px}
+.filingbanner{background:rgba(180,101,58,.06)}
