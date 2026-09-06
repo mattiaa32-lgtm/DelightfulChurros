@@ -1,7 +1,7 @@
 /* Bumped whenever the client changes in a way you should be able to
    see. Shown in the connection panel, so "have I deployed this yet?"
    is answerable without digging through Vercel. */
-var APP_BUILD = "2026-09-04 \u00b7 arrivals";
+var APP_BUILD = "2026-09-04 \u00b7 arrivals+years";
 
 /* Reads a response defensively. An endpoint that isn't deployed returns
    an HTML 404 page; calling .json() on that throws, and the resulting
@@ -202,9 +202,12 @@ function doSync(dryRun){
       "New records have no cube yet.</p>";
     out.innerHTML = html;
     /* A record's original release year is part of importing it, not a
-       separate chore to remember \u2014 so the master lookups run straight
-       after a sync that brought anything in. */
-    if (!dryRun && d.toAdd){
+       separate chore to remember. This runs after every sync, not only
+       one that added records: a sync interrupted before the year pass,
+       or records imported by an older build, would otherwise never get
+       one. The endpoint returns immediately when there is nothing
+       missing, so this costs nothing when the sheet is complete. */
+    if (!dryRun){
       var tail = document.createElement("p");
       tail.className = "hint";
       out.appendChild(tail);
@@ -383,9 +386,10 @@ function doDisconnect(){
         el.textContent = bits.join(", ").replace(/^./, function(c){ return c.toUpperCase(); }) +
                          ". Pull down to refresh.";
         /* carry straight on into the original-release-year lookups */
-        if (d.toAdd) fillYears({ el: el, asText: true });
+        fillYears({ el: el, asText: true });
       } else {
         el.textContent = "Already up to date \u2014 nothing new on Discogs.";
+        fillYears({ el: el, asText: true });
       }
     })
     .catch(function(err){
