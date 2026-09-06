@@ -15,7 +15,7 @@
 // POST { passphrase, limit? }
 // -> { ok, filled, remaining, done, checked }
 
-import { sheetCall } from "./_sheet.js";
+import { sheetCall, getConfig } from "./_sheet.js";
 
 const UA = "ShelfVinylApp/1.0";
 const GAP_MS = 1100;          // ~55/min, just inside Discogs' ceiling
@@ -71,10 +71,20 @@ export default async function handler(req, res) {
   const limit = Math.min(60, Math.max(1, parseInt(body.limit, 10) || 40));
 
   try {
-    const token = (await sheetCall({ action: "getConfig", key: "discogs_token" })).value;
-    const secret = (await sheetCall({ action: "getConfig", key: "discogs_secret" })).value;
-    const user = (await sheetCall({ action: "getConfig", key: "discogs_user" })).value;
-    if (!token || !user) return res.status(400).json({ error: "Discogs isn't connected" });
+    /* One request rather than three: each round trip is a chance for a
+       transient failure, and a single miss here reads as "not
+       connected" even though the connection is fine. */
+    const cfg = await getConfig(["discogs_token", "discogs_secret", "discogs_user"]);
+    const token = cfg.discogs_token;
+    const secret = cfg.discogs_secret;
+    const user = cfg.discogs_user;
+    if (!token || !user) {
+      return res.status(400).json({
+        error: "Discogs isn't connected",
+        detail: "No token found in the sheet's Config tab. If you are connected, " +
+                "this was a transient read — try again."
+      });
+    }
 
     const auth = () => ({
       "Authorization": oauthAuth(token, secret || ""),
