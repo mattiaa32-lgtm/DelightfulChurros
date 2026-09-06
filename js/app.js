@@ -38,4 +38,5 @@ warmDescCache();
 loadSheet();
 /* the year fallback runs on a delay so the Discogs sweep gets first go
    at each record; it then only chases what Discogs couldn't answer */
-onDataReady(function(){setTimeout(warmYearCache,20000);});
+/* The background year sweep is gone: years now come from Discogs during
+   a sync and live in the sheet, so there is nothing to chase here. */
