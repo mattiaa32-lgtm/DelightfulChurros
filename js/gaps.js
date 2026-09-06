@@ -30,79 +30,165 @@ function renderGaps(){
   if (!el) return;
   var g = gapReport();
 
+  /* key, label, records, why, which step fills it */
   var rows = [
-    ["Discogs link",     g.noId,       "matched by artist and title when you sync"],
-    ["Cover",            g.noCover,    "comes from Discogs with the record"],
-    ["First released",   g.noFirst,    "looked up from the Discogs master release"],
-    ["Pressing year",    g.noPress,    "comes from Discogs with the record"],
-    ["Category",         g.noCategory, "suggested from the Discogs genres"],
-    ["Cube",             g.noCube,     "you choose \u2014 see New arrivals"],
-    ["Description",      g.noDesc,     "written by the AI, and quota-limited"]
+    ["sync",  "Discogs link",   g.noId,       "matched by artist and title when you sync"],
+    ["sync",  "Cover",          g.noCover,    "comes from Discogs with the record"],
+    ["years", "First released", g.noFirst,    "looked up from the Discogs master release"],
+    ["sync",  "Pressing year",  g.noPress,    "comes from Discogs with the record"],
+    ["sync",  "Category",       g.noCategory, "suggested from the Discogs genres"],
+    [null,    "Cube",           g.noCube,     "you choose \u2014 see New arrivals"],
+    ["desc",  "Description",    g.noDesc,     "written by the AI, and quota-limited"]
   ];
 
-  var anyMissing = rows.some(function(r){ return r[1].length; });
+  var fixable = {};
+  rows.forEach(function(r){ if (r[0] && r[2].length) fixable[r[0]] = true; });
+  var anyFixable = Object.keys(fixable).length > 0;
 
   el.innerHTML =
     "<p class='hint'>What the sheet is missing, out of <b>" + g.total + "</b> records.</p>" +
     rows.map(function(r){
-      var n = r[1].length;
+      var n = r[2].length;
       return "<div class='gaprow" + (n ? "" : " done") + "'>" +
-        "<span class='gapname'>" + esc(r[0]) + "</span>" +
+        "<span class='gapname'>" + esc(r[1]) + "</span>" +
         "<span class='gapn'>" + (n ? n + " missing" : "complete") + "</span>" +
-        "<span class='gapwhy'>" + esc(r[2]) + "</span>" +
+        "<span class='gapwhy'>" + esc(r[3]) + "</span>" +
       "</div>";
     }).join("") +
-    (anyMissing
-      ? "<div class='addrow' style='margin-top:14px'>" +
+    (anyFixable
+      ? "<p class='hint' style='margin-top:14px'>What should it fill in?</p>" +
+        "<div class='gappicks'>" +
+          (fixable.sync ? pick("sync", "Discogs data", "links, covers, pressing years, categories") : "") +
+          (fixable.years ? pick("years", "Release years", g.noFirst.length + " to look up") : "") +
+          (fixable.desc ? pick("desc", "Descriptions", g.noDesc.length + " to write \u2014 uses AI quota") : "") +
+        "</div>" +
+        "<div class='prog' id='gapsprog' hidden><div class='progbar' id='gapsbar'></div></div>" +
+        "<div class='addrow' style='margin-top:12px'>" +
           "<button class='chip' id='gapsfill'>Fill in what's missing</button>" +
           "<span class='hint' id='gapsmsg'></span>" +
         "</div>"
-      : "<p class='hint' style='margin-top:12px'>Nothing missing.</p>");
+      : "<p class='hint' style='margin-top:12px'>Nothing left that the app can fill.</p>");
 
   var b = document.getElementById("gapsfill");
   if (b) b.addEventListener("click", fillGaps);
 }
 
-/* Runs the steps in the order their data depends on: the sync first
-   (records, covers, pressing years, categories), then the master-year
-   lookups, which need the Discogs ids the sync provides. */
+function pick(key, label, note){
+  return "<label class='gappick'><input type='checkbox' class='gapcb' value='" + key +
+    "' checked> <span><b>" + esc(label) + "</b><br><span class='ahint'>" +
+    esc(note) + "</span></span></label>";
+}
+
+/* One bar for the whole run, so a long fill shows movement rather than
+   a frozen button. */
+function setProgress(done, total){
+  var wrap = document.getElementById("gapsprog");
+  var bar = document.getElementById("gapsbar");
+  if (!wrap || !bar) return;
+  if (!total){ wrap.hidden = true; return; }
+  wrap.hidden = false;
+  /* Clamped: the total is estimated from the first batch, and a later
+     batch can report more work than that estimate. A bar that runs past
+     the end looks broken. */
+  var pct = Math.round(done / Math.max(1, total) * 100);
+  bar.style.width = Math.min(100, Math.max(2, pct)) + "%";
+}
+
+/* Runs only the chosen steps, in the order their data depends on: the
+   sync first (records, covers, pressing years, categories), then the
+   master-year lookups, which need the ids the sync provides, then the
+   descriptions, which are the slow quota-bound part. */
 function fillGaps(){
   var msg = document.getElementById("gapsmsg");
   var btn = document.getElementById("gapsfill");
   function say(t){ if (msg) msg.textContent = t; }
   if (!isOwner()){ say("Unlock editing first."); return; }
-  if (btn) btn.disabled = true;
 
-  say("Syncing from Discogs\u2026");
-  fetch("/api/discogs-sync", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ passphrase: ownerPass(),
-      categories: (typeof COLORS !== "undefined") ? Object.keys(COLORS) : [] })
-  })
-  .then(readJSON)
-  .then(function(x){
-    var d = x.d;
-    if (!x.ok || !d || !d.ok) throw new Error(failMsg(x, "sync"));
-    var bits = [];
-    if (d.toAdd) bits.push("added " + d.toAdd);
-    if (d.toFill) bits.push("filled " + d.toFill + " cell" + (d.toFill===1?"":"s"));
-    if (d.suggested) bits.push("suggested " + d.suggested + " categor" +
-                               (d.suggested===1?"y":"ies"));
-    say((bits.length ? bits.join(", ") + ". " : "") + "Looking up release years\u2026");
-    /* fillYears reports into the same line and calls back when done */
-    fillYears({ el: msg, asText: true, then: function(){
-      if (btn) btn.disabled = false;
-      /* re-read the sheet so the report reflects what just happened */
-      setTimeout(function(){
-        if (typeof loadSheet === "function") loadSheet();
-        setTimeout(renderGaps, 1500);
-      }, 400);
-    }});
-  })
-  .catch(function(err){
-    say(String(err && err.message || err));
-    if (btn) btn.disabled = false;
+  var want = {};
+  [].forEach.call(document.querySelectorAll(".gapcb"), function(cb){
+    if (cb.checked) want[cb.value] = true;
   });
+  if (!Object.keys(want).length){ say("Pick at least one thing to fill."); return; }
+
+  if (btn) btn.disabled = true;
+  var steps = ["sync","years","desc"].filter(function(k){ return want[k]; });
+  var stepNo = 0;
+
+  function finish(note){
+    if (btn) btn.disabled = false;
+    setProgress(0, 0);
+    say(note || "Done. Pull down to refresh.");
+    setTimeout(function(){
+      if (typeof loadSheet === "function") loadSheet();
+      setTimeout(renderGaps, 1500);
+    }, 400);
+  }
+
+  function nextStep(){
+    if (stepNo >= steps.length) return finish();
+    var step = steps[stepNo++];
+    setProgress(stepNo - 1, steps.length);
+
+    if (step === "sync"){
+      say("Syncing from Discogs\u2026");
+      fetch("/api/discogs-sync", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ passphrase: ownerPass(),
+          categories: (typeof COLORS !== "undefined") ? Object.keys(COLORS) : [] })
+      })
+      .then(readJSON)
+      .then(function(x){
+        var d = x.d;
+        if (!x.ok || !d || !d.ok) return finish(failMsg(x, "sync"));
+        var bits = [];
+        if (d.toAdd) bits.push("added " + d.toAdd);
+        if (d.toFill) bits.push("filled " + d.toFill);
+        if (d.suggested) bits.push("suggested " + d.suggested);
+        say(bits.length ? bits.join(", ") + "." : "Nothing new from Discogs.");
+        nextStep();
+      })
+      .catch(function(e){ finish(String(e && e.message || e)); });
+      return;
+    }
+
+    if (step === "years"){
+      fillYears({ el: msg, asText: true, then: nextStep });
+      return;
+    }
+
+    /* descriptions: small batches, looping, with the bar tracking the
+       records rather than the steps since this is the long one */
+    var total = 0, written = 0;
+    (function batch(){
+      fetch("/api/descriptions", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ passphrase: ownerPass(), limit: 6 })
+      })
+      .then(readJSON)
+      .then(function(x){
+        var d = x.d;
+        if (!x.ok || !d || !d.ok) return finish(failMsg(x, "descriptions"));
+        written += d.filled;
+        total = Math.max(total, written + d.remaining);
+        setProgress(written, total || 1);
+        if (d.quota){
+          return finish("Wrote " + written + " description" + (written===1?"":"s") +
+            ", then hit the " + (d.quota === "daily" ? "daily" : "per-minute") +
+            " AI limit. Press again later to carry on.");
+        }
+        if (!d.done){
+          say("Writing descriptions\u2026 " + written + " of " + total + ".");
+          setTimeout(batch, 500);
+        } else {
+          say("Wrote " + written + " description" + (written===1?"":"s") + ".");
+          nextStep();
+        }
+      })
+      .catch(function(e){ finish(String(e && e.message || e)); });
+    })();
+  }
+
+  nextStep();
 }
 
 (function(){
