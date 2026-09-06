@@ -398,7 +398,7 @@ function loadSystem(force){
     if(res.status===429){return res.json().catch(function(){return {};})
       .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;
         e.quotaId=q&&q.quotaId;e.detail=q&&q.detail;throw e;});}
-    if(!res.ok)throw new Error("failed");
+    if(!res.ok)return aiFail(res);
     return res.json();
   }).then(function(a){
     try{localStorage.setItem(key,JSON.stringify(a));}catch(e){}
@@ -409,7 +409,7 @@ function loadSystem(force){
         ? (err.quota==="daily"
           ? "That's the free tier's daily quota \u2014 it resets at midnight Pacific, not in a few minutes."
           : "Hit the per-minute rate limit \u2014 give it a minute and try again.")
-        : "Couldn't evaluate the system just now.")+"</p>";
+        : aiErrText(err, "the evaluator"))+"</p>";
     sysBusy=false;
   });
 }
@@ -494,7 +494,7 @@ function loadGearDetail(k){
   }).then(function(res){
     if(res.status===429){return res.json().catch(function(){return {};})
       .then(function(qq){var e=new Error("busy");e.quota=qq&&qq.quota;throw e;});}
-    if(!res.ok)throw new Error("failed");
+    if(!res.ok)return aiFail(res);
     return res.json();
   }).then(function(d){
     try{localStorage.setItem(key,JSON.stringify(d));}catch(e){}
