@@ -14,6 +14,23 @@
 //     request \u2014 so a response that isn't JSON is retried once before
 //     being treated as a failure.
 
+/* Reads every setting, tolerating an Apps Script that predates
+   getConfigAll by falling back to individual reads. */
+export async function getConfig(keys) {
+  try {
+    const d = await sheetCall({ action: "getConfigAll" });
+    if (d && d.config) return d.config;
+  } catch (e) {
+    if (!/unknown action/i.test(String(e && e.message))) throw e;
+  }
+  const out = {};
+  for (const k of keys) {
+    const d = await sheetCall({ action: "getConfig", key: k });
+    out[k] = d && d.value;
+  }
+  return out;
+}
+
 export async function sheetCall(payload, opts) {
   const url = process.env.SHEET_WEBHOOK_URL;
   const secret = process.env.SHEET_WEBHOOK_SECRET;
