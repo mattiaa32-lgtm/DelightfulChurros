@@ -199,46 +199,13 @@ function resolvedDesc(r){
   var c=null;try{c=localStorage.getItem("desc2:"+norm(r.a)+"|"+norm(r.t));}catch(e){}
   return (c&&c!=="0")?c:"";
 }
-function exportedRows(){
-  return RECS.map(function(r){
-    var desc=resolvedDesc(r).replace(/[\t\r\n]+/g," ").trim();
-    /* four columns, F through I: cover, description, first release,
-       pressing year. A cell is blank only when nothing has resolved
-       yet \u2014 pasting blanks over existing sheet values would be
-       destructive, so anything already frozen is echoed back out. */
-    return [resolvedCover(r),desc,cachedYear(r)||"",pressYear(r)||""].join("\t");
-  }).join("\n");
-}
-/* How many records have something resolved on this device that isn't in
-   the sheet yet. This is what makes freezing self-maintaining: add a
-   record (or clear a cell to re-resolve one) and this count goes up,
-   telling you a fresh export is worth pasting. */
-function unfrozenCount(){
-  var n=0;
-  RECS.forEach(function(r){
-    if((!r.img&&resolvedCover(r))||
-       (!r.desc&&resolvedDesc(r))||
-       (!r.fy&&cachedYear(r))||
-       (!r.py&&pressYear(r)))n++;
-  });
-  return n;
-}
-function freezeStatus(){
-  var n=unfrozenCount(),total=RECS.length;
-  if(!n)return "Everything resolved is already in your sheet \u2014 nothing to paste.";
-  return n+" of "+total+" record"+(n===1?" has":"s have")+
-         " something new to freeze. Copy the box above into cell F2.";
-}
-document.getElementById("exportlink").addEventListener("click",function(e){
-  e.preventDefault();
-  var box=document.getElementById("exportbox");
-  if(box.classList.contains("show")){box.classList.remove("show");return;}
-  box.classList.add("show");
-  var ta=document.getElementById("exportarea");
-  ta.value=exportedRows();
-  var st=document.getElementById("freezestatus");
-  if(st)st.textContent=freezeStatus();
-  ta.focus();ta.select();
-  box.scrollIntoView({behavior:"smooth",block:"center"});});
+/* The freeze/export panel lived here: it produced tab-separated rows to
+   paste into the sheet by hand, back when the app could only read it.
+   The app now writes covers, descriptions and years itself, so keeping a
+   manual export around would just be a trap \u2014 it would look like the
+   way to save things long after it stopped being needed.
+
+   resolvedCover and resolvedDesc above are kept: the gap report uses
+   them to tell "not resolved" from "resolved but not yet in the sheet". */
 
 /* ---- optional Google Sheet ---- */
