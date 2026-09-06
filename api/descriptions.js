@@ -18,17 +18,30 @@
 import { sheetCall } from "./_sheet.js";
 import { callGemini } from "./_gemini.js";
 
+/* One request per record was the wrong shape entirely. The free tier
+   limits REQUESTS, not words, so asking for one description at a time
+   spent the whole allowance on overhead: a couple of dozen records and
+   the quota was gone. Describing twenty per request buys roughly twenty
+   times as many records for the same quota, and is far faster besides. */
+const BATCH = 20;
+
 const SYSTEM = [
   "You label records in a vinyl collection app.",
-  "Reply with exactly two short clauses joined by a period, plain text only \u2014",
-  "no quotes, no preamble, no markdown, under 160 characters total.",
-  "First clause: a concrete fact about the release itself (its place in the",
-  "artist's discography, the year, or the label) \u2014 only state something",
-  "you're genuinely confident about, and omit it rather than invent a",
-  "specific detail you're unsure of.",
-  "Second clause: what the album actually sounds like \u2014 mood, energy,",
-  "key instrumentation, vocal style."
-].join(" ");
+  "You will be given a numbered list of albums. Describe EVERY one.",
+  "",
+  "For each album write exactly two short clauses joined by a period:",
+  "first a concrete fact about the release (its place in the artist's",
+  "discography, the year, or the label) \u2014 state only what you are",
+  "genuinely confident about, and omit it rather than invent a detail;",
+  "then what the album actually sounds like \u2014 mood, energy, key",
+  "instrumentation, vocal style. Under 160 characters each.",
+  "",
+  "Reply with ONLY a JSON object mapping each number to its description,",
+  "no markdown fences and no commentary:",
+  '{"1":"...","2":"...","3":"..."}',
+  "Include every number you were given. If you genuinely do not know an",
+  "album, give the sound description alone rather than inventing facts."
+].join("\n");
 
 function ownerOK(given) {
   const owner = process.env.OWNER_PASSPHRASE;
@@ -58,9 +71,9 @@ export default async function handler(req, res) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
 
-  /* Small by design: the free tier's per-minute allowance is the binding
-     constraint, not the function's time budget. */
-  const limit = Math.min(12, Math.max(1, parseInt(body.limit, 10) || 6));
+  /* How many records to describe in ONE request. Larger means fewer
+     requests against the quota, at the cost of a longer reply. */
+  const limit = Math.min(40, Math.max(1, parseInt(body.limit, 10) || BATCH));
 
   try {
     const sheet = await sheetCall({ action: "read" });
@@ -85,31 +98,55 @@ export default async function handler(req, res) {
     const cells = [];
     let quotaHit = null;
 
-    for (const item of chunk) {
-      const prompt =
-        "Artist: " + item.artist +
-        "\nAlbum: " + item.title +
-        "\nGenre category (from the collector's own sheet): " + (item.cat || "unknown") +
-        "\nRelease year (if known): " + (item.year || "unknown") +
-        "\n\nWrite the two-clause description now.";
+    /* Numbered so the reply can be mapped back to rows unambiguously \u2014
+       matching on titles would break on near-duplicates. */
+    const listing = chunk.map(function (it, n) {
+      return (n + 1) + ". " + it.artist + " \u2014 " + it.title +
+             (it.cat ? "  [" + it.cat + "]" : "") +
+             (it.year ? "  (" + it.year + ")" : "");
+    }).join("\n");
 
-      const out = await callGemini(apiKey, function () {
-        return JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM }] },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 120, thinkingConfig: { thinkingBudget: 0 } }
-        });
+    const out = await callGemini(apiKey, function () {
+      return JSON.stringify({
+        system_instruction: { parts: [{ text: SYSTEM }] },
+        contents: [{ role: "user", parts: [{ text:
+          "Describe these " + chunk.length + " albums:\n\n" + listing }] }],
+        generationConfig: {
+          maxOutputTokens: 120 * chunk.length + 400,
+          responseMimeType: "application/json",
+          thinkingConfig: { thinkingBudget: 0 }
+        }
       });
+    });
 
-      if (!out.ok) {
-        /* Out of quota: stop cleanly rather than burning the rest of the
-           chunk on calls that will also fail. */
-        if (out.status === 429) { quotaHit = out.quota || "rate"; break; }
-        continue;                       // a one-off failure: skip this record
+    if (!out.ok) {
+      if (out.status === 429) {
+        return res.status(200).json({
+          ok: true, filled: 0, checked: 0,
+          remaining: todo.length, done: true,
+          quota: out.quota || "rate"
+        });
       }
-      const text = String(out.text || "").replace(/\s+/g, " ").trim();
-      if (text) cells.push({ row: item.row, col: 7, value: text.slice(0, 300) });
+      return res.status(502).json({ error: "the model refused", detail: out.detail });
     }
+
+    let parsed = null;
+    try {
+      parsed = JSON.parse(String(out.text || "").replace(/```json/gi, "").replace(/```/g, "").trim());
+    } catch (e) { parsed = null; }
+    if (!parsed) {
+      return res.status(502).json({
+        error: "unparseable reply",
+        detail: String(out.text || "").slice(0, 200)
+      });
+    }
+
+    chunk.forEach(function (it, n) {
+      const v = parsed[String(n + 1)] || parsed[n + 1];
+      if (!v) return;
+      const text = String(v).replace(/\s+/g, " ").trim();
+      if (text) cells.push({ row: it.row, col: 7, value: text.slice(0, 300) });
+    });
 
     if (cells.length) {
       await sheetCall({ action: "setCells", cells: cells });
