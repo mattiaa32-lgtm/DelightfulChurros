@@ -106,18 +106,47 @@ export default async function handler(req, res) {
              (it.year ? "  (" + it.year + ")" : "");
     }).join("\n");
 
-    const out = await callGemini(apiKey, function () {
-      return JSON.stringify({
+    /* Not every model accepts every generation option. Rather than
+       failing on a 400, drop the optional parts and try again: JSON
+       response mode and the thinking budget are optimisations, not
+       requirements \u2014 the reply parses either way. */
+    function buildBody(opts) {
+      const b = {
         system_instruction: { parts: [{ text: SYSTEM }] },
         contents: [{ role: "user", parts: [{ text:
           "Describe these " + chunk.length + " albums:\n\n" + listing }] }],
-        generationConfig: {
-          maxOutputTokens: 120 * chunk.length + 400,
-          responseMimeType: "application/json",
-          thinkingConfig: { thinkingBudget: 0 }
-        }
-      });
+        generationConfig: { maxOutputTokens: 120 * chunk.length + 400 }
+      };
+      if (opts.json) b.generationConfig.responseMimeType = "application/json";
+      if (opts.noThink) b.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      return JSON.stringify(b);
+    }
+
+    let out = await callGemini(apiKey, function () {
+      return buildBody({ json: true, noThink: true });
     });
+    if (!out.ok && out.status === 400) {
+      out = await callGemini(apiKey, function () { return buildBody({ json: true }); });
+    }
+    if (!out.ok && out.status === 400) {
+      out = await callGemini(apiKey, function () { return buildBody({}); });
+    }
+    /* Still refused: the batch itself may be too large for this model.
+       Halving it is better than reporting failure and filling nothing. */
+    if (!out.ok && out.status === 400 && chunk.length > 4) {
+      chunk.length = Math.ceil(chunk.length / 2);
+      out = await callGemini(apiKey, function () {
+        return JSON.stringify({
+          system_instruction: { parts: [{ text: SYSTEM }] },
+          contents: [{ role: "user", parts: [{ text:
+            "Describe these " + chunk.length + " albums:\n\n" +
+            chunk.map(function (it, n) {
+              return (n + 1) + ". " + it.artist + " \u2014 " + it.title;
+            }).join("\n") }] }],
+          generationConfig: { maxOutputTokens: 120 * chunk.length + 400 }
+        });
+      });
+    }
 
     if (!out.ok) {
       if (out.status === 429) {
@@ -127,7 +156,12 @@ export default async function handler(req, res) {
           quota: out.quota || "rate"
         });
       }
-      return res.status(502).json({ error: "the model refused", detail: out.detail });
+      return res.status(502).json({
+        error: "the model refused the request",
+        detail: out.detail,
+        model: out.model || null,
+        attempted: out.attempted || []
+      });
     }
 
     let parsed = null;
