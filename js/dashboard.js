@@ -185,7 +185,7 @@ function loadAssessment(force){
   }).then(function(res){
     if(res.status===429){return res.json().catch(function(){return {};})
       .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;throw e;});}
-    if(!res.ok)throw new Error("failed");
+    if(!res.ok)return aiFail(res);
     return res.json();
   }).then(function(a){
     try{localStorage.setItem(key,JSON.stringify(a));}catch(e){}
@@ -196,7 +196,7 @@ function loadAssessment(force){
         ? (err.quota==="daily"
           ? "That's the free tier's daily quota \u2014 it resets at midnight Pacific, not in a few minutes."
           : "Hit the per-minute rate limit \u2014 give it a minute and try again.")
-        : "Couldn't reach the assessment service just now.")+"</p>";
+        : aiErrText(err, "the assessment service"))+"</p>";
     dashBusy=false;
   });
 }
@@ -318,7 +318,7 @@ function openCatDive(cat){
   }).then(function(res){
     if(res.status===429){return res.json().catch(function(){return {};})
       .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;throw e;});}
-    if(!res.ok)throw new Error("failed");
+    if(!res.ok)return aiFail(res);
     return res.json();
   }).then(function(d){
     try{localStorage.setItem(key,JSON.stringify(d));}catch(e){}
@@ -329,7 +329,7 @@ function openCatDive(cat){
         ? (err.quota==="daily"
           ? "That's the free tier's daily quota \u2014 it resets at midnight Pacific, not in a few minutes."
           : "Hit the per-minute rate limit \u2014 give it a minute and try again.")
-        : "Couldn't load that category just now.")+"</p>";
+        : aiErrText(err, "the category deep dive"))+"</p>";
     diveBusy=false;
   });
 }
