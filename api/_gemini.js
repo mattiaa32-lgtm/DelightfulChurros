@@ -74,6 +74,46 @@ async function listModels(apiKey) {
  *
  * Resolves to { ok, status, data, model, text, quota, quotaId, detail }.
  */
+/* Not every model accepts every generation option, and the ones that
+   don't answer 400 INVALID_ARGUMENT with no indication of which field
+   was the problem. `thinkingConfig` and `responseMimeType` are both
+   optimisations rather than requirements, so on a 400 they are stripped
+   and the request retried. Doing this here means every endpoint gets it
+   — previously each had to remember, and most didn't. */
+async function postWithFallbacks(model, apiKey, buildBody) {
+  const raw = buildBody(model);
+  const variants = [raw];
+
+  let parsed = null;
+  try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
+
+  if (parsed && parsed.generationConfig) {
+    const g = parsed.generationConfig;
+    if (g.thinkingConfig) {
+      const a = JSON.parse(raw);
+      delete a.generationConfig.thinkingConfig;
+      variants.push(JSON.stringify(a));
+    }
+    if (g.responseMimeType) {
+      const b = JSON.parse(raw);
+      delete b.generationConfig.responseMimeType;
+      if (b.generationConfig.thinkingConfig) delete b.generationConfig.thinkingConfig;
+      variants.push(JSON.stringify(b));
+    }
+  }
+
+  let res = null;
+  for (let i = 0; i < variants.length; i++) {
+    res = await fetch(ENDPOINT + model + ":generateContent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: variants[i]
+    });
+    if (res.status !== 400) return res;      // 400 is the only one worth retrying
+  }
+  return res;
+}
+
 export async function callGemini(apiKey, buildBody, opts) {
   opts = opts || {};
   let models = orderedModels();
@@ -85,11 +125,7 @@ export async function callGemini(apiKey, buildBody, opts) {
     attempted.push(model);
     let res;
     try {
-      res = await fetch(ENDPOINT + model + ":generateContent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        body: buildBody(model)
-      });
+      res = await postWithFallbacks(model, apiKey, buildBody);
     } catch (err) {
       last = { ok: false, status: 0, detail: String(err && err.message) };
       continue;
