@@ -204,6 +204,36 @@ function aiFetch(url, opts, priority){
     aiPump();
   });
 }
+/* Turns a failed response into an Error that still carries the server's
+   explanation. Throwing a bare Error("failed") discarded exactly the
+   part that says what went wrong, so every AI feature reported the same
+   unhelpful "couldn't reach it just now" regardless of cause. */
+function aiFail(res){
+  return res.json().catch(function(){ return {}; }).then(function(b){
+    var e = new Error(b && b.error ? String(b.error) : ("HTTP " + res.status));
+    e.status = res.status;
+    e.detail = b && b.detail;
+    e.quota = b && b.quota;
+    e.attempted = b && b.attempted;
+    if (res.status === 429) e.message = "busy";
+    throw e;
+  });
+}
+
+/* A sentence for the user, from whatever we actually know. */
+function aiErrText(err, what){
+  if (!err) return "Couldn't reach " + what + ".";
+  if (err.message === "busy"){
+    return err.quota === "daily"
+      ? "That's the free tier's daily AI quota \u2014 it resets at midnight Pacific."
+      : "Hit the per-minute AI limit \u2014 give it a minute and try again.";
+  }
+  if (err.message === "timeout") return "The request took too long and was stopped.";
+  var bits = [err.message];
+  if (err.detail) bits.push(String(err.detail).slice(0, 160));
+  return bits.join(" \u2014 ");
+}
+
 /* Convenience for the common "someone tapped something" case. */
 function aiFetchUser(url, opts){ return aiFetch(url, opts, "user"); }
 /* ...and for the sweeps, which must always yield to the above. */
