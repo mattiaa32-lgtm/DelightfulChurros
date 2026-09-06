@@ -60,7 +60,7 @@ function renderGaps(){
         "<div class='gappicks'>" +
           (fixable.sync ? pick("sync", "Discogs data", "links, covers, pressing years, categories") : "") +
           (fixable.years ? pick("years", "Release years", g.noFirst.length + " to look up") : "") +
-          (fixable.desc ? pick("desc", "Descriptions", g.noDesc.length + " to write \u2014 uses AI quota") : "") +
+          (fixable.desc ? pick("desc", "Descriptions", g.noDesc.length + " to write \u2014 about " + Math.ceil(g.noDesc.length/20) + " AI requests") : "") +
         "</div>" +
         "<div class='prog' id='gapsprog' hidden><div class='progbar' id='gapsbar'></div></div>" +
         "<div class='addrow' style='margin-top:12px'>" +
@@ -162,7 +162,7 @@ function fillGaps(){
     (function batch(){
       fetch("/api/descriptions", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ passphrase: ownerPass(), limit: 6 })
+        body: JSON.stringify({ passphrase: ownerPass(), limit: 20 })
       })
       .then(readJSON)
       .then(function(x){
@@ -174,11 +174,14 @@ function fillGaps(){
         if (d.quota){
           return finish("Wrote " + written + " description" + (written===1?"":"s") +
             ", then hit the " + (d.quota === "daily" ? "daily" : "per-minute") +
-            " AI limit. Press again later to carry on.");
+            " AI limit. " + (d.quota === "daily"
+              ? "It resets at midnight Pacific."
+              : "Wait a minute and press again.") +
+            " Everything written is saved.");
         }
         if (!d.done){
           say("Writing descriptions\u2026 " + written + " of " + total + ".");
-          setTimeout(batch, 500);
+          setTimeout(batch, 1200);   /* stay clear of the per-minute limit */
         } else {
           say("Wrote " + written + " description" + (written===1?"":"s") + ".");
           nextStep();
