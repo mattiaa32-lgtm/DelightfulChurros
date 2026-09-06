@@ -13,7 +13,11 @@ a spreadsheet rather than in code.
 index.html          markup and script tags
 css/app.css         all styling
 js/data.js          sheet loading, baked-in fallback copy, API_BASE
-js/covers.js        cover art + AI descriptions, caching, request throttling
+js/covers.js        cover art, caching, request throttling
+js/gaps.js          what the sheet is missing, and filling it
+js/arrivals.js      placing newly synced records on the shelf
+js/filing.js        which category lives in which cube
+js/connect.js       Discogs connection and syncing
 js/shelf.js         the shelf list, search, filters, record detail sheet
 js/want.js          wantlist (stored on the device)
 js/discover.js      daily recommendations
@@ -102,8 +106,8 @@ The AI is only asked for something once, and the answer is cached on the device:
 
 - **Cover art** — Discogs (exact pressing) then iTunes. Successes *and*
   failures are cached; a record that returns nothing is not retried for 72h.
-- **Descriptions** — one call per record, ever. Empty results are cached for
-  24h so they aren't re-requested on every app open.
+- **Descriptions** — written into the sheet, 20 per AI request. Once a row
+  has one it is never asked for again.
 - **Collection assessment** and **category deep dives** — cached against a
   hash of the collection, so they only regenerate when records actually change.
 - **System evaluation** — cached against a hash of the gear list.
