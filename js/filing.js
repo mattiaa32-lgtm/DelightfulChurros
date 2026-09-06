@@ -198,13 +198,16 @@ function renderFilingBanner(){
   var n = RECS.filter(isUnfiled).length;
   if (!n || !isOwner()){ el.hidden = true; return; }
   el.hidden = false;
-  el.innerHTML = "<b>" + n + "</b> record" + (n === 1 ? "" : "s") +
-    " not filed into a cube yet. <a href='#' id='filingopen'>File them</a>";
+  el.innerHTML = "<b>" + n + "</b> new record" + (n === 1 ? "" : "s") +
+    " to place on the shelf. <a href='#' id='filingopen'>Place " +
+    (n === 1 ? "it" : "them") + "</a>";
   document.getElementById("filingopen").addEventListener("click", function(e){
     e.preventDefault();
-    var box = document.getElementById("filingbox");
+    /* the banner is about new records, so it opens the arrivals list
+       rather than the whole-shelf layout screen */
+    var box = document.getElementById("arrivalsbox");
     box.classList.add("show");
-    renderFiling();
+    if (typeof renderArrivals === "function") renderArrivals();
     box.scrollIntoView({ behavior:"smooth", block:"center" });
   });
 }
