@@ -122,15 +122,11 @@ export default async function handler(req, res) {
       return JSON.stringify(b);
     }
 
+    /* The shared caller now strips rejected generation options itself,
+       so this only needs to ask once. */
     let out = await callGemini(apiKey, function () {
       return buildBody({ json: true, noThink: true });
     });
-    if (!out.ok && out.status === 400) {
-      out = await callGemini(apiKey, function () { return buildBody({ json: true }); });
-    }
-    if (!out.ok && out.status === 400) {
-      out = await callGemini(apiKey, function () { return buildBody({}); });
-    }
     /* Still refused: the batch itself may be too large for this model.
        Halving it is better than reporting failure and filling nothing. */
     if (!out.ok && out.status === 400 && chunk.length > 4) {
