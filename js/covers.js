@@ -392,107 +392,19 @@ function fillArt(scope){
   });
 }
 
-/* ================= filling the remaining release years ==============
-   Discogs answers most of them, but it can't answer for a record with
-   no Discogs id in the sheet, and it occasionally has no year on either
-   the release or its master. Two fallbacks run for whatever is left:
+/* The MusicBrainz and AI year lookups used to live here.
+   ---------------------------------------------------------------
+   They existed because Discogs couldn't always be reached for a year,
+   so the app guessed from other sources and cached the answer in the
+   browser. Both are now redundant: the sync writes the pressing year,
+   the master lookup writes the original release year, and both land in
+   the sheet where every device can see them.
 
-   1. MusicBrainz \u2014 its release-group carries `first-release-date`,
-      which is precisely "when the album first came out". Free, no key,
-      structured data rather than a guess. Rate-limited to ~1 request a
-      second, which their terms ask for.
-   2. /api/year \u2014 Gemini with Google Search grounding, for the handful
-      MusicBrainz doesn't know. Slower and quota-bound, so it only ever
-      sees records that got past step 1.
+   Leaving them running was actively harmful \u2014 they spent AI quota on
+   data the sheet already held, competing with the descriptions that
+   genuinely need it. cachedYear below still reads the old cache, so
+   anything resolved that way keeps working until the sheet catches up. */
 
-   Results are keyed by artist+title (not Discogs id), so records with no
-   id are covered too, and are cached permanently like every other
-   lookup. A record is only asked about once. */
-function atKey(r){return norm(r.a)+"|"+norm(r.t);}
-function resolvedFirstYear(r){
-  var y=r.d?cacheGet("dfirst:"+r.d):null;
-  if(y&&y!=="0")return y;
-  var y2=cacheGet("yfix:"+atKey(r));
-  return (y2&&y2!=="0")?y2:"";
-}
-var MB_MIN_GAP=1100, mbLast=0;
-function mbFetch(url){
-  return new Promise(function(resolve,reject){
-    var wait=Math.max(0,mbLast+MB_MIN_GAP-Date.now());
-    setTimeout(function(){
-      mbLast=Date.now();
-      fetch(url).then(function(res){
-        if(!res.ok)return reject(new Error("http"));
-        res.json().then(resolve,reject);
-      },reject);
-    },wait);
-  });
-}
-function mbFirstYear(r,cb){
-  var q=encodeURIComponent('artist:"'+artistQ(r.a)+'" AND releasegroup:"'+titleQ(r.t)+'"');
-  mbFetch("https://musicbrainz.org/ws/2/release-group/?query="+q+"&fmt=json&limit=1")
-    .then(function(d){
-      var g=d&&d["release-groups"]&&d["release-groups"][0];
-      var dt=g&&(g["first-release-date"]||"");
-      var m=/^(\d{4})/.exec(dt||"");
-      cb(m?m[1]:null);
-    })
-    .catch(function(){cb(null);});
-}
-function aiYear(r,cb){
-  /* second arg: did we actually get to ask? */
-  if(aiHalted||aiBudgetExhausted())return cb(null,false);
-  aiSpend();
-  aiFetchBg(API_BASE+"year?artist="+encodeURIComponent(artistQ(r.a))+
-        "&title="+encodeURIComponent(titleQ(r.t)))
-    .then(function(res){
-      if(res.status===429){aiHalt();throw 0;}
-      if(!res.ok)throw 0;
-      return res.json();
-    })
-    .then(function(d){cb(d&&d.year?String(d.year):null,true);})
-    .catch(function(){cb(null,false);});
-}
-var yearQ=[],yearQueued={},yearRunning=false;
-function pumpYears(){
-  if(yearRunning||!yearQ.length)return;
-  yearRunning=true;
-  var r=yearQ.shift(),key="yfix:"+atKey(r);
-  /* `looked` records whether the sources were actually consulted. If the
-     AI was skipped because the daily quota is gone, the answer is "not
-     checked yet", NOT "no year exists" \u2014 writing "0" in that case
-     permanently marked hundreds of records as unknown, which is why the
-     decade charts collapsed back to N/A. */
-  function finish(y,looked){
-    if(y)cacheSet(key,y);
-    else if(looked)cacheSet(key,"0");
-    else {delete yearQueued[atKey(r)];}   /* leave it for next time */
-    if(y&&typeof renderDashComputed==="function"&&
-       !document.getElementById("view-dash").hidden){
-      renderDashComputed();          /* keep the chart live while it fills */
-    }
-    yearRunning=false;
-    setTimeout(pumpYears,120);
-  }
-  mbFirstYear(r,function(y){
-    if(y)return finish(y,true);
-    aiYear(r,function(y2,didAsk){finish(y2,didAsk);});
-  });
-}
-/* Runs after the Discogs sweep has had its turn, so it only picks up
-   what Discogs genuinely couldn't answer. */
-function warmYearCache(){
-  RECS.forEach(function(r){
-    var k=atKey(r);
-    if(yearQueued[k])return;
-    if(resolvedFirstYear(r))return;              /* already known */
-    if(cacheGet("yfix:"+k))return;               /* already tried */
-    if(r.d&&!cacheGet("dfirst:"+r.d))return;     /* let Discogs try first */
-    yearQueued[k]=1;
-    yearQ.push(r);
-  });
-  pumpYears();
-}
 
 /* One-off: the previous build wrote "0" (meaning "no year exists") for
    records it never actually managed to check, because the AI quota had
