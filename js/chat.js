@@ -95,7 +95,7 @@ function sendAsk(text){
     }).then(function(res){
       if(res.status===429){return res.json().catch(function(){return {};})
       .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;throw e;});}
-      if(!res.ok)throw new Error("failed");
+      if(!res.ok)return aiFail(res);
       return res.json();
     }).then(function(recs){
       thinking.remove();
@@ -118,7 +118,7 @@ function sendAsk(text){
         ? (err.quota==="daily"
           ? "That's the free tier's daily quota \u2014 it resets at midnight Pacific, not in a few minutes."
           : "Hit the per-minute rate limit \u2014 give it a minute and try again.")
-        : "Couldn't reach the recommender just now. Try again in a moment.");
+        : aiErrText(err, "the recommender"));
       chatBusy=false;
     });
     return;
@@ -132,7 +132,7 @@ function sendAsk(text){
   }).then(function(res){
     if(res.status===429){return res.json().catch(function(){return {};})
       .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;throw e;});}
-    if(!res.ok)throw new Error("failed");
+    if(!res.ok)return aiFail(res);
     return res.json();
   }).then(function(d){
     thinking.remove();
@@ -147,7 +147,7 @@ function sendAsk(text){
       ? (err.quota==="daily"
           ? "That's the free tier's daily quota \u2014 it resets at midnight Pacific, not in a few minutes."
           : "Hit the per-minute rate limit \u2014 give it a minute and try again.")
-      : "Couldn't reach the recommender just now. Try again in a moment.");
+      : aiErrText(err, "the recommender"));
     chatBusy=false;
   });
 }
