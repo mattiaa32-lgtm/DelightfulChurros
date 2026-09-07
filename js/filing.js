@@ -67,6 +67,13 @@ function orderOf(cat){
   return (typeof o[cat] === "number") ? o[cat] : 999;
 }
 
+/* 1..n for the configured shelf. */
+function cubeList(){
+  var out = [], n = (typeof cubeCount === "function") ? cubeCount() : 4;
+  for (var i = 1; i <= n; i++) out.push(i);
+  return out;
+}
+
 function renderFiling(){
   var el = document.getElementById("filingbody");
   if (!el) return;
@@ -93,7 +100,8 @@ function renderFiling(){
        alphabetical list: which categories share a cube, and in what
        order they run along it. */
     (function(){
-      var groups = { 1:[], 2:[], 3:[], 4:[], 0:[] };
+      var groups = { 0:[] };
+      cubeList().forEach(function(n){ groups[n] = []; });
       names.forEach(function(c){ (groups[map[c] || 0]).push(c); });
       Object.keys(groups).forEach(function(k){
         groups[k].sort(function(a, b){
@@ -101,7 +109,7 @@ function renderFiling(){
           return d !== 0 ? d : a.localeCompare(b);
         });
       });
-      return "<div class='cubemap'>" + [1,2,3,4,0].map(function(k){
+      return "<div class='cubemap'>" + cubeList().concat([0]).map(function(k){
         var list = groups[k];
         if (!list.length) return "";
         return "<div class='cubegrp'><div class='cubehd'>" +
@@ -119,13 +127,31 @@ function renderFiling(){
               "</span>" : "") +
               "<select class='cmsel' data-cat=\"" + esc(c) + "\">" +
                 "<option value=''>\u2014</option>" +
-                [1,2,3,4].map(function(n){
+                /* however many cubes the shelf actually has */
+                cubeList().map(function(n){
                   return "<option value='" + n + "'" +
                          (map[c] === n ? " selected" : "") + ">" + CUBE_NAMES[n] + "</option>";
                 }).join("") +
               "</select></div>";
           }).join("") + "</div>";
       }).join("") + "</div>";
+    })() +
+    /* The shelf's shape belongs here: it is the thing everything else on
+       this screen is arranged against. */
+    (function(){
+      var sh = shelfShape();
+      return "<div class='shapebar'><span class='ktitle'>Shelf shape</span>" +
+        "<span class='shapectl'>" +
+          "<select id='shaperows'>" + [1,2,3,4,5,6].map(function(n){
+            return "<option value='" + n + "'" + (sh.rows === n ? " selected" : "") +
+                   ">" + n + "</option>"; }).join("") + "</select>" +
+          "<span class='shapex'>\u00d7</span>" +
+          "<select id='shapecols'>" + [1,2,3,4,5,6].map(function(n){
+            return "<option value='" + n + "'" + (sh.cols === n ? " selected" : "") +
+                   ">" + n + "</option>"; }).join("") + "</select>" +
+        "</span></div>" +
+        "<p class='hint'>" + (sh.rows * sh.cols) + " cubes. Changing this doesn't move " +
+          "anything \u2014 it only changes what's available to file into.</p>";
     })() +
     "<div class='addrow'>" +
       "<button class='chip' id='filingapply'>File " + unfiled.length + " record" +
@@ -165,6 +191,17 @@ function renderFiling(){
       peers.forEach(function(c, i){ o[c] = i; });
       saveCatOrder(o);
       renderFiling();
+    });
+  });
+  ["shaperows", "shapecols"].forEach(function(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("change", function(){
+      saveShelfShape(+document.getElementById("shaperows").value,
+                     +document.getElementById("shapecols").value);
+      document.documentElement.style.setProperty("--cols", String(shelfShape().cols));
+      renderFiling();
+      if (typeof render === "function") render();
     });
   });
   document.getElementById("filingapply").addEventListener("click", applyFiling);
