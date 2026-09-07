@@ -18,30 +18,58 @@ function openMove(rec){
   moveFor = rec;
   var wrap = document.getElementById("movewrap");
   if (!wrap) return;
-
-  /* Its cube-mates, in shelf order \u2014 those are the only sensible
-     neighbours, since position is meaningful only within a cube. */
-  var peers = RECS.filter(function(r){ return r.k === rec.k && r.row !== rec.row; })
-    .sort(function(x, y){ return (x.pos || 0) - (y.pos || 0); });
-
   document.getElementById("movetitle").textContent = rec.a + " \u2014 " + rec.t;
   document.getElementById("movebody").innerHTML =
     "<p class='hint'>Currently " + (rec.pos || "unplaced") + " in " +
-      esc(CUBE_NAMES[rec.k] || ("cube " + rec.k)) + ". Choose where it should sit.</p>" +
-    "<select id='moveafter'>" +
-      "<option value='0'>First in this cube</option>" +
-      peers.map(function(p){
-        return "<option value='" + p.row + "'>After " + esc(p.a + " \u2014 " + p.t) + "</option>";
+      esc(CUBE_NAMES[rec.k] || ("cube " + rec.k)) + ".</p>" +
+    "<label class='movelab'>Category</label>" +
+    "<select id='movecat'>" +
+      Object.keys(COLORS).sort().map(function(c){
+        return "<option value=\"" + esc(c) + "\"" + (c === rec.c ? " selected" : "") +
+               ">" + esc(c) + "</option>";
       }).join("") +
     "</select>" +
-    "<div class='addrow' style='margin-top:12px'>" +
+    "<label class='movelab'>Position</label>" +
+    "<select id='moveafter'></select>" +
+    "<div class='addrow' style='margin-top:14px'>" +
       "<button class='chip' id='movedo'>Move it</button>" +
       "<span class='hint' id='movemsg'></span>" +
     "</div>";
 
-  wrap.hidden = false;
+  document.getElementById("movecat").addEventListener("change", fillMoveTargets);
   document.getElementById("movedo").addEventListener("click", doMove);
+  fillMoveTargets();
+  wrap.hidden = false;
 }
+
+/* Neighbours within the CHOSEN category, not the whole cube. A cube can
+   hold forty records across several categories; scrolling all of them to
+   find the right spot defeats the point. The first entry is "before X"
+   so the top of a category is reachable \u2014 with only "after", there is
+   no way to say "put it first". */
+function fillMoveTargets(){
+  var sel = document.getElementById("moveafter");
+  var cat = document.getElementById("movecat").value;
+  if (!sel) return;
+
+  var peers = RECS.filter(function(r){
+    return r.c === cat && (!moveFor || r.row !== moveFor.row);
+  }).sort(function(x, y){ return (x.pos || 0) - (y.pos || 0); });
+
+  if (!peers.length){
+    sel.innerHTML = "<option value='first'>First in this category</option>";
+    return;
+  }
+  sel.innerHTML =
+    "<option value='before:" + peers[0].row + "'>Before " +
+      esc(peers[0].a + " \u2014 " + peers[0].t) + "</option>" +
+    peers.map(function(p){
+      return "<option value='after:" + p.row + "'>After " +
+             esc(p.a + " \u2014 " + p.t) + "</option>";
+    }).join("");
+  sel.value = "after:" + peers[peers.length - 1].row;   /* default: at the end */
+}
+
 function closeMove(){
   var w = document.getElementById("movewrap");
   if (w) w.hidden = true;
@@ -53,26 +81,39 @@ function doMove(){
   if (!isOwner()){ msg.textContent = "Unlock editing first."; return; }
   if (!moveFor) return;
 
-  var afterRow = document.getElementById("moveafter").value;
-  var cube = moveFor.k;
+  var cat = document.getElementById("movecat").value;
+  var choice = document.getElementById("moveafter").value;
 
-  /* Rebuild the cube's order with the record lifted out and dropped back
-     in at its new place, then write consecutive numbers. Only the rows
-     whose number actually changes are sent. */
-  var inCube = RECS.filter(function(r){ return r.k === cube; })
+  /* A category lives in a cube, so changing the category moves the
+     record between cubes too \u2014 otherwise it would sit in a cube its
+     category doesn't belong to. */
+  var map = (typeof cubeMap === "function") ? cubeMap() : {};
+  var cube = map[cat] || moveFor.k;
+
+  var inCube = RECS.filter(function(r){ return r.k === cube && r.row !== moveFor.row; })
     .sort(function(x, y){ return (x.pos || 0) - (y.pos || 0); });
 
-  var without = inCube.filter(function(r){ return r.row !== moveFor.row; });
-  var at = 0;
-  if (afterRow !== "0"){
-    for (var i = 0; i < without.length; i++){
-      if (String(without[i].row) === String(afterRow)){ at = i + 1; break; }
+  var at = inCube.length;
+  if (choice === "first"){
+    at = 0;
+  } else {
+    var parts = String(choice).split(":");
+    var where = parts[0], row = parts[1];
+    for (var i = 0; i < inCube.length; i++){
+      if (String(inCube[i].row) === String(row)){
+        at = (where === "before") ? i : i + 1;
+        break;
+      }
     }
   }
-  without.splice(at, 0, moveFor);
+
+  var order = inCube.slice();
+  order.splice(at, 0, moveFor);
 
   var cells = [];
-  without.forEach(function(r, i){
+  if (cat !== moveFor.c) cells.push({ row: moveFor.row, col: 3, value: cat });
+  if (cube !== moveFor.k) cells.push({ row: moveFor.row, col: 4, value: cube });
+  order.forEach(function(r, i){
     var pos = i + 1;
     if (r.pos !== pos) cells.push({ row: r.row, col: 10, value: pos });
   });
@@ -86,9 +127,8 @@ function doMove(){
         ? "Unlock editing first." : "Couldn't write: " + err.message;
       return;
     }
-    msg.textContent = "Moved to position " + (at + 1) + ", " +
-      (cells.length - 1) + " other record" + (cells.length === 2 ? "" : "s") +
-      " shifted. Pull down to refresh.";
+    msg.textContent = "Moved to position " + (at + 1) +
+      (cat !== moveFor.c ? " in " + cat : "") + ". Pull down to refresh.";
   });
 }
 
