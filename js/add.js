@@ -10,7 +10,7 @@
    between, and gives you the row to paste into the sheet. */
 
 /* Same labels the position filter chips use. */
-var CUBE_NAMES={1:"Top left",2:"Top right",3:"Bottom left",4:"Bottom right"};
+/* CUBE_NAMES lives in data.js */
 
 /* Filing helpers (ARTICLES, sortName, artistSortKey, recordSortKey)
    live in data.js, since the sort order is applied there. */
