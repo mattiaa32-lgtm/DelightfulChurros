@@ -14,7 +14,7 @@
    Everything is written in batches: one request per hundred cells
    rather than one per record. */
 
-var CUBE_NAMES = { 1: "Top left", 2: "Top right", 3: "Bottom left", 4: "Bottom right" };
+/* CUBE_NAMES lives in data.js */
 
 function unfiledRecords(){
   return RECS.filter(function(r){ return !r.k || !String(r.k).match(/^[1-4]$/); });
