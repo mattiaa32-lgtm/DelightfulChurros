@@ -42,7 +42,8 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
 /* Columns are set from the shelf shape at runtime, so these grids
    redraw when the shelf changes rather than staying 2x2. */
-.mini{flex:0 0 auto;display:grid;grid-template-columns:repeat(var(--cols,2),11px);gap:2px}
+.mini{flex:0 0 auto;display:grid;grid-template-columns:repeat(var(--cols,2),11px);
+  grid-template-rows:repeat(var(--rows,2),11px);gap:2px}
 .mini i{background:var(--surface2);border-radius:1.5px;display:block}
 .mini i.on{background:var(--accent)}
 .badge{flex:0 0 auto;font-family:var(--spine);font-size:9.5px;letter-spacing:.1em;
@@ -69,9 +70,10 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);
   min-height:1em;overflow-wrap:break-word;word-break:break-word}
 .wish{font-family:var(--spine);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
   color:var(--accent);margin-bottom:7px}
-.shelf{display:grid;grid-template-columns:repeat(var(--cols,2),1fr);gap:5px;
+.shelf{display:grid;grid-template-columns:repeat(var(--cols,2),1fr);
+  grid-template-rows:repeat(var(--rows,2),1fr);gap:5px;
   background:#0E0D0C;border:1px solid var(--line);border-radius:8px;padding:5px;
-  aspect-ratio:1.05/1;max-width:210px;margin:0 0 16px}
+  aspect-ratio:var(--shelfratio,1.05);max-width:min(100%,260px);margin:0 0 16px}
 .hole{background:var(--surface2);border-radius:4px;display:flex;align-items:flex-end;
   justify-content:center;padding-bottom:6px;font-size:10px;color:var(--dim);
   font-family:var(--spine);letter-spacing:.07em;text-transform:uppercase}
