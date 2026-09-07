@@ -119,8 +119,12 @@ function loadRadar(force){
       return;
     }
     if (!x.ok){
-      renderRadar(null, esc((x.d.detail ? x.d.error + " \u2014 " + x.d.detail : x.d.error) ||
-                            "The search failed.") + " (HTTP " + x.status + ")");
+      /* The endpoint sends a note explaining which allowance ran out and
+         when it clears — that is the useful part, not the status code. */
+      renderRadar(null,
+        esc(x.d.error || "The search failed.") +
+        (x.d.note ? "<br><span style='opacity:.8'>" + esc(x.d.note) + "</span>" : "") +
+        (x.d.detail && !x.d.note ? "<br>" + esc(String(x.d.detail).slice(0,140)) : ""));
       return;
     }
     var items = x.d.items || [];
