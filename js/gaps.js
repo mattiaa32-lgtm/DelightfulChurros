@@ -45,8 +45,8 @@ function renderGaps(){
     ["sync",  "Category",       g.noCategory, "suggested from the Discogs genres"],
     [null,    "Cube",           g.noCube,     "you choose \u2014 see New arrivals"],
     ["desc",  "Description",    g.noDesc,     "written by the AI, and quota-limited"],
-    ["eval",  "Rating",         g.noRate,     "scored once by the AI, then left alone"],
-    ["eval",  "Preferred Pressing", g.noPressRec, "which pressing is worth owning"]
+    ["rate",  "Rating",         g.noRate,     "scored once by the AI, then left alone"],
+    ["press", "Preferred Pressing", g.noPressRec, "which pressing is worth owning"]
   ];
 
   var fixable = {};
@@ -69,9 +69,12 @@ function renderGaps(){
           (fixable.sync ? pick("sync", "Discogs data", "links, covers, pressing years, categories") : "") +
           (fixable.years ? pick("years", "Release years", g.noFirst.length + " to look up") : "") +
           (fixable.desc ? pick("desc", "Descriptions", g.noDesc.length + " to write \u2014 about " + Math.ceil(g.noDesc.length/20) + " AI requests") : "") +
-          (fixable.eval ? pick("eval", "Ratings & pressings",
-            Math.max(g.noRate.length, g.noPressRec.length) + " to assess \u2014 about " +
-            Math.ceil(Math.max(g.noRate.length, g.noPressRec.length)/12) + " AI requests") : "") +
+          (fixable.rate ? pick("rate", "Ratings",
+            g.noRate.length + " to score \u2014 about " +
+            Math.ceil(g.noRate.length/12) + " AI requests") : "") +
+          (fixable.press ? pick("press", "Preferred pressings",
+            g.noPressRec.length + " to research \u2014 about " +
+            Math.ceil(g.noPressRec.length/12) + " AI requests") : "") +
         "</div>" +
         "<div class='prog' id='gapsprog' hidden><div class='progbar' id='gapsbar'></div></div>" +
         "<div class='addrow' style='margin-top:12px'>" +
@@ -122,7 +125,7 @@ function fillGaps(){
   if (!Object.keys(want).length){ say("Pick at least one thing to fill."); return; }
 
   if (btn) btn.disabled = true;
-  var steps = ["sync","years","desc","eval"].filter(function(k){ return want[k]; });
+  var steps = ["sync","years","desc","rate","press"].filter(function(k){ return want[k]; });
   var stepNo = 0;
 
   function finish(note){
@@ -170,14 +173,22 @@ function fillGaps(){
     /* descriptions and evaluations both work the same way: small
        batches, looping, with the bar tracking records rather than
        steps since these are the long ones */
-    var endpoint = (step === "eval") ? "/api/evaluate" : "/api/descriptions";
-    var noun = (step === "eval") ? "assessment" : "description";
-    var size = (step === "eval") ? 12 : 20;
+    /* Rating and pressing advice are separate choices \u2014 you may want a
+       score without pressing research, or the reverse \u2014 so each is its
+       own step and tells the endpoint which field to fill. */
+    var isEval = (step === "rate" || step === "press");
+    var endpoint = isEval ? "/api/evaluate" : "/api/descriptions";
+    var noun = step === "rate" ? "rating"
+             : step === "press" ? "pressing note"
+             : "description";
+    var size = isEval ? 12 : 20;
+    var extra = isEval ? { only: step } : {};
     var total = 0, written = 0;
     (function batch(){
       fetch(endpoint, {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ passphrase: ownerPass(), limit: size })
+        body: JSON.stringify(Object.assign(
+          { passphrase: ownerPass(), limit: size }, extra))
       })
       .then(readJSON)
       .then(function(x){
