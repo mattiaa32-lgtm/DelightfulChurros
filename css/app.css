@@ -721,3 +721,12 @@ select option{background:#17130F;color:#F4F0E8}
 .setitem span{display:block;font-size:14px}
 .setitem small{display:block;font-size:11.5px;color:var(--dim);margin-top:2px}
 .setitem:hover span{color:var(--accent)}
+
+/* ---- sheet backups ---- */
+#safetybox{display:none;padding:4px 0 8px}
+#safetybox.show{display:block}
+.saferow{display:flex;justify-content:space-between;align-items:baseline;
+  padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.saferow:last-of-type{border-bottom:0}
+.saferow span{color:var(--muted)}
+.saferow b{color:var(--text);font-weight:500}
