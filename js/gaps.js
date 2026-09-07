@@ -12,7 +12,11 @@
 
 function gapReport(){
   var g = { total: RECS.length, noId:[], noCover:[], noFirst:[], noPress:[],
-            noCategory:[], noCube:[], noDesc:[], noRate:[], noPress:[] };
+            /* noPress is the pressing YEAR; noPressRec is the pressing
+               RECOMMENDATION. They were briefly the same name, which
+               made both counts wrong and pushed the totals past the
+               number of records. */
+            noCategory:[], noCube:[], noDesc:[], noRate:[], noPressRec:[] };
   RECS.forEach(function(r){
     if (!r.d) g.noId.push(r);
     if (!r.img && !resolvedCover(r)) g.noCover.push(r);
@@ -22,7 +26,7 @@ function gapReport(){
     if (isUnfiled(r)) g.noCube.push(r);
     if (!r.desc) g.noDesc.push(r);
     if (!r.rate) g.noRate.push(r);
-    if (!r.press) g.noPress.push(r);
+    if (!r.press) g.noPressRec.push(r);
   });
   return g;
 }
@@ -34,15 +38,15 @@ function renderGaps(){
 
   /* key, label, records, why, which step fills it */
   var rows = [
-    ["sync",  "Discogs link",   g.noId,       "matched by artist and title when you sync"],
+    ["sync",  "Discogs Link",   g.noId,       "matched by artist and title when you sync"],
     ["sync",  "Cover",          g.noCover,    "comes from Discogs with the record"],
-    ["years", "First released", g.noFirst,    "looked up from the Discogs master release"],
-    ["sync",  "Pressing year",  g.noPress,    "comes from Discogs with the record"],
+    ["years", "First Released", g.noFirst,    "looked up from the Discogs master release"],
+    ["sync",  "Pressing Year",  g.noPress,    "comes from Discogs with the record"],
     ["sync",  "Category",       g.noCategory, "suggested from the Discogs genres"],
     [null,    "Cube",           g.noCube,     "you choose \u2014 see New arrivals"],
     ["desc",  "Description",    g.noDesc,     "written by the AI, and quota-limited"],
     ["eval",  "Rating",         g.noRate,     "scored once by the AI, then left alone"],
-    ["eval",  "Preferred pressing", g.noPress, "which pressing is worth owning"]
+    ["eval",  "Preferred Pressing", g.noPressRec, "which pressing is worth owning"]
   ];
 
   var fixable = {};
@@ -66,8 +70,8 @@ function renderGaps(){
           (fixable.years ? pick("years", "Release years", g.noFirst.length + " to look up") : "") +
           (fixable.desc ? pick("desc", "Descriptions", g.noDesc.length + " to write \u2014 about " + Math.ceil(g.noDesc.length/20) + " AI requests") : "") +
           (fixable.eval ? pick("eval", "Ratings & pressings",
-            Math.max(g.noRate.length, g.noPress.length) + " to assess \u2014 about " +
-            Math.ceil(Math.max(g.noRate.length, g.noPress.length)/12) + " AI requests") : "") +
+            Math.max(g.noRate.length, g.noPressRec.length) + " to assess \u2014 about " +
+            Math.ceil(Math.max(g.noRate.length, g.noPressRec.length)/12) + " AI requests") : "") +
         "</div>" +
         "<div class='prog' id='gapsprog' hidden><div class='progbar' id='gapsbar'></div></div>" +
         "<div class='addrow' style='margin-top:12px'>" +
