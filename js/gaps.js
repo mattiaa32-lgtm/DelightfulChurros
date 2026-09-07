@@ -12,7 +12,7 @@
 
 function gapReport(){
   var g = { total: RECS.length, noId:[], noCover:[], noFirst:[], noPress:[],
-            noCategory:[], noCube:[], noDesc:[] };
+            noCategory:[], noCube:[], noDesc:[], noRate:[], noPress:[] };
   RECS.forEach(function(r){
     if (!r.d) g.noId.push(r);
     if (!r.img && !resolvedCover(r)) g.noCover.push(r);
@@ -21,6 +21,8 @@ function gapReport(){
     if (!(r.c || "").trim()) g.noCategory.push(r);
     if (isUnfiled(r)) g.noCube.push(r);
     if (!r.desc) g.noDesc.push(r);
+    if (!r.rate) g.noRate.push(r);
+    if (!r.press) g.noPress.push(r);
   });
   return g;
 }
@@ -38,7 +40,9 @@ function renderGaps(){
     ["sync",  "Pressing year",  g.noPress,    "comes from Discogs with the record"],
     ["sync",  "Category",       g.noCategory, "suggested from the Discogs genres"],
     [null,    "Cube",           g.noCube,     "you choose \u2014 see New arrivals"],
-    ["desc",  "Description",    g.noDesc,     "written by the AI, and quota-limited"]
+    ["desc",  "Description",    g.noDesc,     "written by the AI, and quota-limited"],
+    ["eval",  "Rating",         g.noRate,     "scored once by the AI, then left alone"],
+    ["eval",  "Preferred pressing", g.noPress, "which pressing is worth owning"]
   ];
 
   var fixable = {};
@@ -61,6 +65,9 @@ function renderGaps(){
           (fixable.sync ? pick("sync", "Discogs data", "links, covers, pressing years, categories") : "") +
           (fixable.years ? pick("years", "Release years", g.noFirst.length + " to look up") : "") +
           (fixable.desc ? pick("desc", "Descriptions", g.noDesc.length + " to write \u2014 about " + Math.ceil(g.noDesc.length/20) + " AI requests") : "") +
+          (fixable.eval ? pick("eval", "Ratings & pressings",
+            Math.max(g.noRate.length, g.noPress.length) + " to assess \u2014 about " +
+            Math.ceil(Math.max(g.noRate.length, g.noPress.length)/12) + " AI requests") : "") +
         "</div>" +
         "<div class='prog' id='gapsprog' hidden><div class='progbar' id='gapsbar'></div></div>" +
         "<div class='addrow' style='margin-top:12px'>" +
@@ -111,7 +118,7 @@ function fillGaps(){
   if (!Object.keys(want).length){ say("Pick at least one thing to fill."); return; }
 
   if (btn) btn.disabled = true;
-  var steps = ["sync","years","desc"].filter(function(k){ return want[k]; });
+  var steps = ["sync","years","desc","eval"].filter(function(k){ return want[k]; });
   var stepNo = 0;
 
   function finish(note){
@@ -156,23 +163,27 @@ function fillGaps(){
       return;
     }
 
-    /* descriptions: small batches, looping, with the bar tracking the
-       records rather than the steps since this is the long one */
+    /* descriptions and evaluations both work the same way: small
+       batches, looping, with the bar tracking records rather than
+       steps since these are the long ones */
+    var endpoint = (step === "eval") ? "/api/evaluate" : "/api/descriptions";
+    var noun = (step === "eval") ? "assessment" : "description";
+    var size = (step === "eval") ? 12 : 20;
     var total = 0, written = 0;
     (function batch(){
-      fetch("/api/descriptions", {
+      fetch(endpoint, {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ passphrase: ownerPass(), limit: 20 })
+        body: JSON.stringify({ passphrase: ownerPass(), limit: size })
       })
       .then(readJSON)
       .then(function(x){
         var d = x.d;
-        if (!x.ok || !d || !d.ok) return finish(failMsg(x, "descriptions"));
+        if (!x.ok || !d || !d.ok) return finish(failMsg(x, noun + "s"));
         written += d.filled;
         total = Math.max(total, written + d.remaining);
         setProgress(written, total || 1);
         if (d.quota){
-          return finish("Wrote " + written + " description" + (written===1?"":"s") +
+          return finish("Wrote " + written + " " + noun + (written===1?"":"s") +
             ", then hit the " + (d.quota === "daily" ? "daily" : "per-minute") +
             " AI limit. " + (d.quota === "daily"
               ? "It resets at midnight Pacific."
@@ -180,10 +191,10 @@ function fillGaps(){
             " Everything written is saved.");
         }
         if (!d.done){
-          say("Writing descriptions\u2026 " + written + " of " + total + ".");
+          say("Writing " + noun + "s\u2026 " + written + " of " + total + ".");
           setTimeout(batch, 1200);   /* stay clear of the per-minute limit */
         } else {
-          say("Wrote " + written + " description" + (written===1?"":"s") + ".");
+          say("Wrote " + written + " " + noun + (written===1?"":"s") + ".");
           nextStep();
         }
       })
