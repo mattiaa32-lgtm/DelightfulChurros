@@ -80,6 +80,10 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
 
   const limit = Math.min(25, Math.max(1, parseInt(body.limit, 10) || BATCH));
+  /* "rate" or "press" fills just that column; anything else fills both.
+     They are separate choices: a score and pressing research are
+     different questions, and you may want one without the other. */
+  const only = (body.only === "rate" || body.only === "press") ? body.only : null;
 
   try {
     const sheet = await sheetCall({ action: "read" });
@@ -91,12 +95,15 @@ export default async function handler(req, res) {
       const title = String(r[1] || "").trim();
       const rating = String(r[10] || "").trim();
       const pressing = String(r[11] || "").trim();
-      if (artist && title && (!rating || !pressing)) {
+      const wantRating = only !== "press" && !rating;
+      const wantPressing = only !== "rate" && !pressing;
+      if (artist && title && (wantRating || wantPressing)) {
         todo.push({
           row: i + 2, artist, title,
           year: String(r[7] || "").trim(),
           press: String(r[8] || "").trim(),
-          haveRating: !!rating, havePressing: !!pressing
+          haveRating: !!rating || only === "press",
+          havePressing: !!pressing || only === "rate"
         });
       }
     });
