@@ -19,7 +19,8 @@ js/arrivals.js      placing newly synced records on the shelf
 js/filing.js        which category lives in which cube
 js/connect.js       Discogs connection and syncing
 js/shelf.js         the shelf list, search, filters, record detail sheet
-js/want.js          wantlist (stored on the device)
+js/want.js          wantlist, and noticing when one arrives
+js/move.js          moving a single record within its cube
 js/discover.js      daily recommendations
 js/chat.js          the ask panel, both modes, voice dictation
 js/dashboard.js     collection stats and assessment
