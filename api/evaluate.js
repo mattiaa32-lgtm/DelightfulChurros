@@ -52,6 +52,15 @@ const SYSTEM = [
   "particularly sought after; any clean copy is fine.\" An honest \"nothing to",
   "note\" is far more useful than an invented recommendation.",
   "",
+  "CONSISTENCY: the owned score and the pressing recommendation are shown",
+  "side by side, so they must agree. If their copy IS the pressing you would",
+  "recommend, say so and score it high \u2014 do not recommend a pressing they",
+  "already own as though they lacked it. If Discogs gives no reissue or",
+  "repress marking and the year matches the original release, treat it as an",
+  "original rather than assuming a later repress. Where the details genuinely",
+  "do not settle which pressing it is, say that plainly instead of inventing",
+  "a provenance.",
+  "",
   "Reply with ONLY a JSON object keyed by the number you were given:",
   '"owned": a score 0-10 for the pressing THEY OWN, given the label, catalogue',
   '          number and year supplied with it, then one sentence on what makes',
@@ -170,10 +179,19 @@ export default async function handler(req, res) {
               const b = rel.basic_information || {};
               const lab = (b.labels || [])[0] || {};
               if (!b.id) return;
+              /* A catalogue number alone does not identify a pressing:
+                 PCS 7009 covers the 1966 first press and every repress
+                 since. Discogs' format descriptors are what separate
+                 them \u2014 "Reissue", "Repress", "Stereo", "Mono" \u2014 so
+                 they have to be sent too, along with the country. */
+              const fmt = (b.formats || [])[0] || {};
+              const descs = (fmt.descriptions || []).join(", ");
               pressingOf[String(b.id)] = [
+                b.country || "",
                 lab.name || "",
                 lab.catno || "",
-                b.year ? String(b.year) : ""
+                b.year ? String(b.year) : "",
+                descs
               ].filter(Boolean).join(" \u00b7 ");
             });
             pages = (d.pagination && d.pagination.pages) || 1;
