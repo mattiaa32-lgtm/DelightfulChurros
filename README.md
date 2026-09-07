@@ -65,6 +65,7 @@ Columns, in order:
 | J | Position       | no    | explicit shelf order within a cube            |
 | K | Rating         | no    | score out of 10, with its reasoning           |
 | L | Preferred pressing | no | which pressing is worth owning              |
+| M | Pressing score | no    | how good your copy is, with what it is        |
 
 Position (J) is sparse — 10, 20, 30 — so a record can be inserted between two
 others without renumbering the rest. Records with no position sort after the
