@@ -689,5 +689,8 @@ select option{background:#17130F;color:#F4F0E8}
 .ratenum{font-size:27px;font-weight:600;letter-spacing:-.03em;color:var(--accent)}
 .rateout{font-size:12px;color:var(--dim);margin-left:-3px}
 .ratewhy{flex:1 1 14em;min-width:0;font-size:12.5px;color:var(--muted);line-height:1.5}
-.pressrec{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
-.pressrec p{font-size:13px;color:var(--muted);line-height:1.5;margin:5px 0 0}
+.pressblock{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.pressblock p{font-size:13px;color:var(--muted);line-height:1.5;margin:5px 0 0}
+.presshead{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.pressline{font-size:13px;color:var(--muted)}
+.pressline b{font-size:17px;color:var(--accent);font-weight:600;letter-spacing:-.02em}
