@@ -582,6 +582,13 @@ html.is-guest .owner-only{display:none!important}
 .connbadge.off{color:var(--dim)}
 .connbadge.unknown{opacity:.5}
 .connbadge + .ownerbtn{margin-left:6px}
+/* Gear last in the row: Discogs account, then access, then settings.
+   Deliberately neutral \u2014 the two beside it use colour to report a
+   state, and this one has no state to report. */
+.gearbtn{margin-left:6px;background:transparent;border:1px solid var(--line);
+  color:var(--muted);border-radius:5px;padding:5px 8px;line-height:0;
+  cursor:pointer;display:inline-flex;align-items:center}
+.gearbtn:hover{color:var(--text);border-color:var(--muted)}
 .brand{align-items:center}
 .brand h1{margin-right:2px}
 
