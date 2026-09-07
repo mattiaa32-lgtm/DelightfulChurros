@@ -11,7 +11,7 @@ function showView(v){
   });
   /* each view loads its own data the first time it's opened, so nothing
      hits the network until you actually go looking for it */
-  if(v==="discover")loadDaily(false);
+  if(v==="discover"){loadDaily(false);loadRadarIfReady();}
   if(v==="want")renderWantView();
   if(v==="dash")loadDash();
   if(v==="hifi")loadHifi();
