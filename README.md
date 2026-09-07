@@ -67,9 +67,10 @@ Columns, in order:
 | L | Preferred pressing | no | which pressing is worth owning              |
 | M | Pressing score | no    | how good your copy is, with what it is        |
 
-Position (J) is sparse — 10, 20, 30 — so a record can be inserted between two
-others without renumbering the rest. Records with no position sort after the
-positioned ones, using artist then title with leading articles ignored.
+Position (J) is consecutive from 1 within each cube. Cube decides the run
+order between cubes; within a cube, categories run in the order set on the
+Shelf layout screen and records run alphabetically by artist then title, with
+leading articles ignored.
 
 Columns F to I are filled automatically at runtime and cached on the device.
 The "Freeze resolved covers & descriptions" link on the Shelf tab exports them
