@@ -1,4 +1,6 @@
-function mini(r){var o="";for(var i=0;i<4;i++){o+="<i"+(i===r.r*2+r.co?" class='on'":"")+"></i>";}
+/* The little grid beside each row, drawn to whatever shape the shelf
+   actually is rather than always four squares. */
+function mini(r){var n=cubeCount(),o="";for(var i=0;i<n;i++){o+="<i"+(i===r.k-1?" class='on'":"")+"></i>";}
   return "<span class='mini' aria-hidden='true'>"+o+"</span>";}
 
 function render(){
@@ -37,8 +39,8 @@ function rowHTML(r){
     (r.d?"":"<span class='badge'>Wanted</span>")+mini(r)+"</button>";
 }
 
-function holes(r){var o="";for(var i=0;i<4;i++){
-  o+="<div class='hole"+(i===r.r*2+r.co?" on":"")+"'>"+CUBE_NAMES[i + 1]+"</div>";}return o;}
+function holes(r){var n=cubeCount(),o="";for(var i=0;i<n;i++){
+  o+="<div class='hole"+(i===r.k-1?" on":"")+"'>"+CUBE_NAMES[i+1]+"</div>";}return o;}
 
 /* Renders "8.0 \u2014 identity \u2014 reasoning" as a labelled score with its
    argument underneath. The stored string may have one dash or two: the
@@ -107,6 +109,7 @@ function open(i){
         svcIcon("youtube",true,17)+
         "<span class='lt'>YouTube<small>Watch or listen</small></span></a>"+
     "</div>"+
+    (isOwner() ? "<button class='chip owner-only' id='movebtn' data-i='"+r.i+"'>Move this record</button>" : "")+
     "<button class='close'>Close</button>";
   document.getElementById("sheet").classList.add("open");
   fillArt(document.getElementById("card"));
