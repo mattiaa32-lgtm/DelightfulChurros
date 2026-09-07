@@ -199,7 +199,6 @@ function renderFiling(){
     el.addEventListener("change", function(){
       saveShelfShape(+document.getElementById("shaperows").value,
                      +document.getElementById("shapecols").value);
-      document.documentElement.style.setProperty("--cols", String(shelfShape().cols));
       renderFiling();
       if (typeof render === "function") render();
     });
