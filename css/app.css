@@ -734,3 +734,14 @@ select option{background:#17130F;color:#F4F0E8}
 /* ---- release radar ---- */
 .radarsec{margin-top:26px;padding-top:6px;border-top:1px solid var(--line)}
 .radarsrc{font-size:11px;color:var(--dim);align-self:center}
+
+/* categories grouped by cube, orderable within one */
+.cubegrp{margin-bottom:14px}
+.cubehd{font-size:9.5px;letter-spacing:.17em;text-transform:uppercase;
+  color:var(--dim);padding-bottom:4px;border-bottom:1px solid var(--line)}
+.cmmove{display:flex;gap:3px;flex:0 0 auto}
+.cmarrow{background:transparent;border:1px solid var(--line);color:var(--muted);
+  border-radius:4px;width:24px;height:24px;font-size:12px;line-height:1;
+  cursor:pointer;font-family:var(--sans);padding:0}
+.cmarrow:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.cmarrow:disabled{opacity:.3;cursor:default}
