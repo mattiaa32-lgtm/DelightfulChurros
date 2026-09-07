@@ -40,7 +40,9 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .title{font-size:15.5px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
-.mini{flex:0 0 auto;display:grid;grid-template-columns:11px 11px;grid-template-rows:11px 11px;gap:2px}
+/* Columns are set from the shelf shape at runtime, so these grids
+   redraw when the shelf changes rather than staying 2x2. */
+.mini{flex:0 0 auto;display:grid;grid-template-columns:repeat(var(--cols,2),11px);gap:2px}
 .mini i{background:var(--surface2);border-radius:1.5px;display:block}
 .mini i.on{background:var(--accent)}
 .badge{flex:0 0 auto;font-family:var(--spine);font-size:9.5px;letter-spacing:.1em;
@@ -67,7 +69,7 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);
   min-height:1em;overflow-wrap:break-word;word-break:break-word}
 .wish{font-family:var(--spine);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
   color:var(--accent);margin-bottom:7px}
-.shelf{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:5px;
+.shelf{display:grid;grid-template-columns:repeat(var(--cols,2),1fr);gap:5px;
   background:#0E0D0C;border:1px solid var(--line);border-radius:8px;padding:5px;
   aspect-ratio:1.05/1;max-width:210px;margin:0 0 16px}
 .hole{background:var(--surface2);border-radius:4px;display:flex;align-items:flex-end;
@@ -745,3 +747,28 @@ select option{background:#17130F;color:#F4F0E8}
   cursor:pointer;font-family:var(--sans);padding:0}
 .cmarrow:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
 .cmarrow:disabled{opacity:.3;cursor:default}
+
+/* wantlist: records that have since arrived */
+.gotsec{margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}
+.gotrow{font-size:13px;color:var(--dim);padding:6px 0;
+  border-bottom:1px solid var(--line);text-decoration:line-through}
+.gotrow:last-of-type{border-bottom:0}
+
+/* ---- move one record ---- */
+.movewrap{position:fixed;inset:0;z-index:66;background:rgba(0,0,0,.55);
+  display:flex;align-items:flex-end;justify-content:center}
+.movewrap[hidden]{display:none}
+.movepanel{width:100%;max-width:640px;background:var(--surface);
+  border-top:1px solid var(--line);border-radius:18px 18px 0 0;
+  box-shadow:0 -18px 50px -12px rgba(0,0,0,.5)}
+.movebody{padding:4px 18px max(18px,env(safe-area-inset-bottom))}
+#moveafter{width:100%;max-width:100%}
+#movebtn{width:100%;margin-bottom:8px}
+
+
+/* shelf shape control */
+.shapebar{display:flex;align-items:center;justify-content:space-between;
+  gap:10px;padding:10px 0 6px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.shapectl{display:flex;align-items:center;gap:6px}
+.shapectl select{padding:6px 26px 6px 9px;font-size:12.5px}
+.shapex{color:var(--dim);font-size:12px}
