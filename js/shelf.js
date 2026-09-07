@@ -38,7 +38,24 @@ function rowHTML(r){
 }
 
 function holes(r){var o="";for(var i=0;i<4;i++){
-  o+="<div class='hole"+(i===r.r*2+r.co?" on":"")+"'>"+CUBE_NAMES[i]+"</div>";}return o;}
+  o+="<div class='hole"+(i===r.r*2+r.co?" on":"")+"'>"+CUBE_NAMES[i + 1]+"</div>";}return o;}
+
+/* Renders "8.0 \u2014 identity \u2014 reasoning" as a labelled score with its
+   argument underneath. The stored string may have one dash or two: the
+   record score has no identity, the pressing score does. */
+function scoreBlock(label, raw){
+  var parts = String(raw).split("\u2014").map(function(x){ return x.trim(); });
+  var num = parts.shift() || "";
+  var ident = "", why = "";
+  if (parts.length > 1){ ident = parts.shift(); why = parts.join(" \u2014 "); }
+  else { why = parts.join(" \u2014 "); }
+  return "<div class='pressblock'>"+
+    "<div class='presshead'><span class='ktitle'>"+esc(label)+"</span>"+
+      "<span class='pressline'><b>"+esc(num)+"</b>/10"+
+      (ident ? " \u00b7 " + esc(ident) : "")+"</span></div>"+
+    (why ? "<p>"+esc(why)+"</p>" : "")+
+  "</div>";
+}
 
 function open(i){
   var r=RECS[i];
@@ -61,29 +78,12 @@ function open(i){
       "<div class='d-title' id='dtitle'>"+esc(r.t)+"</div>"+
       "<div class='d-desc' data-i='"+r.i+"'>"+(r.desc?esc(r.desc):"")+"</div></div></div>"+
     "<div class='shelf'>"+holes(r)+"</div>"+
-    /* The rating is stored as "8.6 — because…", so the number can be
-       shown large with its reasoning beside it. A score with no argument
-       behind it is exactly what invites over-trusting it. */
-    (r.rate ? (function(){
-      var m = /^\s*([\d.]+)\s*(?:\u2014|-)?\s*(.*)$/.exec(r.rate);
-      var num = m ? m[1] : r.rate, why = m ? m[2] : "";
-      return "<div class='rating'><span class='ratenum'>"+esc(num)+
-        "</span><span class='rateout'>/10</span>"+
-        (why ? "<span class='ratewhy'>"+esc(why)+"</span>" : "")+"</div>";
-    })() : "")+
-    /* Stored as "9.5 — UK Parlophone · PCS 7009 · 1966 — why", so the
-       score, the identity of the copy and the reasoning can each sit
-       in their own place. */
-    (r.owned ? (function(){
-      var p = String(r.owned).split("\u2014").map(function(x){ return x.trim(); });
-      var num = p[0] || "", ident = p[1] || "", why = p.slice(2).join(" \u2014 ");
-      return "<div class='pressblock'>"+
-        "<div class='presshead'><span class='ktitle'>Pressing score</span>"+
-          "<span class='pressline'><b>"+esc(num)+"</b>/10"+
-          (ident ? " \u00b7 " + esc(ident) : "")+"</span></div>"+
-        (why ? "<p>"+esc(why)+"</p>" : "")+
-      "</div>";
-    })() : "")+
+    /* Three separate judgements, each labelled, because a bare number
+       above "Pressing score" reads as if the two are the same thing.
+       They answer different questions: how good the ALBUM is, how good
+       the COPY you own is, and which copy would be better. */
+    (r.rate ? scoreBlock("Record score", r.rate) : "")+
+    (r.owned ? scoreBlock("Pressing score", r.owned) : "")+
     (r.press ? "<div class='pressblock'><span class='ktitle'>Preferred pressing</span>"+
       "<p>"+esc(r.press)+"</p></div>" : "")+
     "<dl class='facts'>"+
@@ -91,7 +91,7 @@ function open(i){
       (cachedYear(r)?"<dt>First released</dt><dd data-yr='first'>"+esc(cachedYear(r))+"</dd>":"")+
       (pressYear(r)?"<dt>This pressing</dt><dd data-yr='press'>"+esc(pressYear(r))+"</dd>":"")+
       "<dt>Section</dt><dd>"+esc(r.c)+"</dd>"+
-      "<dt>Position in cube</dt><dd>"+r.p+" of "+r.n+" \u00b7 "+CUBE_NAMES[r.r*2+r.co]+
+      "<dt>Position in cube</dt><dd>"+r.p+" of "+r.n+" \u00b7 "+CUBE_NAMES[r.k]+
         "<div class='bar'><span style='left:calc("+((r.p-0.5)/r.n*100).toFixed(1)+"% - 1.5px)'></span></div></dd>"+
       "<dt>Either side</dt><dd class='nb'>"+nb+"</dd>"+
     "</dl>"+
