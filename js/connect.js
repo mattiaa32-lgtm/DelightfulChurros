@@ -1,7 +1,7 @@
 /* Bumped whenever the client changes in a way you should be able to
    see. Shown in the connection panel, so "have I deployed this yet?"
    is answerable without digging through Vercel. */
-var APP_BUILD = "2026-09-04 \u00b7 errors";
+var APP_BUILD = "2026-09-04 \u00b7 ratings";
 
 /* Reads a response defensively. An endpoint that isn't deployed returns
    an HTML 404 page; calling .json() on that throws, and the resulting
