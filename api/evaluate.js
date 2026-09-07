@@ -29,7 +29,7 @@ const SYSTEM = [
   "You assess records for a serious vinyl collector's own catalogue.",
   "You will be given a numbered list of albums. Assess EVERY one.",
   "",
-  "For each, return two things.",
+  "For each, return these things.",
   "",
   "\"rating\": a number from 1 to 10, one decimal place, for the ALBUM \u2014 not",
   "the pressing. Judge lasting significance and quality as the critical and",
@@ -37,6 +37,11 @@ const SYSTEM = [
   "9+ is reserved for records widely held to be among the greatest; 8-8.9 is",
   "a major, admired work; 7-7.9 is strong; 5-6.9 is ordinary; below 5 is",
   "poorly regarded. Most records are not 8s.",
+  "",
+  "\"why\": one short sentence justifying that rating \u2014 what the record did,",
+  "or where it sits in the artist's work, or why it is held in that regard.",
+  "This is shown beside the number: a score with no argument behind it is",
+  "exactly what makes a score untrustworthy.",
   "",
   "\"pressing\": one or two sentences on which pressing is worth owning \u2014 an",
   "original on a named label, a particular respected reissue, a mastering to",
@@ -57,7 +62,8 @@ const SYSTEM = [
   '          guessing.',
   "",
   "Reply with ONLY a JSON object keyed by the numbers you were given:",
-  '{"1":{"rating":8.6,"pressing":"...","owned":{"score":9.1,"why":"..."}}}',
+  '{"1":{"rating":8.6,"why":"...","pressing":"...","owned":{"score":9.1,"why":"..."}},',
+  '  "2":{"rating":6.2,"why":"...","pressing":"...","owned":{"score":5.0,"why":"..."}}}',
   "Include every number. No markdown fences, no commentary."
 ].join("\n");
 
@@ -236,7 +242,12 @@ export default async function handler(req, res) {
       if (!it.haveRating && v.rating !== undefined && v.rating !== null) {
         const num = Number(v.rating);
         if (isFinite(num) && num > 0 && num <= 10) {
-          cells.push({ row: it.row, col: 11, value: num.toFixed(1) });
+          /* score and reasoning in one cell, separated by an em dash \u2014
+             the app splits on it to show the number large and the
+             argument beside it */
+          const why = String(v.why || "").replace(/\s+/g, " ").trim();
+          cells.push({ row: it.row, col: 11,
+                       value: num.toFixed(1) + (why ? " \u2014 " + why : "") });
           wrote = true;
         }
       }
