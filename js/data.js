@@ -48,6 +48,23 @@ function shelfShape(){
 function saveShelfShape(rows, cols){
   try { localStorage.setItem("shelfShape", JSON.stringify({ rows: rows, cols: cols })); } catch (e) {}
   CUBE_NAMES = buildCubeNames();
+  applyShelfShapeCSS();
+}
+
+/* The grids are drawn by CSS from these two variables, so publishing
+   them here means every drawing of the shelf follows the shape without
+   each renderer having to know about it. Previously only the settings
+   screen updated them, so changing the shape drew the right NUMBER of
+   cubes into the old grid \u2014 nine holes in two columns. */
+function applyShelfShapeCSS(){
+  if (typeof document === "undefined") return;
+  var s = shelfShape();
+  var el = document.documentElement;
+  el.style.setProperty("--cols", String(s.cols));
+  el.style.setProperty("--rows", String(s.rows));
+  /* Keep the little shelf diagram roughly the proportions of the real
+     thing rather than always square. */
+  el.style.setProperty("--shelfratio", (s.cols / s.rows * 1.05).toFixed(3));
 }
 function cubeCount(){ var s = shelfShape(); return s.rows * s.cols; }
 
