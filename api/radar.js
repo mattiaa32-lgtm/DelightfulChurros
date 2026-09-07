@@ -56,7 +56,11 @@ export default async function handler(req, res) {
     body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
   } catch (e) { return res.status(400).json({ error: "bad JSON body" }); }
 
-  const artists = (body.artists || []).slice(0, 60);
+    /* Fewer artists than the other endpoints get: a grounded request
+     carries the search results back into context, so the prompt is the
+     cheap part and brevity here buys nothing \u2014 but a shorter list keeps
+     the model focused on who is actually collected in depth. */
+  const artists = (body.artists || []).slice(0, 25);
   if (!artists.length) return res.status(400).json({ error: "no artists supplied" });
   const weeks = Math.min(12, Math.max(2, parseInt(body.weeks, 10) || 8));
 
@@ -85,12 +89,24 @@ export default async function handler(req, res) {
     });
 
     if (!out.ok) {
-      return res.status(out.status === 429 ? 429 : 502).json({
-        error: out.status === 429
-          ? "the web-search allowance is used up for now"
-          : "the search failed",
-        quota: out.quota, detail: out.detail
-      });
+      /* Web search is metered separately from ordinary generation, and
+         far more tightly \u2014 so this can be refused while every other AI
+         feature still works. Saying that plainly avoids the conclusion
+         that the whole app is out of quota. */
+      if (out.status === 429) {
+        return res.status(429).json({
+          error: "the web-search allowance is used up",
+          quota: out.quota || "rate",
+          note: out.quota === "daily"
+            ? "Search grounding has its own daily allowance, separate from the " +
+              "rest of the app \u2014 the other features may still work. It resets " +
+              "at midnight Pacific."
+            : "Search grounding has a small per-minute allowance. Give it a " +
+              "minute and try again.",
+          attempted: out.attempted
+        });
+      }
+      return res.status(502).json({ error: "the search failed", detail: out.detail });
     }
 
     let items = null;
