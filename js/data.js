@@ -8,7 +8,7 @@ var API_BASE="/api/";
    Sheets > File > Share > Publish to web > pick the sheet > CSV.
    Columns: Artist | Record name | Category | Cube | Discogs id |
             Cover URL | Description | First released | Pressing year |
-            Position
+            Position | Rating | Preferred pressing
    The last three are optional and work the same way: the app fetches
    them itself (Cover URL from Discogs/iTunes; Description written by
    Gemini (free tier) via a small Vercel function \u2014 see api/describe.js)
@@ -161,6 +161,11 @@ function adopt(rows){
       fy:((r[7]||"").trim().match(/^\d{4}$/)||[null])[0],
       py:((r[8]||"").trim().match(/^\d{4}$/)||[null])[0],
       pos: pos,
+      /* K and L: the rating (with its reasoning) and which pressing is
+         worth owning. Written once and then left alone, so the score
+         doesn't drift every time you look at it. */
+      rate:(r[10]||"").trim()||null,
+      press:(r[11]||"").trim()||null,
       row: 0            /* filled in below: the sheet row, for writing back */
     };
   });
