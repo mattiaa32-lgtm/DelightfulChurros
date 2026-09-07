@@ -20,7 +20,7 @@
 // POST { passphrase, limit? }
 // -> { ok, filled, checked, remaining, done, quota? }
 
-import { sheetCall } from "./_sheet.js";
+import { sheetCall, getConfig } from "./_sheet.js";
 import { callGemini } from "./_gemini.js";
 
 const BATCH = 12;
@@ -48,9 +48,32 @@ const SYSTEM = [
   "note\" is far more useful than an invented recommendation.",
   "",
   "Reply with ONLY a JSON object keyed by the number you were given:",
-  '{"1":{"rating":8.6,"pressing":"..."},"2":{"rating":6.2,"pressing":"..."}}',
+  '"owned": a score 0-10 for the pressing THEY OWN, given the label, catalogue',
+  '          number and year supplied with it, then one sentence on what makes',
+  '          that pressing good or unremarkable \u2014 mastering, plant, era,',
+  '          scarcity. An original in a good year scores high; a competent',
+  '          modern repress is middling; a thin-sounding budget reissue is low.',
+  '          If the pressing details are unknown, return null rather than',
+  '          guessing.',
+  "",
+  "Reply with ONLY a JSON object keyed by the numbers you were given:",
+  '{"1":{"rating":8.6,"pressing":"...","owned":{"score":9.1,"why":"..."}}}',
   "Include every number. No markdown fences, no commentary."
 ].join("\n");
+
+function oauthAuth(token, tokenSecret) {
+  const f = {
+    oauth_consumer_key: process.env.DISCOGS_CONSUMER_KEY,
+    oauth_nonce: Math.random().toString(36).slice(2) + Date.now(),
+    oauth_signature_method: "PLAINTEXT",
+    oauth_timestamp: String(Math.floor(Date.now() / 1000)),
+    oauth_version: "1.0",
+    oauth_token: token,
+    oauth_signature: process.env.DISCOGS_CONSUMER_SECRET + "&" + tokenSecret
+  };
+  return "OAuth " + Object.keys(f)
+    .map((k) => k + '="' + encodeURIComponent(f[k]) + '"').join(", ");
+}
 
 function ownerOK(given) {
   const owner = process.env.OWNER_PASSPHRASE;
@@ -83,7 +106,7 @@ export default async function handler(req, res) {
   /* "rate" or "press" fills just that column; anything else fills both.
      They are separate choices: a score and pressing research are
      different questions, and you may want one without the other. */
-  const only = (body.only === "rate" || body.only === "press") ? body.only : null;
+  const only = ["rate","press","owned"].indexOf(body.only) > -1 ? body.only : null;
 
   try {
     const sheet = await sheetCall({ action: "read" });
@@ -95,15 +118,19 @@ export default async function handler(req, res) {
       const title = String(r[1] || "").trim();
       const rating = String(r[10] || "").trim();
       const pressing = String(r[11] || "").trim();
+      const owned = String(r[12] || "").trim();          // column M
       const wantRating = only !== "press" && !rating;
       const wantPressing = only !== "rate" && !pressing;
-      if (artist && title && (wantRating || wantPressing)) {
+      const wantOwned = only !== "rate" && only !== "press" && !owned;
+      if (artist && title && (wantRating || wantPressing || wantOwned)) {
         todo.push({
           row: i + 2, artist, title,
           year: String(r[7] || "").trim(),
           press: String(r[8] || "").trim(),
+          id: String(r[4] || "").trim(),
           haveRating: !!rating || only === "press",
-          havePressing: !!pressing || only === "rate"
+          havePressing: !!pressing || only === "rate",
+          haveOwned: !!owned || only === "rate" || only === "press"
         });
       }
     });
@@ -112,11 +139,53 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, filled: 0, checked: 0, remaining: 0, done: true });
     }
 
+    /* What pressing do they actually own? The collection listing carries
+       the label and catalogue number of the exact release, so this part
+       is fact rather than inference \u2014 only the judgement of it comes
+       from the model. One paginated pass covers the whole collection. */
+    let pressingOf = {};
+    if (only !== "rate" && only !== "press") {   /* identity needed for the owned score */
+      try {
+        const cfg = await getConfig(["discogs_token", "discogs_secret", "discogs_user"]);
+        if (cfg.discogs_token && cfg.discogs_user) {
+          const auth = {
+            "Authorization": oauthAuth(cfg.discogs_token, cfg.discogs_secret || ""),
+            "User-Agent": "ShelfVinylApp/1.0", "Accept": "application/json"
+          };
+          let page = 1, pages = 1;
+          while (page <= pages && page <= 40) {
+            const r = await fetch("https://api.discogs.com/users/" +
+              encodeURIComponent(cfg.discogs_user) +
+              "/collection/folders/0/releases?per_page=100&page=" + page,
+              { headers: auth });
+            if (!r.ok) break;
+            const d = await r.json();
+            (d.releases || []).forEach(function (rel) {
+              const b = rel.basic_information || {};
+              const lab = (b.labels || [])[0] || {};
+              if (!b.id) return;
+              pressingOf[String(b.id)] = [
+                lab.name || "",
+                lab.catno || "",
+                b.year ? String(b.year) : ""
+              ].filter(Boolean).join(" \u00b7 ");
+            });
+            pages = (d.pagination && d.pagination.pages) || 1;
+            page++;
+          }
+        }
+      } catch (e) { pressingOf = {}; }
+    }
+
     const chunk = todo.slice(0, limit);
     const listing = chunk.map(function (it, n) {
+      /* The copy they own, identified from Discogs — label, catalogue
+         number and year. This is what the owned-pressing score is
+         judged against, so it has to reach the model. */
+      var owned = (it.id && pressingOf[it.id]) || "";
       return (n + 1) + ". " + it.artist + " \u2014 " + it.title +
              (it.year ? " (" + it.year + ")" : "") +
-             (it.press && it.press !== it.year ? ", copy pressed " + it.press : "");
+             "\n   their copy: " + (owned || "unknown");
     }).join("\n");
 
     const out = await callGemini(apiKey, function () {
@@ -174,6 +243,19 @@ export default async function handler(req, res) {
       if (!it.havePressing && v.pressing) {
         const p = String(v.pressing).replace(/\s+/g, " ").trim();
         if (p) { cells.push({ row: it.row, col: 12, value: p.slice(0, 400) }); wrote = true; }
+      }
+      if (!it.haveOwned && v.owned && v.owned.score !== undefined && v.owned.score !== null) {
+        const n2 = Number(v.owned.score);
+        if (isFinite(n2) && n2 >= 0 && n2 <= 10) {
+          const ident = (it.id && pressingOf[it.id]) || "";
+          const why2 = String(v.owned.why || "").replace(/\s+/g, " ").trim();
+          /* score, what the pressing IS, then why it's worth that \u2014 the
+             identity is Discogs' fact, only the judgement is the model's */
+          cells.push({ row: it.row, col: 13, value:
+            n2.toFixed(1) + (ident ? " \u2014 " + ident : "") +
+            (why2 ? " \u2014 " + why2 : "") });
+          wrote = true;
+        }
       }
       if (wrote) filled++;
     });
