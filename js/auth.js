@@ -135,6 +135,9 @@ function sheetWrite(action, payload, cb){
       if (cb) cb(e, null);
       return;
     }
+    /* Note the time of every successful write, so settings can show
+       when the sheet was last actually changed. */
+    if (typeof noteWrite === "function") noteWrite();
     if (cb) cb(null, x.d);
   })
   .catch(function(err){ if (cb) cb(err, null); });
