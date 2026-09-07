@@ -49,6 +49,24 @@ function saveCubeMap(m){
   try { localStorage.setItem("cubeMap", JSON.stringify(m)); } catch (e) {}
 }
 
+/* Where a category sits WITHIN its cube. Two categories sharing a cube
+   otherwise interleave alphabetically by artist, which is not how a
+   shelf works \u2014 you keep the metal together, then the jazz. Stored
+   separately from the cube map so an existing layout keeps working; a
+   category with no order falls to the end, alphabetically. */
+function catOrder(){
+  var o = {};
+  try { o = JSON.parse(localStorage.getItem("catOrder") || "{}"); } catch (e) {}
+  return o;
+}
+function saveCatOrder(o){
+  try { localStorage.setItem("catOrder", JSON.stringify(o)); } catch (e) {}
+}
+function orderOf(cat){
+  var o = catOrder();
+  return (typeof o[cat] === "number") ? o[cat] : 999;
+}
+
 function renderFiling(){
   var el = document.getElementById("filingbody");
   if (!el) return;
@@ -71,21 +89,44 @@ function renderFiling(){
           (noCat ? " " + noCat + " also have no category \u2014 set those below or in the sheet." : "")
         : "Everything has a cube. Nothing to file.") +
     "</p>" +
-    "<div class='cubemap'>" +
-      names.map(function(c){
-        return "<div class='cmrow'>" +
-          "<span class='cmdot' style='background:" + (COLORS[c] || "#7E7973") + "'></span>" +
-          "<span class='cmname'>" + esc(c) + "</span>" +
-          "<span class='cmn'>" + cats[c] + "</span>" +
-          "<select class='cmsel' data-cat=\"" + esc(c) + "\">" +
-            "<option value=''>\u2014</option>" +
-            [1,2,3,4].map(function(k){
-              return "<option value='" + k + "'" +
-                     (map[c] === k ? " selected" : "") + ">" + CUBE_NAMES[k] + "</option>";
-            }).join("") +
-          "</select></div>";
-      }).join("") +
-    "</div>" +
+    /* Grouped by cube, so the screen shows the shelf rather than an
+       alphabetical list: which categories share a cube, and in what
+       order they run along it. */
+    (function(){
+      var groups = { 1:[], 2:[], 3:[], 4:[], 0:[] };
+      names.forEach(function(c){ (groups[map[c] || 0]).push(c); });
+      Object.keys(groups).forEach(function(k){
+        groups[k].sort(function(a, b){
+          var d = orderOf(a) - orderOf(b);
+          return d !== 0 ? d : a.localeCompare(b);
+        });
+      });
+      return "<div class='cubemap'>" + [1,2,3,4,0].map(function(k){
+        var list = groups[k];
+        if (!list.length) return "";
+        return "<div class='cubegrp'><div class='cubehd'>" +
+            (k ? esc(CUBE_NAMES[k]) : "No cube yet") + "</div>" +
+          list.map(function(c, i){
+            return "<div class='cmrow'>" +
+              "<span class='cmdot' style='background:" + (COLORS[c] || "#7E7973") + "'></span>" +
+              "<span class='cmname'>" + esc(c) + "</span>" +
+              "<span class='cmn'>" + cats[c] + "</span>" +
+              (k ? "<span class='cmmove'>" +
+                "<button class='cmarrow' data-up=\"" + esc(c) + "\"" +
+                  (i === 0 ? " disabled" : "") + " aria-label='Move up'>\u2191</button>" +
+                "<button class='cmarrow' data-down=\"" + esc(c) + "\"" +
+                  (i === list.length - 1 ? " disabled" : "") + " aria-label='Move down'>\u2193</button>" +
+              "</span>" : "") +
+              "<select class='cmsel' data-cat=\"" + esc(c) + "\">" +
+                "<option value=''>\u2014</option>" +
+                [1,2,3,4].map(function(n){
+                  return "<option value='" + n + "'" +
+                         (map[c] === n ? " selected" : "") + ">" + CUBE_NAMES[n] + "</option>";
+                }).join("") +
+              "</select></div>";
+          }).join("") + "</div>";
+      }).join("") + "</div>";
+    })() +
     "<div class='addrow'>" +
       "<button class='chip' id='filingapply'>File " + unfiled.length + " record" +
         (unfiled.length === 1 ? "" : "s") + "</button>" +
@@ -100,6 +141,30 @@ function renderFiling(){
       if (this.value) m[this.dataset.cat] = +this.value;
       else delete m[this.dataset.cat];
       saveCubeMap(m);
+    });
+  });
+  /* Moving a category swaps its order with its neighbour in the same
+     cube, then re-renders. Order is only meaningful within a cube, so
+     the numbers are normalised per cube each time to stay tidy. */
+  [].forEach.call(el.querySelectorAll(".cmarrow"), function(btn){
+    btn.addEventListener("click", function(){
+      var cat = this.dataset.up || this.dataset.down;
+      var dir = this.dataset.up ? -1 : 1;
+      var m = cubeMap(), cube = m[cat];
+      if (!cube) return;
+      var peers = Object.keys(m).filter(function(c){ return m[c] === cube; })
+        .sort(function(a, b){
+          var d = orderOf(a) - orderOf(b);
+          return d !== 0 ? d : a.localeCompare(b);
+        });
+      var at = peers.indexOf(cat);
+      var to = at + dir;
+      if (at < 0 || to < 0 || to >= peers.length) return;
+      peers.splice(to, 0, peers.splice(at, 1)[0]);
+      var o = catOrder();
+      peers.forEach(function(c, i){ o[c] = i; });
+      saveCatOrder(o);
+      renderFiling();
     });
   });
   document.getElementById("filingapply").addEventListener("click", applyFiling);
@@ -145,7 +210,12 @@ function applyFiling(renumberAll){
     return;
   }
 
-  /* positions, per cube, in filing order */
+  /* Positions, per cube, consecutive from 1.
+     They used to be spaced 10 apart so a record could be slipped between
+     two others by hand. The app places records itself now, so the gaps
+     bought nothing and made the numbers harder to read against a shelf.
+     Within a cube the categories run in the order set on this screen,
+     and records run alphabetically inside their category. */
   var byCube = {};
   RECS.forEach(function(r){
     var cube = (r.c && map[r.c]) || (r.cubeSet ? r.k : null);
@@ -154,13 +224,13 @@ function applyFiling(renumberAll){
   });
   Object.keys(byCube).forEach(function(k){
     byCube[k].sort(function(x, y){
+      var ox = orderOf(x.c), oy = orderOf(y.c);
+      if (ox !== oy) return ox - oy;                       /* category run */
+      if (x.c !== y.c) return x.c.localeCompare(y.c);      /* stable tie-break */
       return recordSortKey(x).localeCompare(recordSortKey(y));
     });
     byCube[k].forEach(function(r, i){
-      var pos = (i + 1) * 10;
-      /* Renumber when asked to, when a record has no position yet, and
-         when it has just changed cube \u2014 otherwise a moved record keeps
-         a position belonging to the cube it left. */
+      var pos = i + 1;
       var changedCube = r.c && map[r.c] && r.k !== map[r.c];
       if (renumberAll === true || r.pos === null || !r.cubeSet || changedCube){
         if (r.pos !== pos) cells.push({ row: r.row, col: 10, value: pos });
