@@ -774,3 +774,16 @@ select option{background:#17130F;color:#F4F0E8}
 .shapectl{display:flex;align-items:center;gap:6px}
 .shapectl select{padding:6px 26px 6px 9px;font-size:12.5px}
 .shapex{color:var(--dim);font-size:12px}
+
+/* a close control on every inline panel */
+.panelclose{position:absolute;top:8px;right:0;width:30px;height:30px;
+  background:transparent;border:1px solid var(--line);border-radius:6px;
+  color:var(--muted);font-size:19px;line-height:1;cursor:pointer;
+  font-family:var(--sans);padding:0;z-index:2}
+.panelclose:hover{color:var(--text);border-color:var(--muted)}
+#addbox.show,#arrivalsbox.show,#gapsbox.show,
+#filingbox.show,#connbox.show,#safetybox.show{position:relative;padding-top:44px}
+
+.movelab{display:block;font-size:9.5px;letter-spacing:.17em;text-transform:uppercase;
+  color:var(--dim);margin:12px 0 4px}
+#movecat,#moveafter{width:100%}
