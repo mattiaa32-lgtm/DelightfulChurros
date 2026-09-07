@@ -66,12 +66,11 @@ function restoreBackup(json){
     ". Reload to see everything."};
 }
 (function(){
-  var bl=document.getElementById("backuplink"),
-      rl=document.getElementById("restorelink"),
-      rf=document.getElementById("restorefile");
-  if(!bl||!rl||!rf)return;
-  bl.addEventListener("click",function(e){e.preventDefault();downloadBackup();});
-  rl.addEventListener("click",function(e){e.preventDefault();rf.click();});
+  /* The old footer links are gone — the Backup panel calls
+     downloadBackup() directly and opens this file input itself. Only the
+     file-chosen handler still needs binding here. */
+  var rf=document.getElementById("restorefile");
+  if(!rf)return;
   rf.addEventListener("change",function(){
     var f=this.files&&this.files[0];
     if(!f)return;
