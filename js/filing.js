@@ -118,14 +118,23 @@ function applyFiling(renumberAll){
   if (!isOwner()){ msg.textContent = "Unlock editing first."; return; }
   var map = cubeMap();
   var cells = [];
-  var targets = renumberAll === true ? RECS.slice() : RECS.filter(isUnfiled);
-
+  /* Every record is considered, not just the unfiled ones.
+     This screen's whole purpose is deciding which cube a category lives
+     in \u2014 so changing one has to move the records already in it. Looking
+     only at unfiled records meant the dropdown appeared to do nothing
+     for an established category, while positions were rewritten anyway,
+     which is a confusing half-result. Records whose cube already matches
+     are skipped, so this stays cheap. */
   var missing = [];
-  targets.forEach(function(r){
+  var moved = 0;
+  RECS.forEach(function(r){
     if (!r.c) { missing.push(r); return; }
     var cube = map[r.c];
     if (!cube) { missing.push(r); return; }
-    if (r.k !== cube || !r.cubeSet) cells.push({ row: r.row, col: 4, value: cube });
+    if (r.k !== cube || !r.cubeSet) {
+      cells.push({ row: r.row, col: 4, value: cube });
+      if (r.cubeSet) moved++;         // an already-filed record changing cube
+    }
   });
 
   if (!cells.length && !renumberAll){
@@ -149,7 +158,11 @@ function applyFiling(renumberAll){
     });
     byCube[k].forEach(function(r, i){
       var pos = (i + 1) * 10;
-      if (renumberAll === true || r.pos === null || !r.cubeSet){
+      /* Renumber when asked to, when a record has no position yet, and
+         when it has just changed cube \u2014 otherwise a moved record keeps
+         a position belonging to the cube it left. */
+      var changedCube = r.c && map[r.c] && r.k !== map[r.c];
+      if (renumberAll === true || r.pos === null || !r.cubeSet || changedCube){
         if (r.pos !== pos) cells.push({ row: r.row, col: 10, value: pos });
       }
     });
@@ -159,7 +172,8 @@ function applyFiling(renumberAll){
   var i = 0;
   function next(){
     if (i >= cells.length){
-      msg.textContent = "Done. " + (missing.length
+      msg.textContent = "Done" + (moved ? " \u2014 moved " + moved + " record" +
+        (moved === 1 ? "" : "s") + " to a different cube" : "") + ". " + (missing.length
         ? missing.length + " record" + (missing.length === 1 ? "" : "s") +
           " still need a category or a cube for it. " : "") +
         "Pull down to refresh.";
