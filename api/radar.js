@@ -96,13 +96,21 @@ export default async function handler(req, res) {
       if (out.status === 429) {
         return res.status(429).json({
           error: "the web-search allowance is used up",
-          quota: out.quota || "rate",
-          note: out.quota === "daily"
-            ? "Search grounding has its own daily allowance, separate from the " +
-              "rest of the app \u2014 the other features may still work. It resets " +
-              "at midnight Pacific."
-            : "Search grounding has a small per-minute allowance. Give it a " +
-              "minute and try again.",
+          quota: out.quota || "unknown",
+          retryAfter: out.retryAfter,
+          note: (function(){
+            var base = "Web search is metered separately from the rest of the app, " +
+                       "so everything else may still work. ";
+            if (out.quota === "daily")
+              return base + "The daily allowance is gone; it resets at midnight Pacific.";
+            if (out.retryAfter)
+              return base + "Try again in about " + out.retryAfter + " seconds.";
+            /* No retry hint and no quota id: honestly unknown, so say
+               both rather than pick one and be wrong. */
+            return base + "Google didn't say which limit was hit. If a minute " +
+                   "doesn't help, the daily allowance is likely gone \u2014 that " +
+                   "resets at midnight Pacific.";
+          })(),
           attempted: out.attempted
         });
       }
