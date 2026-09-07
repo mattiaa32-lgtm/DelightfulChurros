@@ -71,7 +71,20 @@ function open(i){
         "</span><span class='rateout'>/10</span>"+
         (why ? "<span class='ratewhy'>"+esc(why)+"</span>" : "")+"</div>";
     })() : "")+
-    (r.press ? "<div class='pressrec'><span class='ktitle'>Preferred pressing</span>"+
+    /* Stored as "9.5 — UK Parlophone · PCS 7009 · 1966 — why", so the
+       score, the identity of the copy and the reasoning can each sit
+       in their own place. */
+    (r.owned ? (function(){
+      var p = String(r.owned).split("\u2014").map(function(x){ return x.trim(); });
+      var num = p[0] || "", ident = p[1] || "", why = p.slice(2).join(" \u2014 ");
+      return "<div class='pressblock'>"+
+        "<div class='presshead'><span class='ktitle'>Pressing score</span>"+
+          "<span class='pressline'><b>"+esc(num)+"</b>/10"+
+          (ident ? " \u00b7 " + esc(ident) : "")+"</span></div>"+
+        (why ? "<p>"+esc(why)+"</p>" : "")+
+      "</div>";
+    })() : "")+
+    (r.press ? "<div class='pressblock'><span class='ktitle'>Preferred pressing</span>"+
       "<p>"+esc(r.press)+"</p></div>" : "")+
     "<dl class='facts'>"+
       /* first release first, then the specific pressing on the shelf */
