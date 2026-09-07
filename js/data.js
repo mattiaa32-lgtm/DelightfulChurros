@@ -25,7 +25,11 @@ var DB = {"recs":[],"colors":{"Classic rock, hard rock & blues":"#C86A4A","Metal
 var RECS = DB.recs, COLORS = DB.colors;
 var cubeFilter = 0;
 var catFilter = "";
-var CUBE_NAMES = ["Top left","Top right","Bottom left","Bottom right"];
+/* Keyed by cube NUMBER (1-4), matching what the sheet stores. This was
+   defined three times across the app \u2014 twice as a 1-based object and
+   once as a 0-based array \u2014 so whichever loaded last silently changed
+   the meaning of every lookup, which is where "undefined" came from. */
+var CUBE_NAMES = { 1:"Top left", 2:"Top right", 3:"Bottom left", 4:"Bottom right" };
 
 function norm(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
   .replace(/^(the|a|an)\s+/,"").replace(/[^a-z0-9 ]/g,"");}
