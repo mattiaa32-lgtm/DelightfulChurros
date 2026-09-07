@@ -86,6 +86,13 @@ are cache-first since their URLs never change; and `/api/*` is never cached.
 When you change any file in `SHELL`, bump `SW_VERSION` in `sw.js` — older
 caches are deleted automatically on the next activation.
 
+## Backups
+
+The app writes to the sheet unattended, so `js/safety.js` takes a dated copy of
+the Collection tab once a week (hidden tabs named `Backup YYYY-MM-DD`, last
+eight kept). Settings → Sheet backups shows when the last copy and the last
+successful write happened, and can take one on demand.
+
 ## Rate limits
 
 Gemini's free tier allows roughly **10 requests per minute** and ~1,000 per day
