@@ -730,3 +730,7 @@ select option{background:#17130F;color:#F4F0E8}
 .saferow:last-of-type{border-bottom:0}
 .saferow span{color:var(--muted)}
 .saferow b{color:var(--text);font-weight:500}
+
+/* ---- release radar ---- */
+.radarsec{margin-top:26px;padding-top:6px;border-top:1px solid var(--line)}
+.radarsrc{font-size:11px;color:var(--dim);align-self:center}
