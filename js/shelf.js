@@ -61,6 +61,18 @@ function open(i){
       "<div class='d-title' id='dtitle'>"+esc(r.t)+"</div>"+
       "<div class='d-desc' data-i='"+r.i+"'>"+(r.desc?esc(r.desc):"")+"</div></div></div>"+
     "<div class='shelf'>"+holes(r)+"</div>"+
+    /* The rating is stored as "8.6 — because…", so the number can be
+       shown large with its reasoning beside it. A score with no argument
+       behind it is exactly what invites over-trusting it. */
+    (r.rate ? (function(){
+      var m = /^\s*([\d.]+)\s*(?:\u2014|-)?\s*(.*)$/.exec(r.rate);
+      var num = m ? m[1] : r.rate, why = m ? m[2] : "";
+      return "<div class='rating'><span class='ratenum'>"+esc(num)+
+        "</span><span class='rateout'>/10</span>"+
+        (why ? "<span class='ratewhy'>"+esc(why)+"</span>" : "")+"</div>";
+    })() : "")+
+    (r.press ? "<div class='pressrec'><span class='ktitle'>Preferred pressing</span>"+
+      "<p>"+esc(r.press)+"</p></div>" : "")+
     "<dl class='facts'>"+
       /* first release first, then the specific pressing on the shelf */
       (cachedYear(r)?"<dt>First released</dt><dd data-yr='first'>"+esc(cachedYear(r))+"</dd>":"")+
