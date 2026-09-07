@@ -32,12 +32,7 @@ function collectionPayload(){
 }
 
 /* ---- bootstrap ---- */
-/* Publish the shelf's column count so the CSS grids draw at the right
-   shape without every renderer having to know about it. */
-(function(){
-  if (typeof shelfShape !== "function") return;
-  document.documentElement.style.setProperty("--cols", String(shelfShape().cols));
-})();
+if (typeof applyShelfShapeCSS === "function") applyShelfShapeCSS();
 renderCatChips();
 render();
 warmDiscogsCache();
