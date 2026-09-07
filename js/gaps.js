@@ -16,7 +16,7 @@ function gapReport(){
                RECOMMENDATION. They were briefly the same name, which
                made both counts wrong and pushed the totals past the
                number of records. */
-            noCategory:[], noCube:[], noDesc:[], noRate:[], noPressRec:[] };
+            noCategory:[], noCube:[], noDesc:[], noRate:[], noPressRec:[], noOwned:[] };
   RECS.forEach(function(r){
     if (!r.d) g.noId.push(r);
     if (!r.img && !resolvedCover(r)) g.noCover.push(r);
@@ -27,6 +27,7 @@ function gapReport(){
     if (!r.desc) g.noDesc.push(r);
     if (!r.rate) g.noRate.push(r);
     if (!r.press) g.noPressRec.push(r);
+    if (!r.owned) g.noOwned.push(r);
   });
   return g;
 }
@@ -46,7 +47,8 @@ function renderGaps(){
     [null,    "Cube",           g.noCube,     "you choose \u2014 see New arrivals"],
     ["desc",  "Description",    g.noDesc,     "written by the AI, and quota-limited"],
     ["rate",  "Rating",         g.noRate,     "scored once by the AI, then left alone"],
-    ["press", "Preferred Pressing", g.noPressRec, "which pressing is worth owning"]
+    ["press", "Preferred Pressing", g.noPressRec, "which pressing is worth owning"],
+    ["owned", "Pressing Score", g.noOwned, "how good the copy you own is"]
   ];
 
   var fixable = {};
@@ -72,6 +74,9 @@ function renderGaps(){
           (fixable.rate ? pick("rate", "Ratings",
             g.noRate.length + " to score \u2014 about " +
             Math.ceil(g.noRate.length/12) + " AI requests") : "") +
+          (fixable.owned ? pick("owned", "Pressing scores",
+            g.noOwned.length + " to assess \u2014 about " +
+            Math.ceil(g.noOwned.length/12) + " AI requests") : "") +
           (fixable.press ? pick("press", "Preferred pressings",
             g.noPressRec.length + " to research \u2014 about " +
             Math.ceil(g.noPressRec.length/12) + " AI requests") : "") +
@@ -125,7 +130,7 @@ function fillGaps(){
   if (!Object.keys(want).length){ say("Pick at least one thing to fill."); return; }
 
   if (btn) btn.disabled = true;
-  var steps = ["sync","years","desc","rate","press"].filter(function(k){ return want[k]; });
+  var steps = ["sync","years","desc","rate","press","owned"].filter(function(k){ return want[k]; });
   var stepNo = 0;
 
   function finish(note){
@@ -176,10 +181,11 @@ function fillGaps(){
     /* Rating and pressing advice are separate choices \u2014 you may want a
        score without pressing research, or the reverse \u2014 so each is its
        own step and tells the endpoint which field to fill. */
-    var isEval = (step === "rate" || step === "press");
+    var isEval = (step === "rate" || step === "press" || step === "owned");
     var endpoint = isEval ? "/api/evaluate" : "/api/descriptions";
     var noun = step === "rate" ? "rating"
              : step === "press" ? "pressing note"
+             : step === "owned" ? "pressing score"
              : "description";
     var size = isEval ? 12 : 20;
     var extra = isEval ? { only: step } : {};
