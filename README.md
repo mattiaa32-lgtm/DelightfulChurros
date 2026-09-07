@@ -89,8 +89,8 @@ caches are deleted automatically on the next activation.
 ## Backups
 
 The app writes to the sheet unattended, so `js/safety.js` takes a dated copy of
-the Collection tab once a week (hidden tabs named `Backup YYYY-MM-DD`, last
-eight kept). Settings → Sheet backups shows when the last copy and the last
+the Collection tab once a week (a single hidden `Backup` tab, replaced each
+time). Settings → Backup shows when the last copy and the last
 successful write happened, and can take one on demand.
 
 ## Rate limits
