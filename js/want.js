@@ -62,12 +62,79 @@ function wantBtn(rec){
 function renderWantView(){
   var el=document.getElementById("wantbody"),list=wantList();
   document.getElementById("wantcount").textContent=
-    list.length?list.length+(list.length===1?" record":" records"):"";
+    (function(){
+      var open = list.filter(function(e){ return !e.got; }).length;
+      return open ? open + (open === 1 ? " record" : " records") : "";
+    })();
   if(!list.length){
     el.innerHTML="<p class='hint'>Nothing saved yet. Add records from Discover or "+
       "from the chat and they'll collect here.</p>";
     return;
   }
-  el.innerHTML=list.slice().reverse().map(function(r){return recCardHTML(r);}).join("");
+  /* Arrived records sit at the bottom, dimmed, rather than mixed in \u2014
+     the list is for what you're still hunting. */
+  var got = list.filter(function(e){ return e.got; });
+  var want = list.filter(function(e){ return !e.got; });
+
+  el.innerHTML =
+    (want.length
+      ? want.slice().reverse().map(function(r){ return recCardHTML(r); }).join("")
+      : "<p class='hint'>Nothing left on the hunt \u2014 everything here has arrived.</p>") +
+    (got.length
+      ? "<div class='gotsec'><div class='ktitle'>Arrived \u2014 now on the shelf</div>" +
+        got.slice().reverse().map(function(e){
+          return "<div class='gotrow'>" + esc(e.artist || "") + " \u2014 " +
+                 esc(e.title || "") + "</div>";
+        }).join("") +
+        "<div class='addrow' style='margin-top:10px'>" +
+          "<button class='chip' id='wantclear'>Clear these " + got.length + "</button>" +
+        "</div></div>"
+      : "");
+
   fillRecArt(el);
+  var cb = document.getElementById("wantclear");
+  if (cb) cb.addEventListener("click", function(){ clearArrived(); renderWantView(); });
 }
+
+/* ---- closing the loop when you actually buy one --------------------
+   The wantlist only ever grew. Nothing noticed when a record you wanted
+   turned up in the collection, so over time it fills with things you
+   already own \u2014 which makes it useless exactly when it should be most
+   useful, standing in a shop.
+
+   After the collection loads, anything on the list that now matches a
+   record on the shelf is marked as arrived. It is not deleted silently:
+   seeing "you got this" is the satisfying part, and a quiet deletion
+   would look like data loss. */
+function matchOwned(entry){
+  var a = norm(entry.artist || ""), t = norm(entry.title || "");
+  if (!a && !t) return null;
+  for (var i = 0; i < RECS.length; i++){
+    if (norm(RECS[i].a) === a && norm(RECS[i].t) === t) return RECS[i];
+  }
+  return null;
+}
+
+function reconcileWantlist(){
+  var list = wantList();
+  if (!list.length) return 0;
+  var changed = 0;
+  list.forEach(function(e){
+    if (e.got) return;                       /* already known to have arrived */
+    if (matchOwned(e)){ e.got = Date.now(); changed++; }
+  });
+  if (changed){
+    try { localStorage.setItem("wantlist", JSON.stringify(list)); } catch (e) {}
+  }
+  return changed;
+}
+
+/* Clears everything already marked as arrived. Explicit, because the
+   list is the only record that you once wanted these. */
+function clearArrived(){
+  var list = wantList().filter(function(e){ return !e.got; });
+  try { localStorage.setItem("wantlist", JSON.stringify(list)); } catch (e) {}
+  return list.length;
+}
+
+if (typeof onDataReady === "function") onDataReady(reconcileWantlist);
