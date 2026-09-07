@@ -25,11 +25,54 @@ var DB = {"recs":[],"colors":{"Classic rock, hard rock & blues":"#C86A4A","Metal
 var RECS = DB.recs, COLORS = DB.colors;
 var cubeFilter = 0;
 var catFilter = "";
-/* Keyed by cube NUMBER (1-4), matching what the sheet stores. This was
-   defined three times across the app \u2014 twice as a 1-based object and
-   once as a 0-based array \u2014 so whichever loaded last silently changed
-   the meaning of every lookup, which is where "undefined" came from. */
-var CUBE_NAMES = { 1:"Top left", 2:"Top right", 3:"Bottom left", 4:"Bottom right" };
+/* ---- the shelf's shape --------------------------------------------
+   Cubes were hard-coded as a 2x2 grid with fixed names. Shelves are not
+   all 2x2, so the grid is configurable: rows and columns are stored, and
+   the names are derived from them.
+
+   The sheet still stores a plain cube number, so nothing about the data
+   changes \u2014 only how many cubes exist and what they're called. Names
+   stay natural for the small grids ("Top left") and become positional
+   for larger ones ("Row 2, col 3"), because "upper-middle-left" helps
+   nobody. */
+var SHELF_DEFAULT = { rows: 2, cols: 2 };
+
+function shelfShape(){
+  var s = null;
+  try { s = JSON.parse(localStorage.getItem("shelfShape") || "null"); } catch (e) {}
+  if (!s || !s.rows || !s.cols) s = SHELF_DEFAULT;
+  s.rows = Math.max(1, Math.min(6, +s.rows || 2));
+  s.cols = Math.max(1, Math.min(6, +s.cols || 2));
+  return s;
+}
+function saveShelfShape(rows, cols){
+  try { localStorage.setItem("shelfShape", JSON.stringify({ rows: rows, cols: cols })); } catch (e) {}
+  CUBE_NAMES = buildCubeNames();
+}
+function cubeCount(){ var s = shelfShape(); return s.rows * s.cols; }
+
+function buildCubeNames(){
+  var s = shelfShape(), out = {};
+  var rowWord = { 1:["Top"], 2:["Top","Bottom"], 3:["Top","Middle","Bottom"] };
+  var colWord = { 1:[""], 2:["left","right"], 3:["left","centre","right"] };
+  var rw = rowWord[s.rows], cw = colWord[s.cols];
+  for (var r = 0; r < s.rows; r++){
+    for (var c = 0; c < s.cols; c++){
+      var n = r * s.cols + c + 1;
+      if (rw && cw){
+        out[n] = (rw[r] + " " + cw[c]).trim();
+      } else {
+        out[n] = "Row " + (r + 1) + ", col " + (c + 1);
+      }
+    }
+  }
+  return out;
+}
+
+/* Keyed by cube NUMBER, matching what the sheet stores. Defined once:
+   it used to exist in three files, twice 1-based and once 0-based, so
+   whichever loaded last silently changed every lookup. */
+var CUBE_NAMES = buildCubeNames();
 
 function norm(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
   .replace(/^(the|a|an)\s+/,"").replace(/[^a-z0-9 ]/g,"");}
@@ -116,6 +159,58 @@ function sortName(s){
    surname, write them in the sheet the way a library would: "Davis,
    Miles". That is explicit, needs no guessing, and is already how a
    couple of entries in the collection are written. */
+/* Given names, for telling a person from a band.
+   ---------------------------------------------------------------
+   "Frank Zappa" should file under Z and "Pink Floyd" under P, but both
+   are two capitalised words \u2014 nothing in the text distinguishes them.
+   The workable test is the first word: if it is a common given name,
+   treat the last word as a surname.
+
+   This is a heuristic and it has known failures, all in one direction:
+   bands named like people. Jethro Tull files under T, Alice Cooper
+   under C. Both are listed as exceptions below, but the list cannot be
+   complete \u2014 so the sheet always wins: write "Tull, Jethro" or
+   "Jethro Tull " with a trailing marker and the override is yours. */
+var GIVEN_NAMES = ("aaron abbey abdul adam adrian al alan albert alex alexander alice alison allen alison amy andre andrew "+
+"angela ann anna anne annie anthony antonio arthur ashley barbara barry ben benjamin bernard bert bill "+
+"billy bob bobby brad brenda brian bruce bryan carl carlos carol caroline carrie catherine charles "+
+"charlie cheryl chris christian christina christine christopher chuck cindy claire clara clark claude "+
+"cliff clifford colin craig curtis cynthia dan dana daniel danny darren dave david dawn dean deborah "+
+"debra dennis derek diana diane dick dolly don donald donna doris dorothy doug douglas duane duke earl "+
+"ed eddie edgar edward elaine eleanor elizabeth ellen elton elvis emily emma eric erica ernest ethel "+
+"eugene evelyn frances francis frank fred freddie frederick gary gene geoff geoffrey george gerald "+
+"gerry gil gladys glen glenn gloria gordon grace graham grant greg gregory gwen hank harold harry "+
+"harvey heather helen henry herbert herbie holly howard hugh ian irene isaac ivan jack jackie jacob "+
+"james jamie jane janet janice jason jay jean jeff jeffrey jennifer jeremy jerome jerry jesse jessica "+
+"jill jim jimmy joan joanne joe joel john johnny jon jonathan joni jordan joseph josh joshua joy joyce juan "+
+"judith judy julia julie justin karen karl kate katherine kathleen kathy keith kelly ken kenneth kenny "+
+"kevin kim kimberly kirk kris kurt kyle lance larry laura lawrence lee leo leon leonard leroy leslie "+
+"lester lewis lily linda lionel lisa lloyd lois lori lou louis louise lucy luis luke lydia lynn mabel "+
+"marc marcus margaret maria marie marilyn marion mark marsha martha martin marvin mary matt matthew miles "+
+"maureen maurice max megan melissa melvin michael michelle mike mildred miles milton mitch monica "+
+"morris nancy nathan neal neil nelson nick nicholas nicole nina noel norma norman oliver oscar otis "+
+"pam pamela pat patricia patrick paul paula pearl peggy pete peter phil philip phillip phyllis rachel "+
+"ralph randy ray raymond rebecca regina rene rex rich richard rick ricky rita rob robert roberta robin "+
+"rod rodney roger roland ron ronald ronnie rosa rose roy ruby russell ruth ryan sally sam samuel sandra "+
+"sandy sara sarah scott sean seth shane shannon sharon shaun shawn sheila shirley sidney simon sonny "+
+"stan stanley stella stephanie stephen steve steven stevie stuart sue susan suzanne sly sylvia tammy ted "+
+"terence terry theresa thomas tim timothy tina toby todd tom tommy tony tracy travis trevor troy van "+
+"vernon veronica vicki victor victoria vincent virginia wallace walter wanda warren wayne wendy wesley "+
+"will william willie wilson yvonne").split(" ");
+
+/* Bands whose name looks like a person's. Not exhaustive by any means \u2014
+   just the ones common enough to be worth catching. */
+var BAND_EXCEPTIONS = ["jethro tull","alice cooper","lynyrd skynyrd","pink floyd","judas priest",
+  "molly hatchet","marilyn manson","uriah heep","black sabbath","iron butterfly","steely dan",
+  "grand funk railroad","jefferson airplane","captain beefheart","buddy holly"];
+
+function looksLikePerson(raw){
+  var parts = norm(raw).split(/\s+/).filter(Boolean);
+  if (parts.length !== 2) return false;              /* only "First Last" */
+  if (BAND_EXCEPTIONS.indexOf(parts.join(" ")) > -1) return false;
+  return GIVEN_NAMES.indexOf(parts[0]) > -1;
+}
+
 function artistSortKey(a){
   var raw = String(a || "").trim();
   var m = /^(.*),\s*(.+)$/.exec(raw);
@@ -124,6 +219,11 @@ function artistSortKey(a){
        article convention and files under Chemical Brothers. */
     if (ARTICLES.test(m[2] + " ")) return sortName(m[1]);
     return norm(sortName(m[1]) + " " + sortName(m[2]));
+  }
+  /* "Frank Zappa" \u2192 "zappa frank", so it files under Z. */
+  if (looksLikePerson(raw)) {
+    var p = norm(sortName(raw)).split(/\s+/);
+    return p[1] + " " + p[0];
   }
   return sortName(raw);
 }
@@ -147,7 +247,10 @@ function recordSortKey(r){
 function adopt(rows){
   var recs = rows.map(function(r){
     var rawCube = (r[3] === undefined || r[3] === null) ? "" : String(r[3]).trim();
-    var c = (rawCube.match(/[1-4]/) || ["1"])[0], m = CUBEMAP[c];
+    var cn = parseInt(rawCube, 10);
+    if (!(cn >= 1 && cn <= cubeCount())) cn = 1;
+    var c = String(cn), m = CUBEMAP[c] || [Math.floor((cn - 1) / shelfShape().cols),
+                                           (cn - 1) % shelfShape().cols];
     var posRaw = (r[9] === undefined || r[9] === null) ? "" : String(r[9]).trim();
     var pos = /^-?\d+(\.\d+)?$/.test(posRaw) ? parseFloat(posRaw) : null;
     return {
@@ -156,7 +259,7 @@ function adopt(rows){
       /* A blank cube falls back to 1 for display, but "filed" and
          "happens to be in cube 1" are different things \u2014 this is what
          the filing screen uses to tell them apart. */
-      cubeSet: /[1-4]/.test(rawCube),
+      cubeSet: /^\s*\d+\s*$/.test(rawCube),
       d:(r[4]||"").trim()||null,
       img:(r[5]||"").trim()||null,
       desc:(r[6]||"").trim()||null,
