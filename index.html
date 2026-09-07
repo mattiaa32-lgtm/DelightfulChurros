@@ -33,6 +33,7 @@
     <div class="tabs" id="tabs">
       <button class="tab" data-v="shelf" aria-pressed="true">Shelf</button>
       <button class="tab" data-v="discover" aria-pressed="false">Discover</button>
+      <button class="tab" data-v="radar" aria-pressed="false">Radar</button>
       <button class="tab" data-v="want" aria-pressed="false">Wantlist</button>
       <button class="tab" data-v="dash" aria-pressed="false">Collection</button>
       <button class="tab" data-v="hifi" aria-pressed="false">Setup</button>
@@ -148,16 +149,6 @@ Settings are behind the gear, top right.
       <button class="chip" id="advtoggle" aria-pressed="false">Adventurous</button>
     </div>
     <div id="discbody"></div>
-    <div class="radarsec">
-      <div class="dischead">
-        <div>
-          <div class="disctitle">On the horizon</div>
-          <div class="hint">Coming out soon, filtered to what you collect.</div>
-        </div>
-        <a href="#" class="chip" id="radarrefresh">Check now</a>
-      </div>
-      <div id="radarbody"></div>
-    </div>
     <p class="foot">
       Today's picks stay put until tomorrow — they won't shuffle while you're using the app.<br>
       <a href="#" id="discnew">Refresh suggestions</a> &middot;
@@ -176,6 +167,20 @@ Settings are behind the gear, top right.
     <div id="dashdive" hidden></div>
     <p class="foot">Tap a category in the chart or legend for a deep dive.<br>
       <a href="#" id="dashrefresh">Regenerate assessment</a></p>
+  </div>
+
+  <div id="view-radar" hidden>
+    <div class="dischead">
+      <div>
+        <div class="disctitle">On the horizon</div>
+        <div class="hint">Coming out soon, narrowed to what you collect.</div>
+      </div>
+      <a href="#" class="chip" id="radarrefresh">Check now</a>
+    </div>
+    <div id="radarbody"></div>
+    <p class="foot">Checked once a week. Web search has its own small allowance,
+      separate from the rest of the app — so this can be unavailable while
+      everything else still works.</p>
   </div>
 
   <div id="view-want" hidden>
