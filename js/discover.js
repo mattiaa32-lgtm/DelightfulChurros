@@ -168,6 +168,12 @@ function renderDaily(recs){
   fillRecArt(body);
 }
 var discBusy=false;
+/* The radar shares the Discover tab: both answer "what should I get",
+   one from taste and one from what is actually being pressed. */
+function loadRadarIfReady(){
+  if (typeof loadRadar === "function") loadRadar(false);
+}
+
 function loadDaily(force){
   if(discBusy)return;
   var key="disc:"+todayKey();
