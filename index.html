@@ -85,15 +85,53 @@
 
   <p class="foot">
     Tap a record for its cube, its place in the run and what sits either side.<br>
-    <a href="#" id="qrlink">Make a QR code for the shelf</a><br>
-    <a href="#" id="arrivalslink">New arrivals</a> &middot;
-    <a href="#" id="gapslink">Fill in the blanks</a> &middot;
-    <a href="#" id="filinglink">Shelf layout</a> &middot;
-    <a href="#" id="connlink">Discogs connection</a> &middot;
-    <a href="#" id="backuplink">Back up this device</a> &middot;
-    <a href="#" id="restorelink">Restore from a backup</a>
-    <input type="file" id="restorefile" accept="application/json" hidden>
+    <a href="#" id="settingslink">Settings</a>
   </p>
+
+  <!-- One way in, rather than a footer that grows a link per feature.
+       Grouped by how often you'd touch each thing: the collection you
+       tend regularly, connections rarely, this device almost never. -->
+  <div class="setwrap" id="setwrap" hidden role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="setpanel">
+      <div class="chathead">
+        <div class="chattitle">Settings</div>
+        <button class="chatclose" id="setclose" aria-label="Close">&times;</button>
+      </div>
+      <div class="setbody">
+        <div class="setgroup">
+          <div class="setlabel">Collection</div>
+          <button class="setitem" id="arrivalslink">
+            <span>New arrivals</span>
+            <small>Place records that came in without a cube</small></button>
+          <button class="setitem" id="gapslink">
+            <span>Fill in the blanks</span>
+            <small>See what's missing, and fill it</small></button>
+          <button class="setitem" id="filinglink">
+            <span>Shelf layout</span>
+            <small>Which category lives in which cube</small></button>
+        </div>
+        <div class="setgroup">
+          <div class="setlabel">Connections</div>
+          <button class="setitem" id="connlink">
+            <span>Discogs</span>
+            <small>Connect, disconnect, sync</small></button>
+        </div>
+        <div class="setgroup">
+          <div class="setlabel">This device</div>
+          <button class="setitem" id="backuplink">
+            <span>Back up</span>
+            <small>Wantlist and listened marks, to a file</small></button>
+          <button class="setitem" id="restorelink">
+            <span>Restore</span>
+            <small>Merge a backup back in</small></button>
+          <button class="setitem" id="qrlink">
+            <span>QR code</span>
+            <small>For opening the shelf on a phone</small></button>
+          <input type="file" id="restorefile" accept="application/json" hidden>
+        </div>
+      </div>
+    </div>
+  </div>
   </div>
 
   <div id="view-discover" hidden>
@@ -212,6 +250,7 @@
 <script src="js/filing.js"></script>
 <script src="js/arrivals.js"></script>
 <script src="js/gaps.js"></script>
+<script src="js/settings.js"></script>
 <script src="js/backup.js"></script>
 <script src="js/ptr.js"></script>
 <script src="js/auth.js"></script>
