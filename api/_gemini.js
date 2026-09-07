@@ -80,6 +80,23 @@ async function listModels(apiKey) {
    optimisations rather than requirements, so on a 400 they are stripped
    and the request retried. Doing this here means every endpoint gets it
    — previously each had to remember, and most didn't. */
+/* Google usually attaches a RetryInfo saying how long to wait. Where the
+   quota id is missing that hint is the only honest signal: seconds mean a
+   per-minute limit, an hour means the daily one is gone. Telling someone
+   to "try again in a minute" when the daily allowance is spent just sends
+   them back to a button that cannot work. */
+function readQuota(body) {
+  const qm = body.match(/"quotaId"\s*:\s*"([^"]+)"/);
+  const rd = body.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/);
+  const retryAfter = rd ? Math.round(parseFloat(rd[1])) : null;
+  let quota;
+  if (/PerDay/i.test(qm ? qm[1] : "") || /per day|daily/i.test(body)) quota = "daily";
+  else if (retryAfter !== null && retryAfter > 120) quota = "daily";
+  else if (retryAfter !== null) quota = "rate";
+  else quota = "unknown";
+  return { quotaId: qm ? qm[1] : null, quota, retryAfter };
+}
+
 async function postWithFallbacks(model, apiKey, buildBody) {
   const raw = buildBody(model);
   const variants = [raw];
@@ -141,15 +158,15 @@ export async function callGemini(apiKey, buildBody, opts) {
     }
 
     const body = await res.text();
-    const qm = body.match(/"quotaId"\s*:\s*"([^"]+)"/);
+    const q = readQuota(body);
     last = {
       ok: false,
       status: res.status,
       model,
-      quotaId: qm ? qm[1] : null,
+      quotaId: q.quotaId,
+      quota: q.quota,
+      retryAfter: q.retryAfter,
       attempted: attempted.slice(),
-      quota: /PerDay/i.test(qm ? qm[1] : "") || /per day|daily/i.test(body)
-        ? "daily" : "rate",
       detail: body.slice(0, 300)
     };
 
@@ -184,10 +201,9 @@ export async function callGemini(apiKey, buildBody, opts) {
           return { ok: true, status: 200, data, cand, text, model, attempted };
         }
         const body = await res.text();
-        const qm = body.match(/"quotaId"\s*:\s*"([^"]+)"/);
+        const q = readQuota(body);
         last = { ok: false, status: res.status, model,
-                 quotaId: qm ? qm[1] : null,
-                 quota: /PerDay/i.test(qm ? qm[1] : "") ? "daily" : "rate",
+                 quotaId: q.quotaId, quota: q.quota, retryAfter: q.retryAfter,
                  detail: body.slice(0, 300) };
       } catch (e) { /* try the next one */ }
     }
