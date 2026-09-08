@@ -145,6 +145,15 @@ the Collection tab once a week (a single hidden `Backup` tab, replaced each
 time). Settings → Backup shows when the last copy and the last
 successful write happened, and can take one on demand.
 
+## Model selection
+
+`api/_gemini.js` keeps a chain of model names, but they are guesses — the
+models a key actually has are discovered from the API. That matters most for
+grounded (web search) calls: the capable models allow as few as five requests a
+minute, so grounded calls use discovery, take the non-lite models only, and try
+at most two with a pause between. Firing a chain of four at a 5/min ceiling
+spends it on retries and looks like an exhausted daily allowance.
+
 ## Rate limits
 
 Gemini's free tier allows roughly **10 requests per minute** and ~1,000 per day
