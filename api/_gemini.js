@@ -58,7 +58,7 @@ async function listModels(apiKey) {
       .filter((m) => (m.supportedGenerationMethods || []).indexOf("generateContent") > -1)
       .map((m) => String(m.name || "").replace(/^models\//, ""))
       .filter((n) => /^gemini-/i.test(n))
-      .filter((n) => !/nano|banana|lyria|imagen|veo|embedding|tts|vision|audio|live|image|music|thinking/i.test(n));
+      .filter((n) => !/nano|banana|lyria|imagen|veo|embedding|tts|vision|audio|live|image|music|thinking|transcribe|omni|speech|dialog/i.test(n));
 
     /* Order by what actually answers a grounded question well and has
        headroom: full flash models first, then pro, then the lite ones,
@@ -183,6 +183,11 @@ export async function callGemini(apiKey, buildBody, opts) {
     models = (capable.length ? capable : (real || models)).slice(0, 2);
   }
   const attempted = [];
+  /* One error per model, not just the last. Reporting only the final
+     failure meant a retired model's "no longer available" masked
+     whatever the promising models actually said \u2014 which is the part
+     worth reading. */
+  const failures = [];
   let last = null;
 
   for (let i = 0; i < models.length; i++) {
@@ -211,6 +216,9 @@ export async function callGemini(apiKey, buildBody, opts) {
 
     const body = await res.text();
     const q = readQuota(body);
+    let msg = "";
+    try { msg = (JSON.parse(body).error || {}).message || ""; } catch (e) { msg = body.slice(0, 120); }
+    failures.push({ model: model, status: res.status, message: msg.slice(0, 160) });
     last = {
       ok: false,
       status: res.status,
@@ -237,7 +245,8 @@ export async function callGemini(apiKey, buildBody, opts) {
      told the tool is unsupported \u2014 that only produced a list of eight
      models all failing the same way. */
   if (opts.grounded && last && last.status === 400) {
-    if (last) last.attempted = attempted;
+    last.attempted = attempted;
+    last.failures = failures;
     return last;
   }
   if (last && (last.status === 429 || last.status === 404)) {
@@ -269,6 +278,7 @@ export async function callGemini(apiKey, buildBody, opts) {
     }
   }
 
-  if (last) last.attempted = attempted;
-  return last || { ok: false, status: 502, detail: "no model responded", attempted };
+  if (last){ last.attempted = attempted; last.failures = failures; }
+  return last || { ok: false, status: 502, detail: "no model responded",
+                   attempted: attempted, failures: failures };
 }
