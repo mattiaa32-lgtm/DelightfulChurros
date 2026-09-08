@@ -116,8 +116,12 @@ export default async function handler(req, res) {
         detail: out.detail,
         status: out.status,
         attempted: out.attempted,
-        note: "Google said: " + (String(out.detail || "(nothing)").slice(0, 220)) +
-              " \u2014 models tried: " + (tried || "none") + "."
+        failures: out.failures || [],
+        note: (out.failures && out.failures.length)
+          ? out.failures.map(function(f){
+              return f.model + " (" + f.status + "): " + f.message;
+            }).join(" \u2014 ")
+          : ("Google said: " + String(out.detail || "(nothing)").slice(0, 220))
       });
     }
 
