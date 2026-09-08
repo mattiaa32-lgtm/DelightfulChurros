@@ -147,8 +147,10 @@ successful write happened, and can take one on demand.
 
 ## Model selection
 
-`api/_gemini.js` keeps a chain of model names, but they are guesses — the
-models a key actually has are discovered from the API. That matters most for
+`api/_gemini.js` keeps a chain of model names as a starting guess; the models a
+key actually has are discovered from the API. Discovery filters to Gemini TEXT
+models by name — an earlier filter of "flash|pro" matched nano-banana-pro
+(images) and lyria-pro (music), which were then asked to run a web search. That matters most for
 grounded (web search) calls: the capable models allow as few as five requests a
 minute, so grounded calls use discovery, take the non-lite models only, and try
 at most two with a pause between. Firing a chain of four at a 5/min ceiling
