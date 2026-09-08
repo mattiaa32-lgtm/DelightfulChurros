@@ -279,3 +279,75 @@ function weeklyValueRun(){
 if (typeof onDataReady === "function"){
   onDataReady(function(){ setTimeout(weeklyValueRun, 25000); });
 }
+
+/* ---- a record's own history --------------------------------------
+   The Values tab holds one row per record and one column per snapshot
+   date, so a record's line is a row of that table. It is fetched once
+   per session and kept in memory: asking per record would be a request
+   every time a record is opened, for a chart that rarely changes. */
+var VAL_SERIES = null;      // { discogsId: [{date, value}, ...] }
+var VAL_SERIES_ASKED = false;
+
+function loadValueSeries(cb){
+  if (VAL_SERIES) return cb(VAL_SERIES);
+  if (VAL_SERIES_ASKED) return cb(null);
+  VAL_SERIES_ASKED = true;
+  fetch("/api/sheet", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ action:"readValues" })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    var rows = (d && d.values) || [];
+    if (rows.length < 2){ VAL_SERIES = {}; return cb(VAL_SERIES); }
+    var header = rows[0];
+    var out = {};
+    rows.slice(1).forEach(function(r){
+      var id = String(r[0] || "").trim();
+      if (!id) return;
+      var series = [];
+      for (var c = 3; c < header.length; c++){
+        var v = parseFloat(String(r[c] == null ? "" : r[c]).replace(/[^\d.]/g, ""));
+        if (isFinite(v) && v > 0) series.push({ date: String(header[c]), value: v });
+      }
+      if (series.length) out[id] = series;
+    });
+    VAL_SERIES = out;
+    cb(VAL_SERIES);
+  })
+  .catch(function(){ VAL_SERIES = {}; cb(VAL_SERIES); });
+}
+
+/* Drawn into whatever element is passed. Two points are the minimum for
+   a line to mean anything; below that it says so rather than drawing a
+   dot and implying a trend. */
+function drawRecordValue(el, rec){
+  if (!el || !rec || !rec.d) return;
+  loadValueSeries(function(series){
+    var s = series && series[String(rec.d)];
+    if (!s || s.length < 2){
+      el.innerHTML = "<p class='hint'>" +
+        (s && s.length === 1
+          ? "One reading so far, from " + esc(s[0].date) + ". A line needs two."
+          : "No history yet \u2014 a reading is taken each week.") + "</p>";
+      return;
+    }
+    var vals = s.map(function(p){ return p.value; });
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var span = (hi - lo) || 1, w = 260, h = 48, pad = 4;
+    var pts = s.map(function(p, i){
+      var x = (i / (s.length - 1)) * w;
+      var y = h - ((p.value - lo) / span) * (h - pad * 2) - pad;
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }).join(" ");
+    var first = vals[0], last = vals[vals.length - 1];
+    var delta = last - first;
+    el.innerHTML =
+      "<svg class='recspark' viewBox='0 0 " + w + " " + h + "' preserveAspectRatio='none'>" +
+        "<polyline points='" + pts + "' fill='none' stroke='var(--accent)' stroke-width='2'/></svg>" +
+      "<p class='hint'>" + esc(s[0].date) + " \u2192 " + esc(s[s.length - 1].date) + " \u00b7 " +
+        ccy(first) + " \u2192 " + ccy(last) +
+        (delta ? " (" + (delta > 0 ? "+" : "") + ccy(delta) + ")" : " (unchanged)") +
+      "</p>";
+  });
+}
