@@ -67,7 +67,9 @@ Columns, in order:
 | K | Rating         | no    | score out of 10, with its reasoning           |
 | L | Preferred pressing | no | which pressing is worth owning              |
 | M | Pressing score | no    | how good your copy is, with what it is        |
-| N | Value          | no    | what a copy is listed at on Discogs           |
+| N | Value low      | no    | a rough copy, from Discogs price suggestions  |
+| O | Value median   | no    | a typical copy — the figure used for totals   |
+| P | Value high     | no    | a mint copy                                   |
 
 Position (J) is consecutive from 1 within each cube. Cube decides the run
 order between cubes; within a cube, categories run in the order set on the
@@ -98,7 +100,9 @@ selected by `mode`.
 
 ## Value history
 
-Column N holds each record's CURRENT value. History is kept in two places:
+Columns N, O and P hold the CURRENT low, median and high. Discogs prices by
+CONDITION rather than by sales history — sales data isn't in the public API —
+so the spread is "what a rough copy fetches" to "what a mint one does". History is kept in two places:
 
 - `Config!value_history` — dated aggregates (total, min, median, max; by cube
   and by category). This is what the chart draws.
