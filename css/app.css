@@ -793,25 +793,43 @@ select option{background:#17130F;color:#F4F0E8}
 html.is-guest .is-guest-only{display:block}
 .setgroup.empty-for-guest{display:none}
 
-/* ---- the cube picker, in place of the old filter chips ---- */
-.cubebar{display:flex;align-items:flex-end;gap:12px;margin:2px 0 10px;flex-wrap:wrap}
+/* ---- the cube picker ----
+   Collapsed to a single line by default: it is a control, and on a phone
+   the open grid pushed the records below the fold. */
+.cubehead{display:flex;align-items:center;gap:10px;width:100%;background:transparent;
+  border:1px solid var(--line);border-radius:7px;padding:9px 11px;cursor:pointer;
+  font-family:var(--sans);color:var(--muted);margin:2px 0 10px}
+.cubehead.filtered{border-color:rgba(180,101,58,.5);background:rgba(180,101,58,.07)}
+.cubehead:hover{border-color:var(--muted)}
+.cubelabel{flex:1 1 auto;text-align:left;font-size:12.5px;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cubehead.filtered .cubelabel{color:var(--accent)}
+.cubeclear{flex:0 0 auto;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:3px 7px}
+.cubeclear:hover{color:var(--text);border-color:var(--muted)}
+.cubechev{flex:0 0 auto;color:var(--dim);font-size:13px}
+.cubeicon{flex:0 0 auto;display:flex}
+.gridicon{display:grid;gap:1.5px;width:15px}
+.gridicon i{background:var(--dim);border-radius:1px;aspect-ratio:1}
+.cubehead.filtered .gridicon i{background:var(--accent)}
+
 .svgrid{display:grid;grid-template-columns:repeat(var(--cols,2),1fr);
-  grid-template-rows:repeat(var(--rows,2),1fr);gap:4px;
-  aspect-ratio:var(--shelfratio,1.05);width:100%;max-width:190px;flex:0 0 auto}
-.svcube{background:var(--surface2);border:1px solid var(--line);border-radius:5px;
-  display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;
-  padding:6px 7px;cursor:pointer;font-family:var(--sans);color:var(--muted);
-  text-align:left;overflow:hidden}
-.svcube.on{border-color:var(--accent);color:var(--text);background:rgba(180,101,58,.12)}
-.svname{font-size:9px;letter-spacing:.05em;line-height:1.25;text-transform:uppercase}
-.svn{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-.02em}
+  grid-template-rows:repeat(var(--rows,2),1fr);gap:5px;
+  aspect-ratio:var(--shelfratio,1.05);width:100%;max-width:260px;margin:0 0 12px}
+.svcube{background:var(--surface2);border:1px solid var(--line);border-radius:6px;
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
+  gap:1px;padding:8px 9px;cursor:pointer;font-family:var(--sans);
+  color:var(--muted);text-align:left;overflow:hidden;transition:border-color .15s}
+.svcube:hover{border-color:var(--muted)}
+.svcube.on{border-color:var(--accent);background:rgba(180,101,58,.12)}
+.svn{font-size:19px;font-weight:600;color:var(--text);letter-spacing:-.03em;line-height:1}
 .svcube.on .svn{color:var(--accent)}
-.svall{flex:0 0 auto}
-.svall.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.svname{font-size:8.5px;letter-spacing:.09em;line-height:1.2;text-transform:uppercase}
+
 .svtoggle{display:flex;justify-content:space-between;align-items:center;width:100%;
   background:transparent;border:0;border-top:1px solid var(--line);
   padding:10px 0;cursor:pointer;font-family:var(--sans);color:var(--muted);
-  font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+  font-size:10.5px;letter-spacing:.15em;text-transform:uppercase}
 .svchev{color:var(--dim);font-size:13px}
 .svsum{padding-bottom:10px}
 .svsumrow{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px}
@@ -833,3 +851,10 @@ html.is-guest .is-guest-only{display:block}
 .valrow:last-child{border-bottom:0}
 .valn{color:var(--muted);white-space:nowrap}
 .valn small{color:var(--dim);font-size:11px}
+
+/* the low / typical / high spread on a record */
+.valspread{display:flex;gap:18px;margin:8px 0 4px;flex-wrap:wrap}
+.valspread span{display:flex;flex-direction:column;gap:1px}
+.valspread b{font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--muted)}
+.valspread .vmid b{font-size:21px;color:var(--accent)}
+.valspread small{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
