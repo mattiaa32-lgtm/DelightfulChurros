@@ -103,12 +103,14 @@ function renderRadar(items, note){
                record needs answered. */
             (r.about ? "<p class='rsounds'>" + esc(r.about) + "</p>" : "") +
             (r.why ? "<p class='rwhy'>" + esc(r.why) + "</p>" : "") +
-            "<div class='rlinks'>" +
-              (typeof svcIcon === "function"
-                ? "<a href='https://www.discogs.com/search/?q=" + q + "&type=release' " +
-                  "target='_blank' rel='noopener'>" + svcIcon("discogs", true) + "Discogs</a>" : "") +
-              (r.source ? "<span class='radarsrc'>via " + esc(r.source) + "</span>" : "") +
-            "</div>" +
+            /* No Discogs link: these are unreleased, so the search
+               would return nothing or, worse, an older pressing that
+               looks like the thing being announced. The source is the
+               useful link \u2014 it is where the date came from. */
+            (r.source
+              ? "<div class='rlinks'><span class='radarsrc'>via " +
+                esc(r.source) + "</span></div>"
+              : "") +
           "</div>";
         }).join("") +
       "</div>";
