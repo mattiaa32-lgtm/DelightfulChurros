@@ -27,14 +27,64 @@ function due(key, every){ return Date.now() - lastRun(key) > (every || WEEK); }
    remembering that list, they call this. */
 function afterRecordAdded(){
   if (!isOwner()) return;
-  /* The sheet has the row; the app needs to see it before anything can
-     fill it in. */
-  if (typeof loadSheet === "function") loadSheet();
+
+  /* Reload and REDRAW, rather than asking someone to pull down. A record
+     you just added not appearing is the app looking broken; and the
+     sheet write has already returned, so there is nothing to wait for
+     beyond Google publishing the change. */
+  reloadCollection();
+
   setTimeout(function(){
     if (typeof fillYears === "function") fillYears({ el: null, asText: true });
     if (typeof takeSnapshot === "function") takeSnapshot(function(){});
     if (typeof sweepValues === "function") sweepValues();
   }, 3000);
+}
+
+/* Re-reads the sheet and redraws whatever is on screen. The published
+   CSV can lag a moment behind a write, so it tries twice \u2014 once
+   immediately, once a few seconds later \u2014 and the second pass is
+   harmless if the first already caught it. */
+function reloadCollection(cb){
+  var before = (typeof RECS !== "undefined") ? RECS.length : 0;
+
+  function pass(n){
+    if (typeof loadSheet !== "function") return;
+    loadSheet();
+    setTimeout(function(){
+      var now = (typeof RECS !== "undefined") ? RECS.length : 0;
+      redrawEverything();
+      if (now === before && n < 2){ setTimeout(function(){ pass(n + 1); }, 4000); }
+      else if (cb) cb(now);
+    }, 1500);
+  }
+  pass(1);
+}
+
+/* Every view that reads the collection, redrawn in place. */
+function redrawEverything(){
+  [["render", null],
+   ["renderCubePicker", null],
+   ["renderCatChips", null],
+   ["renderFilingBanner", null],
+   ["renderDashComputed", null]
+  ].forEach(function(f){
+    if (typeof window[f[0]] === "function"){
+      try { window[f[0]](); } catch (e) {}
+    }
+  });
+  /* Panels only if they happen to be open. */
+  var open = { arrivalsbox: "renderArrivals", gapsbox: "renderGaps",
+               filingbox: "renderFiling", valuebody: "renderValueTab" };
+  Object.keys(open).forEach(function(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    var showing = el.classList.contains("show") ||
+                  (id === "valuebody" && !document.getElementById("view-value").hidden);
+    if (showing && typeof window[open[id]] === "function"){
+      try { window[open[id]](); } catch (e) {}
+    }
+  });
 }
 
 /* ---- the weekly round -------------------------------------------- */
