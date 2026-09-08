@@ -111,7 +111,9 @@ export default async function handler(req, res) {
                    "doesn't help, the daily allowance is likely gone \u2014 that " +
                    "resets at midnight Pacific.";
           })(),
-          attempted: out.attempted
+          attempted: out.attempted,
+          status: out.status,
+          upstream: String(out.detail || "").slice(0, 200)
         });
       }
       return res.status(502).json({ error: "the search failed", detail: out.detail });
