@@ -51,10 +51,13 @@ function renderValues(){
     var a = latest.all;
     el.innerHTML = head +
       "<div class='valgrid'>" +
-        valTile("Total", money(a.total), a.n + " records") +
-        valTile("Median", money(a.median), "per record") +
-        valTile("Highest", money(a.max), "single record") +
-        valTile("Lowest", money(a.min), "single record") +
+        /* Three totals rather than one: the collection valued as if
+           every copy were rough, typical, or mint. The spread is the
+           honest picture \u2014 a single figure hides how wide it is. */
+        valTile("If rough", money(latest.low || a.total), "whole collection") +
+        valTile("Typical", money(latest.mid || a.total), a.n + " records") +
+        valTile("If mint", money(latest.high || a.total), "whole collection") +
+        valTile("Median record", money(a.median), "half are worth more") +
       "</div>" +
       (hist.length > 1
         ? sparkline(hist) +
