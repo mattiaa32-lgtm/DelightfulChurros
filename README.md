@@ -89,6 +89,18 @@ are cache-first since their URLs never change; and `/api/*` is never cached.
 When you change any file in `SHELL`, bump `SW_VERSION` in `sw.js` — older
 caches are deleted automatically on the next activation.
 
+## Value history
+
+Column N holds each record's CURRENT value. History is kept in two places:
+
+- `Config!value_history` — dated aggregates (total, min, median, max; by cube
+  and by category). This is what the chart draws.
+- A hidden `Values` tab — one row per record, one column per snapshot date,
+  so an individual record's history is readable and chartable in Sheets.
+
+Both are refreshed weekly, automatically, the first time the app opens after a
+week has passed. A repeat on the same date replaces that day's point.
+
 ## Backups
 
 The app writes to the sheet unattended, so `js/safety.js` takes a dated copy of
