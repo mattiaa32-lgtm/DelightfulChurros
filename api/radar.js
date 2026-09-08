@@ -147,7 +147,7 @@ export default async function handler(req, res) {
         /* Grounded replies carry the search results with them and run far
            longer than plain ones, so 1400 tokens cut this off mid-JSON.
            Six entries with a sentence each needs room. */
-        generationConfig: { maxOutputTokens: 4000 },
+        generationConfig: { maxOutputTokens: 6000 },
         tools: [{ google_search: {} }]
       });
     }, { grounded: true });   /* capable models first: lite ones can't ground */
@@ -225,7 +225,9 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
-      items: items.slice(0, 8),
+      /* The prompt asks for ten; trimming to eight afterwards silently
+         threw two away. */
+      items: items.slice(0, 10),
       sources: sources.slice(0, 6),
       grounded: sources.length > 0,
       checked: today
