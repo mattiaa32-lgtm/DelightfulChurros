@@ -107,9 +107,14 @@ function sparkline(hist){
 }
 
 function valueActions(){
-  return "<div class='addrow' style='margin-top:14px'>" +
-    "<button class='chip' id='valrefresh'>Refresh prices</button>" +
-    "<button class='chip' id='valsnap'>Take a snapshot</button>" +
+  /* Fetching prices lives in "Fill in the blanks" with every other
+     top-up job; having a second button here meant two places doing the
+     same thing. A manual snapshot stays, for taking a point deliberately
+     rather than waiting for the weekly one. */
+  return "<p class='hint'>Prices are fetched in <b>Fill in the blanks</b>, " +
+      "alongside everything else that tops the sheet up.</p>" +
+    "<div class='addrow' style='margin-top:10px'>" +
+      "<button class='chip' id='valsnap'>Take a snapshot now</button>" +
     "</div><p class='hint' id='valmsg'></p>";
 }
 
