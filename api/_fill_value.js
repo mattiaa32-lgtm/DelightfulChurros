@@ -21,7 +21,16 @@
 import { sheetCall, getConfig } from "./_sheet.js";
 
 const UA = "ShelfVinylApp/1.0";
-const GAP_MS = 1100;                 // ~55/min, inside Discogs' ceiling
+/* Discogs allows about 60 authenticated requests a minute. Pacing by
+   RECORD was wrong: with the stats fallback a record can cost two calls,
+   so a 1.1s record gap meant ~110 requests a minute and the run died on
+   a 429 after about twenty records. Every call now waits its own turn.
+
+   The bigger saving is not repeating a request that cannot work: if
+   price suggestions come back unauthorised once, the account lacks
+   seller access and it will be unauthorised for every record, so the
+   rest of the run goes straight to stats. That halves the calls. */
+const GAP_MS = 1050;                 // between individual REQUESTS
 
 function ownerOK(given) {
   const owner = process.env.OWNER_PASSPHRASE;
@@ -177,13 +186,23 @@ export async function handler(req, res) {
     const chunk = stale.slice(0, limit);
 
     const cells = [];
-    let checked = 0, priced = 0, noSuggestions = 0, statsOnly = 0, rateLimited = false;
+    let checked = 0, priced = 0, noSuggestions = 0, statsOnly = 0;
+    let rateLimited = false, suggestionsBlocked = false;
     for (const item of chunk) {
       checked++;
       try {
-        await sleep(GAP_MS);
-        const r = await fetch("https://api.discogs.com/marketplace/price_suggestions/" +
-                              item.id, { headers: auth });
+        let r = null;
+        if (!suggestionsBlocked) {
+          await sleep(GAP_MS);
+          r = await fetch("https://api.discogs.com/marketplace/price_suggestions/" +
+                          item.id, { headers: auth });
+          if (r.status === 401 || r.status === 403) {
+            /* Not a per-record problem: the account cannot use this
+               endpoint at all. Stop asking. */
+            suggestionsBlocked = true;
+            r = null;
+          }
+        }
 
         /* price_suggestions needs seller privileges on the account. A
            collector who has never sold gets 401/403 for every record,
@@ -191,10 +210,10 @@ export async function handler(req, res) {
            open to any authenticated user and always gives the lowest
            current listing, so it is the fallback \u2014 one honest number
            beats three that never arrive. */
-        if (r.status === 429) { rateLimited = true; break; }
+        if (r && r.status === 429) { rateLimited = true; break; }
 
         let lo = null, mid = null, hi = null;
-        if (r.ok) {
+        if (r && r.ok) {
           const d = await r.json();
           const vals = Object.keys(d || {})
             .map(function (k) { return d[k] && d[k].value; })
@@ -216,15 +235,21 @@ export async function handler(req, res) {
           if (st.ok) {
             const sd = await st.json();
             const p = sd && sd.lowest_price && sd.lowest_price.value;
-            if (isFinite(p) && p > 0) { lo = mid = hi = p; statsOnly++; }
+            /* This is the cheapest copy CURRENTLY LISTED \u2014 not the low,
+             median and high shown on a Discogs release page, which come
+             from sales history and are not in the public API. Writing it
+             into all three columns presented one unrelated number as if
+             it were those three. It goes in the low column alone; the
+             other two stay empty rather than being invented. */
+          if (isFinite(p) && p > 0) { lo = p; mid = null; hi = null; statsOnly++; }
           }
         }
 
         if (lo === null) continue;
         const r2 = function (n) { return Math.round(n * 100) / 100; };
         cells.push({ row: item.row, col: 14, value: r2(lo) });
-        cells.push({ row: item.row, col: 15, value: r2(mid) });
-        cells.push({ row: item.row, col: 16, value: r2(hi) });
+        if (mid !== null) cells.push({ row: item.row, col: 15, value: r2(mid) });
+        if (hi !== null) cells.push({ row: item.row, col: 16, value: r2(hi) });
         priced++;
       } catch (e) { /* leave it for the next run */ }
     }
@@ -234,18 +259,32 @@ export async function handler(req, res) {
     const remaining = Math.max(0, stale.length - checked);
     return res.status(200).json({
       ok: true, checked: checked, priced: priced,
-      remaining: remaining, done: remaining === 0 || rateLimited,
+      remaining: remaining,
+      /* Being rate limited is not being finished. Reporting it as done
+         stopped the run after the first refusal and left the rest of the
+         collection unpriced. */
+      done: remaining === 0 && !rateLimited,
       rateLimited: rateLimited,
+      /* A 429 is transient: the client should wait rather than stop, and
+         rather than retrying straight into the same wall. */
+      retryAfter: rateLimited ? 60 : null,
+      pause: rateLimited ? 65 : 0,
       /* Say when nothing could be priced and why \u2014 a run that quietly
          returns zero every time is indistinguishable from a broken one. */
-      note: (priced === 0 && checked > 0)
+      note: rateLimited
+        ? "Discogs rate limit reached \u2014 pausing. It clears within a minute."
+        : (priced === 0 && checked > 0)
         ? (noSuggestions === checked
             ? "Discogs returned no price data for any of these. Price suggestions " +
               "need seller privileges on the account; the marketplace fallback found " +
               "no copies listed either."
             : "No prices found for these records \u2014 they may have no copies for sale.")
-        : (statsOnly ? statsOnly + " priced from the lowest listing only " +
-                       "(no seller access for full suggestions)." : null)
+        : (statsOnly
+            ? statsOnly + " priced from the cheapest copy currently listed. " +
+              "The low/median/high on a Discogs page come from SALES history, " +
+              "which the public API doesn't expose \u2014 so only that one figure " +
+              "is available without seller access."
+            : null)
     });
   } catch (err) {
     return res.status(502).json({ error: String(err && err.message ? err.message : err) });
