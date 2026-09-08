@@ -1,12 +1,49 @@
-/* =================== what it's worth =================================
-   Discogs prices are what copies are LISTED at, not what they sell for,
-   and a thin market makes any single record noisy. So the per-record
-   number is a rough guide and the totals are the part to trust.
+/* =================== value, as its own tab ==========================
+   Prices come from Discogs in DKK and are stored that way, so the series
+   has one unit and never needs re-fetching to change currency. Anything
+   else is converted for display only, and the rate is stated \u2014 an
+   unlabelled converted figure invites more trust than it deserves.
 
-   Nothing can tell you what the collection was worth last year, so this
-   starts a series today: a dated snapshot each time it runs, and a chart
-   that fills in over the coming months. One point is an honest starting
-   position rather than a fabricated history. */
+   The chart follows whatever the shelf is filtered to: pick a cube or a
+   category and the totals and history narrow with it. */
+
+var VAL_CCY = "DKK";
+var VAL_RATES = { DKK: 1, EUR: 0.134, USD: 0.145, GBP: 0.112 };
+var valFilter = { cube: 0, cat: "" };
+
+function ccy(n){
+  var v = (Number(n) || 0) * (VAL_RATES[VAL_CCY] || 1);
+  var sym = { DKK: "kr", EUR: "\u20ac", USD: "$", GBP: "\u00a3" }[VAL_CCY] || "";
+  var s = Math.round(v).toLocaleString();
+  return VAL_CCY === "DKK" ? s + " " + sym : sym + s;
+}
+
+function valRecords(){
+  return RECS.filter(function(r){
+    if (!r.val) return false;
+    if (valFilter.cube && r.k !== valFilter.cube) return false;
+    if (valFilter.cat && r.c !== valFilter.cat) return false;
+    return true;
+  });
+}
+
+function valStats(list){
+  var mid = [];
+  list.forEach(function(r){ mid.push(r.val); });
+  var sum = function(a){ return a.reduce(function(x, y){ return x + y; }, 0); };
+  var med = function(a){
+    if (!a.length) return 0;
+    var s = a.slice().sort(function(x, y){ return x - y; }), m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
+  return {
+    n: list.length,
+    total: sum(mid),
+    median: med(mid),
+    dearest: list.slice().sort(function(x, y){ return y.val - x.val; })[0],
+    cheapest: list.slice().sort(function(x, y){ return x.val - y.val; })[0]
+  };
+}
 
 function valueHistory(cb){
   fetch("/api/sheet", {
@@ -22,54 +59,62 @@ function valueHistory(cb){
   .catch(function(){ cb([]); });
 }
 
-function money(n){
-  return "\u00a3" + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+function renderValueTab(){
+  var el = document.getElementById("valuebody");
+  if (!el) return;
+  var list = valRecords();
+  var s = valStats(list);
+  var priced = RECS.filter(function(r){ return r.val; }).length;
+
+  el.innerHTML =
+    ccyBar() +
+    valFilters() +
+    (s.n
+      ? "<div class='valgrid'>" +
+          valTile("Total", ccy(s.total), s.n + " record" + (s.n === 1 ? "" : "s")) +
+          valTile("Median record", ccy(s.median), "half are worth more") +
+          (s.dearest ? valTile("Dearest", ccy(s.dearest.val),
+            s.dearest.a + " \u2014 " + s.dearest.t) : "") +
+        "</div>"
+      : "<p class='hint'>Nothing priced in this selection yet.</p>") +
+    "<div id='valchart'></div>" +
+    "<p class='hint'>Prices are what copies are <b>listed</b> at on Discogs, not " +
+      "what they sold for \u2014 Discogs doesn't publish sale history through its API. " +
+      priced + " of " + RECS.length + " records priced; fill the rest from " +
+      "<b>Fill in the blanks</b>.</p>";
+
+  wireValueTab();
+  valueHistory(function(hist){ drawValueChart(hist); });
 }
 
-function renderValues(){
-  var el = document.getElementById("valuesbody");
-  if (!el) return;
-  el.innerHTML = "<p class='hint'>Loading\u2026</p>";
+function ccyBar(){
+  return "<div class='ccybar'>" +
+    ["DKK","EUR","USD","GBP"].map(function(c){
+      return "<button class='chip ccyb" + (VAL_CCY === c ? " on" : "") +
+             "' data-ccy='" + c + "'>" + c + "</button>";
+    }).join("") +
+    (VAL_CCY === "DKK" ? "" :
+      "<span class='hint ccynote'>converted at " + VAL_RATES[VAL_CCY] +
+      " per kr \u2014 approximate</span>") +
+  "</div>";
+}
 
-  valueHistory(function(hist){
-    var priced = RECS.filter(function(r){ return r.val; }).length;
-    var latest = hist.length ? hist[hist.length - 1] : null;
-
-    var head =
-      "<p class='hint'>What copies are listed at on Discogs \u2014 not what they'd " +
-        "sell for. Single records are noisy; the totals are the meaningful part. " +
-        "<b>" + priced + "</b> of " + RECS.length + " priced.</p>";
-
-    if (!latest){
-      el.innerHTML = head +
-        "<p class='hint'>No snapshot yet. Refresh the prices, then take one \u2014 " +
-          "that's the first point on the chart.</p>" + valueActions();
-      wireValues();
-      return;
-    }
-
-    var a = latest.all;
-    el.innerHTML = head +
-      "<div class='valgrid'>" +
-        /* Three totals rather than one: the collection valued as if
-           every copy were rough, typical, or mint. The spread is the
-           honest picture \u2014 a single figure hides how wide it is. */
-        valTile("If rough", money(latest.low || a.total), "whole collection") +
-        valTile("Typical", money(latest.mid || a.total), a.n + " records") +
-        valTile("If mint", money(latest.high || a.total), "whole collection") +
-        valTile("Median record", money(a.median), "half are worth more") +
-      "</div>" +
-      (hist.length > 1
-        ? sparkline(hist) +
-          "<p class='hint'>" + hist.length + " snapshots since " +
-            esc(hist[0].date) + ".</p>"
-        : "<p class='hint'>One snapshot, taken " + esc(latest.date) + ". " +
-          "Take another in a few weeks and this becomes a trend.</p>") +
-      byGroup("By cube", latest.cubes, function(k){ return CUBE_NAMES[k] || ("Cube " + k); }) +
-      byGroup("By category", latest.cats, function(k){ return k; }) +
-      valueActions();
-    wireValues();
-  });
+function valFilters(){
+  var cubes = [];
+  for (var i = 1; i <= cubeCount(); i++) cubes.push(i);
+  var cats = Object.keys(COLORS).sort();
+  return "<div class='valfilters'>" +
+    "<select id='valcube'><option value='0'>All cubes</option>" +
+      cubes.map(function(k){
+        return "<option value='" + k + "'" + (valFilter.cube === k ? " selected" : "") +
+               ">" + esc(CUBE_NAMES[k]) + "</option>"; }).join("") +
+    "</select>" +
+    "<select id='valcat'><option value=''>All categories</option>" +
+      cats.map(function(c){
+        return "<option value=\"" + esc(c) + "\"" + (valFilter.cat === c ? " selected" : "") +
+               ">" + esc(c) + "</option>"; }).join("") +
+    "</select>" +
+  "</div>";
 }
 
 function valTile(label, big, sub){
@@ -78,156 +123,100 @@ function valTile(label, big, sub){
     "<div class='ksub'>" + esc(sub) + "</div></div>";
 }
 
-function byGroup(title, obj, nameOf){
-  var keys = Object.keys(obj || {});
-  if (!keys.length) return "";
-  keys.sort(function(x, y){ return obj[y].total - obj[x].total; });
-  return "<div class='valsec'><div class='ktitle'>" + esc(title) + "</div>" +
-    keys.map(function(k){
-      return "<div class='valrow'><span>" + esc(nameOf(k)) + "</span>" +
-        "<span class='valn'>" + money(obj[k].total) +
-        " <small>median " + money(obj[k].median) + "</small></span></div>";
-    }).join("") + "</div>";
-}
+/* Three lines, one per figure, over whatever snapshots exist. With a
+   single point there is nothing to draw, and saying so beats an empty
+   box that looks broken. */
+function drawValueChart(hist){
+  var el = document.getElementById("valchart");
+  if (!el) return;
 
-/* A plain line, drawn from the snapshots themselves. Enough to see a
-   direction; the numbers above are what you'd actually read. */
-function sparkline(hist){
-  var vals = hist.map(function(p){ return p.all.total; });
-  var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
-  var span = (hi - lo) || 1;
-  var w = 300, h = 60;
-  var pts = vals.map(function(v, i){
-    var x = vals.length === 1 ? w / 2 : (i / (vals.length - 1)) * w;
-    var y = h - ((v - lo) / span) * (h - 8) - 4;
-    return x.toFixed(1) + "," + y.toFixed(1);
-  }).join(" ");
-  return "<svg class='valspark' viewBox='0 0 " + w + " " + h + "' preserveAspectRatio='none'>" +
-    "<polyline points='" + pts + "' fill='none' stroke='var(--accent)' stroke-width='2'/></svg>";
-}
+  var pts = hist.filter(function(p){ return p && p.date; });
+  if (pts.length < 2){
+    el.innerHTML = "<p class='hint'>" +
+      (pts.length ? "One snapshot so far, from " + esc(pts[0].date) +
+                    ". The chart appears once there are two."
+                  : "No snapshots yet. One is taken automatically each week.") + "</p>";
+    return;
+  }
 
-function valueActions(){
-  /* Fetching prices lives in "Fill in the blanks" with every other
-     top-up job; having a second button here meant two places doing the
-     same thing. A manual snapshot stays, for taking a point deliberately
-     rather than waiting for the weekly one. */
-  return "<p class='hint'>Prices are fetched in <b>Fill in the blanks</b>, " +
-      "alongside everything else that tops the sheet up.</p>" +
-    "<div class='addrow' style='margin-top:10px'>" +
-      "<button class='chip' id='valsnap'>Take a snapshot now</button>" +
-    "</div><p class='hint' id='valmsg'></p>";
-}
-
-function wireValues(){
-  var msg = function(t){ var m = document.getElementById("valmsg"); if (m) m.textContent = t; };
-
-  var rb = document.getElementById("valrefresh");
-  if (rb) rb.addEventListener("click", function(){
-    if (!isOwner()){ msg("Unlock editing first."); return; }
-    rb.disabled = true;
-    var done = 0;
-    (function step(){
-      fetch("/api/fill", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ mode: "value", passphrase: ownerPass(), limit: 40 })
-      })
-      .then(function(r){ return r.json(); })
-      .then(function(d){
-        if (!d || !d.ok){ msg((d && (d.detail || d.error)) || "Couldn't fetch prices."); rb.disabled = false; return; }
-        done += d.priced;
-        if (!d.done){
-          msg("Pricing\u2026 " + done + " done, " + d.remaining + " to go.");
-          setTimeout(step, 400);
-        } else {
-          msg("Priced " + done + " record" + (done === 1 ? "" : "s") + ".");
-          rb.disabled = false;
-        }
-      })
-      .catch(function(){ msg("Couldn't reach the pricing service."); rb.disabled = false; });
-    })();
+  /* One line, because there is one number. */
+  var series = [{ key: "mid", label: "Collection total", colour: "var(--accent)" }];
+  var all = [];
+  pts.forEach(function(p){
+    series.forEach(function(s){ if (p[s.key]) all.push(p[s.key]); });
   });
+  if (!all.length){ el.innerHTML = ""; return; }
+  var lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
+  var span = (hi - lo) || 1, w = 320, h = 110, pad = 6;
 
-  var sb = document.getElementById("valsnap");
-  if (sb) sb.addEventListener("click", function(){
-    if (!isOwner()){ msg("Unlock editing first."); return; }
-    msg("Taking a snapshot\u2026");
-    fetch("/api/fill", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ mode: "value", passphrase: ownerPass(), snapshot: true })
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if (!d || !d.ok){ msg((d && d.error) || "Couldn't take a snapshot."); return; }
-      msg("Snapshot " + d.points + " recorded.");
-      renderValues();
-    })
-    .catch(function(){ msg("Couldn't reach the service."); });
+  var lines = series.map(function(s){
+    var d = pts.map(function(p, i){
+      var v = p[s.key];
+      if (!v) return null;
+      var x = (i / (pts.length - 1)) * w;
+      var y = h - ((v - lo) / span) * (h - pad * 2) - pad;
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }).filter(Boolean).join(" ");
+    return d ? "<polyline points='" + d + "' fill='none' stroke='" + s.colour +
+               "' stroke-width='2' stroke-linejoin='round'/>" : "";
+  }).join("");
+
+  el.innerHTML =
+    "<svg class='valchart' viewBox='0 0 " + w + " " + h + "' preserveAspectRatio='none'>" +
+      lines + "</svg>" +
+    "<div class='vallegend'>" +
+      series.map(function(s){
+        return "<span><i style='background:" + s.colour + "'></i>" + s.label + "</span>";
+      }).join("") +
+      "<span class='valdates'>" + esc(pts[0].date) + " \u2192 " +
+        esc(pts[pts.length - 1].date) + "</span>" +
+    "</div>";
+}
+
+function wireValueTab(){
+  [].forEach.call(document.querySelectorAll(".ccyb"), function(b){
+    b.addEventListener("click", function(){ VAL_CCY = this.dataset.ccy; renderValueTab(); });
+  });
+  var cu = document.getElementById("valcube");
+  if (cu) cu.addEventListener("change", function(){
+    valFilter.cube = +this.value; renderValueTab();
+  });
+  var ca = document.getElementById("valcat");
+  if (ca) ca.addEventListener("change", function(){
+    valFilter.cat = this.value; renderValueTab();
   });
 }
 
-/* ---- weekly, on its own ---------------------------------------------
-   A value series is only useful if the points keep coming, and nobody
-   remembers to press a button every Sunday. So the first time the app is
-   opened after a week has passed, it refreshes the prices and takes a
-   snapshot in the background.
-
-   Prices are the slow part \u2014 one Discogs call per record \u2014 so this
-   works through them in batches and only snapshots once they are done.
-   Interrupting it costs nothing: the next open picks up where it
-   stopped, and a snapshot on a date that already has one replaces it
-   rather than adding a second point. */
+/* ---- weekly, unattended ---- */
 var VALUE_EVERY_MS = 7 * 24 * 3600 * 1000;
-
 function lastValueRun(){
   try { return +localStorage.getItem("lastValueRun") || 0; } catch (e) { return 0; }
 }
 function noteValueRun(){
   try { localStorage.setItem("lastValueRun", String(Date.now())); } catch (e) {}
 }
-
 function weeklyValueRun(){
-  if (!isOwner()) return;
+  if (!isOwner() || !RECS.length) return;
   if (Date.now() - lastValueRun() < VALUE_EVERY_MS) return;
-  if (!RECS.length) return;
-
   var rounds = 0;
   (function step(){
-    if (++rounds > 12) return;          /* don't grind forever in one session */
+    if (++rounds > 20) return;
     fetch("/api/fill", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ mode: "value", passphrase: ownerPass(), limit: 40 })
+      body: JSON.stringify({ mode:"value", passphrase: ownerPass(), limit: 40 })
     })
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (!d || !d.ok) return;
-      if (!d.done){ setTimeout(step, 1500); return; }
-      /* prices are current: record the point */
+      if (!d.done){ setTimeout(step, (d.pause || 1) * 1000); return; }
       fetch("/api/fill", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ mode: "value", passphrase: ownerPass(), snapshot: true })
-      })
-      .then(function(r){ return r.json(); })
-      .then(function(){ noteValueRun(); })
-      .catch(function(){});
+        body: JSON.stringify({ mode:"value", passphrase: ownerPass(), snapshot: true })
+      }).then(function(){ noteValueRun(); }, function(){});
     })
     .catch(function(){});
   })();
 }
-
 if (typeof onDataReady === "function"){
   onDataReady(function(){ setTimeout(weeklyValueRun, 25000); });
 }
-
-(function(){
-  var link = document.getElementById("valueslink");
-  if (!link) return;
-  link.addEventListener("click", function(e){
-    e.preventDefault();
-    var box = document.getElementById("valuesbox");
-    box.classList.toggle("show");
-    if (box.classList.contains("show")){
-      renderValues();
-      box.scrollIntoView({ behavior:"smooth", block:"start" });
-    }
-  });
-})();
