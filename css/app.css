@@ -858,3 +858,7 @@ html.is-guest .is-guest-only{display:block}
 .valspread b{font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--muted)}
 .valspread .vmid b{font-size:21px;color:var(--accent)}
 .valspread small{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+
+/* stop a long fill */
+.gapsstop{border-color:rgba(200,90,70,.45);color:#C86A5A}
+.gapsstop:hover{border-color:#C86A5A;color:#E08070}
