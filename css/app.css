@@ -323,7 +323,6 @@ path[data-cat]:hover{opacity:.85}
   box-sizing:border-box}
 .dec.na .decl,.dec.na .decn{color:var(--dim)}
 
-
 /* ================================================================
    Editorial pass
    Cards lose their fills and borders; hairline rules and space do the
@@ -344,7 +343,7 @@ path[data-cat]:hover{opacity:.85}
 .deccard,.rec{padding:16px 0}
 .rec .rlinks a,.chip,.listenbtn,.wantbtn,.rfit{border-radius:5px}
 #q,#askq,#qrurl,#exportarea{border-radius:6px}
-.art,.rart,.bigart{border-radius:4px}
+.art,.rart{border-radius:4px}
 .row{padding:13px 0}
 
 /* charts: neutral bars, accent only on the value */
@@ -608,16 +607,6 @@ html.is-guest .owner-only{display:none!important}
 .filingbanner{margin:8px 0 0;padding:9px 12px;border:1px dashed rgba(180,101,58,.45);
   border-radius:7px;color:var(--muted);font-size:12.5px}
 .filingbanner a{color:var(--accent)}
-.filerow{display:flex;align-items:center;gap:10px;padding:9px 0;
-  border-bottom:1px solid var(--line)}
-.filerow:last-of-type{border-bottom:0}
-.filecat{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:8px;
-  font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.filedot{width:9px;height:9px;border-radius:2px;flex:0 0 9px}
-.filecount{flex:0 0 auto;font-size:11px;color:var(--dim);white-space:nowrap}
-.filesel{flex:0 0 auto;background:var(--surface2);border:1px solid var(--line);
-  color:var(--text);border-radius:5px;padding:6px 8px;font-size:12px;
-  font-family:var(--sans);max-width:8.5em}
 
 /* ================================================================
    Dropdowns
@@ -697,9 +686,6 @@ select option{background:#17130F;color:#F4F0E8}
 /* ---- rating and pressing advice on a record ---- */
 .rating{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin:16px 0 0;
   padding-top:14px;border-top:1px solid var(--line)}
-.ratenum{font-size:27px;font-weight:600;letter-spacing:-.03em;color:var(--accent)}
-.rateout{font-size:12px;color:var(--dim);margin-left:-3px}
-.ratewhy{flex:1 1 14em;min-width:0;font-size:12.5px;color:var(--muted);line-height:1.5}
 .pressblock{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
 .pressblock p{font-size:13px;color:var(--muted);line-height:1.5;margin:5px 0 0}
 .presshead{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
@@ -736,7 +722,6 @@ select option{background:#17130F;color:#F4F0E8}
 .saferow b{color:var(--text);font-weight:500}
 
 /* ---- release radar ---- */
-.radarsec{margin-top:26px;padding-top:6px;border-top:1px solid var(--line)}
 .radarsrc{font-size:11px;color:var(--dim);align-self:center}
 
 /* categories grouped by cube, orderable within one */
@@ -766,7 +751,6 @@ select option{background:#17130F;color:#F4F0E8}
 .movebody{padding:4px 18px max(18px,env(safe-area-inset-bottom))}
 #moveafter{width:100%;max-width:100%}
 #movebtn{width:100%;margin-bottom:8px}
-
 
 /* shelf shape control */
 .shapebar{display:flex;align-items:center;justify-content:space-between;
@@ -844,13 +828,6 @@ html.is-guest .is-guest-only{display:block}
   gap:0 16px;margin:6px 0 4px}
 .valtile{padding:12px 0 14px;border-top:1px solid var(--line)}
 .valbig{font-size:24px;font-weight:600;letter-spacing:-.03em;margin-top:3px;color:var(--text)}
-.valspark{width:100%;height:60px;margin:10px 0 4px;display:block}
-.valsec{margin-top:18px}
-.valrow{display:flex;justify-content:space-between;gap:12px;padding:8px 0;
-  border-bottom:1px solid var(--line);font-size:13px}
-.valrow:last-child{border-bottom:0}
-.valn{color:var(--muted);white-space:nowrap}
-.valn small{color:var(--dim);font-size:11px}
 
 /* the low / typical / high spread on a record */
 .valspread{display:flex;gap:18px;margin:8px 0 4px;flex-wrap:wrap}
@@ -878,3 +855,45 @@ html.is-guest .is-guest-only{display:block}
 /* a record's own price history */
 .recval{margin-top:10px}
 .recspark{width:100%;height:48px;display:block}
+
+/* ================================================================
+   Final pass
+   Consistency rather than new decoration: panels, blocks and lists had
+   drifted to slightly different paddings and separators as each was
+   added. Same rhythm everywhere reads as considered; near-misses read
+   as sloppy.
+   ================================================================ */
+
+/* one spacing scale for the inline panels */
+#addbox.show,#arrivalsbox.show,#gapsbox.show,
+#filingbox.show,#connbox.show,#safetybox.show{padding:44px 0 18px}
+
+/* headings inside panels share a rhythm */
+.ktitle{font-size:9.5px;letter-spacing:.17em;text-transform:uppercase;color:var(--dim)}
+.pressblock,.valsec,.gotsec{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+
+/* buttons: one height, one weight */
+.chip{padding:7px 13px;font-size:12px;line-height:1.35}
+.addrow{align-items:center}
+
+/* lists breathe the same amount */
+.gaprow,.saferow,.valrow,.svsumrow,.cmrow,.arow,.filerow{padding-top:9px;padding-bottom:9px}
+
+/* numbers are the thing being read, so they get room */
+.valbig,.kval{line-height:1.1}
+
+/* a panel that is doing something says so in the same place */
+.prog{margin-top:14px}
+
+/* tap targets on a phone */
+@media (max-width:560px){
+  .chip{padding:9px 14px}
+  .cmarrow{width:30px;height:30px}
+  .setitem{padding:13px 0}
+  .svrow,.gaprow{padding-top:11px;padding-bottom:11px}
+}
+
+/* nothing should sit flush against the edge on a small screen */
+@media (max-width:380px){
+  .wrap{padding:0 12px}
+}
