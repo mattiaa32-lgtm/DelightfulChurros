@@ -1,13 +1,15 @@
-/* =================== the shelf, as a shelf =========================
-   The app could tell you where a record belongs but gave you no way to
-   work through a cube \u2014 after a reorganise you'd be tapping 192 records
-   one at a time to re-file them.
+/* =================== the cube picker ================================
+   The cube filter used to be a row of chips \u2014 All, Top left, Top right
+   \u2014 which said nothing about the shelf. Drawing the actual grid instead
+   means the control looks like the thing it controls, and the record
+   counts are visible without tapping.
 
-   This draws the actual cube grid. Tap a cube and it lists what should
-   be in it, in position order, grouped by category: the thing you hold
-   up next to the real shelf while putting records back. */
+   Tapping a cube filters the shelf to it and opens a summary of what's
+   in there: which categories, how many of each, in shelf order. Tapping
+   it again, or All, puts everything back. Nothing here is destructive \u2014
+   it is a view, and every state is one tap from every other. */
 
-var svCube = null;
+var svOpenSummary = false;
 
 function shelfCounts(){
   var m = {};
@@ -15,78 +17,84 @@ function shelfCounts(){
   return m;
 }
 
-function renderShelfView(){
-  var el = document.getElementById("shelfviewbody");
+function renderCubePicker(){
+  var el = document.getElementById("cubepick");
   if (!el) return;
   var counts = shelfCounts();
   var n = cubeCount();
+  var cur = (typeof cubeFilter !== "undefined") ? cubeFilter : 0;
+
   var grid = "";
   for (var i = 1; i <= n; i++){
-    grid += "<button class='svcube" + (svCube === i ? " on" : "") + "' data-cube='" + i + "'>" +
+    grid += "<button class='svcube" + (cur === i ? " on" : "") + "' data-cube='" + i + "'>" +
       "<span class='svname'>" + esc(CUBE_NAMES[i] || ("Cube " + i)) + "</span>" +
       "<span class='svn'>" + (counts[i] || 0) + "</span>" +
     "</button>";
   }
-  el.innerHTML = "<div class='svgrid'>" + grid + "</div>" +
-                 "<div id='svlist'></div>";
+
+  el.innerHTML =
+    "<div class='cubebar'>" +
+      "<div class='svgrid'>" + grid + "</div>" +
+      "<button class='chip svall" + (cur ? "" : " on") + "' id='svall'>All cubes</button>" +
+    "</div>" +
+    "<div id='svsummary'></div>";
+
   [].forEach.call(el.querySelectorAll(".svcube"), function(b){
     b.addEventListener("click", function(){
-      svCube = (svCube === +this.dataset.cube) ? null : +this.dataset.cube;
-      renderShelfView();
+      var k = +this.dataset.cube;
+      if (cur === k){ setCubeFilter(0); svOpenSummary = false; }
+      else { setCubeFilter(k); svOpenSummary = true; }
+      renderCubePicker();
     });
   });
-  if (svCube) renderCubeList();
+  document.getElementById("svall").addEventListener("click", function(){
+    setCubeFilter(0); svOpenSummary = false; renderCubePicker();
+  });
+
+  if (cur) renderCubeSummary(cur);
 }
 
-function renderCubeList(){
-  var el = document.getElementById("svlist");
+/* What's in the cube, by category, in the order they run along it.
+   Collapsed by default after the first look, since the list below is
+   the thing you actually came for. */
+function renderCubeSummary(cube){
+  var el = document.getElementById("svsummary");
   if (!el) return;
-  var list = RECS.filter(function(r){ return r.k === svCube; })
+  var list = RECS.filter(function(r){ return r.k === cube; })
     .sort(function(x, y){ return (x.pos || 0) - (y.pos || 0); });
 
-  if (!list.length){
-    el.innerHTML = "<p class='hint'>Nothing filed here yet.</p>";
-    return;
-  }
-
-  /* Grouped by category, in the order they run along the shelf, so the
-     headings match what you're actually looking at. */
-  var out = "", lastCat = null;
+  var groups = [], last = null;
   list.forEach(function(r){
-    if (r.c !== lastCat){
-      out += "<div class='svcat'>" +
-        "<span class='cmdot' style='background:" + (COLORS[r.c] || "#7E7973") + "'></span>" +
-        esc(r.c || "No category") + "</div>";
-      lastCat = r.c;
-    }
-    out += "<div class='svrow' data-i='" + r.i + "'>" +
-      "<span class='svpos'>" + (r.pos || "\u2013") + "</span>" +
-      "<span class='svrec'><b>" + esc(r.a) + "</b> \u2014 " + esc(r.t) + "</span>" +
-    "</div>";
+    var c = r.c || "No category";
+    if (c !== last){ groups.push({ cat: c, n: 0, from: r.pos }); last = c; }
+    groups[groups.length - 1].n++;
+    groups[groups.length - 1].to = r.pos;
   });
 
   el.innerHTML =
-    "<div class='svhead'>" + esc(CUBE_NAMES[svCube]) + " \u00b7 " + list.length +
-      " record" + (list.length === 1 ? "" : "s") + "</div>" + out;
+    "<button class='svtoggle' id='svtoggle' aria-expanded='" + svOpenSummary + "'>" +
+      esc(CUBE_NAMES[cube]) + " \u00b7 " + list.length + " record" +
+      (list.length === 1 ? "" : "s") +
+      "<span class='svchev'>" + (svOpenSummary ? "\u2303" : "\u2304") + "</span></button>" +
+    (svOpenSummary
+      ? "<div class='svsum'>" + (groups.length
+          ? groups.map(function(g){
+              return "<div class='svsumrow'>" +
+                "<span class='cmdot' style='background:" + (COLORS[g.cat] || "#7E7973") + "'></span>" +
+                "<span class='svsumcat'>" + esc(g.cat) + "</span>" +
+                "<span class='svsumn'>" + g.n + "<small> \u00b7 " +
+                  (g.from === g.to ? "position " + g.from : g.from + "\u2013" + g.to) +
+                "</small></span></div>";
+            }).join("")
+          : "<p class='hint'>Nothing filed here yet.</p>") + "</div>"
+      : "");
 
-  /* Tapping a line opens the record, so this doubles as a way in. */
-  [].forEach.call(el.querySelectorAll(".svrow"), function(row){
-    row.addEventListener("click", function(){
-      if (typeof open === "function") open(+this.dataset.i);
-    });
+  document.getElementById("svtoggle").addEventListener("click", function(){
+    svOpenSummary = !svOpenSummary;
+    renderCubeSummary(cube);
   });
 }
 
-(function(){
-  var link = document.getElementById("shelfviewlink");
-  if (!link) return;
-  link.addEventListener("click", function(e){
-    e.preventDefault();
-    var box = document.getElementById("shelfviewbox");
-    box.classList.toggle("show");
-    if (box.classList.contains("show")){
-      renderShelfView();
-      box.scrollIntoView({ behavior:"smooth", block:"start" });
-    }
-  });
-})();
+/* Redrawn whenever the collection changes, so the counts stay honest. */
+if (typeof onDataReady === "function") onDataReady(renderCubePicker);
+renderCubePicker();
