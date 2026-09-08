@@ -81,7 +81,16 @@ function renderGaps(){
             g.noOwned.length + " to assess \u2014 about " +
             Math.ceil(g.noOwned.length/12) + " AI requests") : "") +
           (fixable.value ? pick("value", "Values",
-            g.noValue.length + " to price \u2014 Discogs, not AI, so no quota cost") : "") +
+            (function(){
+              /* Only records with a Discogs link can be priced, so the
+                 number here is smaller than the missing count and the
+                 difference would otherwise look like an off-by-one. */
+              var priceable = g.noValue.filter(function(r){ return r.d; }).length;
+              var skipped = g.noValue.length - priceable;
+              return priceable + " to price" +
+                (skipped ? " (" + skipped + " with no Discogs link can't be)" : "") +
+                " \u2014 Discogs, not AI, so no quota cost";
+            })()) : "") +
           (fixable.press ? pick("press", "Preferred pressings",
             g.noPressRec.length + " to research \u2014 about " +
             Math.ceil(g.noPressRec.length/12) + " AI requests") : "") +
@@ -89,6 +98,7 @@ function renderGaps(){
         "<div class='prog' id='gapsprog' hidden><div class='progbar' id='gapsbar'></div></div>" +
         "<div class='addrow' style='margin-top:12px'>" +
           "<button class='chip' id='gapsfill'>Fill in what's missing</button>" +
+          "<button class='chip gapsstop' id='gapsstop' hidden>Stop</button>" +
           "<span class='hint' id='gapsmsg'></span>" +
         "</div>"
       : "<p class='hint' style='margin-top:12px'>Nothing left that the app can fill.</p>");
@@ -122,6 +132,11 @@ function setProgress(done, total){
    sync first (records, covers, pressing years, categories), then the
    master-year lookups, which need the ids the sync provides, then the
    descriptions, which are the slow quota-bound part. */
+/* Set by the stop button. Every loop checks it between batches, so
+   stopping is immediate in practice and never leaves a half-written
+   batch \u2014 whatever finished is already saved. */
+var gapsAborted = false;
+
 function fillGaps(){
   var msg = document.getElementById("gapsmsg");
   var btn = document.getElementById("gapsfill");
@@ -134,13 +149,25 @@ function fillGaps(){
   });
   if (!Object.keys(want).length){ say("Pick at least one thing to fill."); return; }
 
+  gapsAborted = false;
   if (btn) btn.disabled = true;
+  var stop = document.getElementById("gapsstop");
+  if (stop){
+    stop.hidden = false;
+    stop.onclick = function(){
+      gapsAborted = true;
+      stop.hidden = true;
+      say("Stopping\u2026 anything already written is saved.");
+    };
+  }
   var steps = ["sync","years","value","desc","rate","press","owned"]
     .filter(function(k){ return want[k]; });
   var stepNo = 0;
 
   function finish(note){
     if (btn) btn.disabled = false;
+    var st = document.getElementById("gapsstop");
+    if (st) st.hidden = true;
     setProgress(0, 0);
     say(note || "Done. Pull down to refresh.");
     setTimeout(function(){
@@ -150,6 +177,7 @@ function fillGaps(){
   }
 
   function nextStep(){
+    if (gapsAborted) return finish("Stopped. Everything written so far is saved.");
     if (stepNo >= steps.length) return finish();
     var step = steps[stepNo++];
     setProgress(stepNo - 1, steps.length);
@@ -224,9 +252,14 @@ function fillGaps(){
               : "Wait a minute and press again.") +
             " Everything written is saved.");
         }
+        if (gapsAborted) return finish("Stopped after " + written + " " + noun +
+          (written === 1 ? "" : "s") + ". Everything written is saved.");
+        /* Discogs said nothing could be priced \u2014 repeating that for
+           another 150 records helps nobody. */
+        if (d.note && d.priced === 0 && written === 0) return finish(d.note);
         if (!d.done){
           say("Writing " + noun + "s\u2026 " + written + " of " + total + ".");
-          setTimeout(batch, 1200);   /* stay clear of the per-minute limit */
+          setTimeout(batch, isValue ? 300 : 1200);
         } else {
           say("Wrote " + written + " " + noun + (written===1?"":"s") + ".");
           /* Once prices are current, record the point \u2014 otherwise the
