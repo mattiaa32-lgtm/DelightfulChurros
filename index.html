@@ -44,7 +44,9 @@
                placeholder="Artist or record name" aria-label="Search by artist or record name">
         <button class="iconbtn" id="dice" title="Pick one at random" aria-label="Pick one at random">?</button>
       </div>
-      <div class="chips" id="chips"></div>
+      <!-- The cube filter, drawn as the shelf rather than a row of
+           chips: the shape is the information. -->
+      <div id="cubepick"></div>
     </div>
   </div>
 </header>
@@ -61,7 +63,6 @@
   <p class="filingbanner owner-only" id="filingbanner" hidden></p>
   <div id="arrivalsbox"><div id="arrivalsbody"></div></div>
   <div id="gapsbox"><div id="gapsbody"></div></div>
-  <div id="shelfviewbox"><div id="shelfviewbody"></div></div>
   <div id="valuesbox"><div id="valuesbody"></div></div>
   <div id="safetybox"><div id="safetybody"></div></div>
   <div id="filingbox"><div id="filingbody"></div></div>
@@ -126,9 +127,6 @@ Settings are behind the gear, top right.
           <button class="setitem" id="valueslink">
             <span>Value</span>
             <small>What it's worth, and how that moves</small></button>
-          <button class="setitem" id="shelfviewlink">
-            <span>Browse by cube</span>
-            <small>See what belongs in each cube, in order</small></button>
           <button class="setitem owner-only" id="filinglink">
             <span>Shelf layout</span>
             <small>Which category lives in which cube</small></button>
