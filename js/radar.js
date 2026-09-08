@@ -11,6 +11,18 @@
    day, so there's nothing to gain from checking more often. */
 
 var RADAR_EVERY_MS = 7 * 24 * 3600 * 1000;
+var radarRetries = 0;
+
+/* Counts down out loud, so a wait looks like a wait rather than a
+   stall, then runs the next thing. */
+function countdown(secs, tick, done){
+  tick(secs);
+  var t = setInterval(function(){
+    secs--;
+    if (secs <= 0){ clearInterval(t); done(); return; }
+    tick(secs);
+  }, 1000);
+}
 
 /* Artists you own more than one of, most first, then the singles. Two
    records by someone is the clearest signal in the collection that a
@@ -119,14 +131,29 @@ function loadRadar(force){
       return;
     }
     if (!x.ok){
-      /* The endpoint sends a note explaining which allowance ran out and
-         when it clears — that is the useful part, not the status code. */
+      /* A 429 here is a per-minute ceiling, not an exhausted day: the
+         capable models allow as few as five requests a minute. Making
+         someone press the button again in twenty seconds is a poor way
+         to spend their attention, so it waits and retries itself. */
+      if (x.status === 429 && x.d.retryAfter && (radarRetries || 0) < 3){
+        radarRetries = (radarRetries || 0) + 1;
+        var secs = Math.max(5, Math.min(90, x.d.retryAfter + 3));
+        countdown(secs, function(left){
+          renderRadar(null, "Discogs\u2019 search model is busy \u2014 retrying in " +
+            left + "s. (Its limit is a few requests a minute.)");
+        }, function(){ loadRadar(force); });
+        return;
+      }
+      radarRetries = 0;
       renderRadar(null,
         esc(x.d.error || "The search failed.") +
+        (x.d.attempted ? "<br><span style='opacity:.7'>Tried: " +
+          esc(x.d.attempted.join(", ")) + "</span>" : "") +
         (x.d.note ? "<br><span style='opacity:.8'>" + esc(x.d.note) + "</span>" : "") +
         (x.d.detail && !x.d.note ? "<br>" + esc(String(x.d.detail).slice(0,140)) : ""));
       return;
     }
+    radarRetries = 0;
     var items = x.d.items || [];
     saveRadar(items);
     renderRadar(items);
