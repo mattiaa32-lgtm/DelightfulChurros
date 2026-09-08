@@ -107,15 +107,21 @@ Settings are behind the gear, top right.
         <button class="chatclose" id="setclose" aria-label="Close">&times;</button>
       </div>
       <div class="setbody">
-        <div class="setgroup">
+        <!-- A guest can browse everything and change nothing, so the
+             actions that would only refuse them are hidden rather than
+             shown and then blocked. -->
+        <p class="hint is-guest-only" id="setguest">You're browsing as a guest.
+          Everything is visible; nothing can be changed. Tap
+          <b>Guest</b> in the header to unlock editing.</p>
+        <div class="setgroup owner-only">
           <div class="setlabel">Collection</div>
-          <button class="setitem" id="arrivalslink">
+          <button class="setitem owner-only" id="arrivalslink">
             <span>New arrivals</span>
             <small>Place records that came in without a cube</small></button>
-          <button class="setitem" id="gapslink">
+          <button class="setitem owner-only" id="gapslink">
             <span>Fill in the blanks</span>
             <small>See what's missing, and fill it</small></button>
-          <button class="setitem" id="filinglink">
+          <button class="setitem owner-only" id="filinglink">
             <span>Shelf layout</span>
             <small>Which category lives in which cube</small></button>
         </div>
@@ -127,7 +133,7 @@ Settings are behind the gear, top right.
         </div>
         <div class="setgroup">
           <div class="setlabel">This device</div>
-          <button class="setitem" id="safetylink">
+          <button class="setitem owner-only" id="safetylink">
             <span>Backup</span>
             <small>Everything, saved weekly and on demand</small></button>
           <button class="setitem" id="qrlink">
