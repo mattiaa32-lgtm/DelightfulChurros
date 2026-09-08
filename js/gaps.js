@@ -182,7 +182,10 @@ function fillGaps(){
        score without pressing research, or the reverse \u2014 so each is its
        own step and tells the endpoint which field to fill. */
     var isEval = (step === "rate" || step === "press" || step === "owned");
-    var endpoint = isEval ? "/api/evaluate" : "/api/descriptions";
+    /* All three fill jobs share one endpoint now (Vercel caps a Hobby
+       deployment at twelve functions), so the mode says which. */
+    var endpoint = "/api/fill";
+    var mode = isEval ? "eval" : "desc";
     var noun = step === "rate" ? "rating"
              : step === "press" ? "pressing note"
              : step === "owned" ? "pressing score"
@@ -194,7 +197,7 @@ function fillGaps(){
       fetch(endpoint, {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify(Object.assign(
-          { passphrase: ownerPass(), limit: size }, extra))
+          { mode: mode, passphrase: ownerPass(), limit: size }, extra))
       })
       .then(readJSON)
       .then(function(x){
