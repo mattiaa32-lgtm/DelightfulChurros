@@ -127,8 +127,9 @@ function doMove(){
         ? "Unlock editing first." : "Couldn't write: " + err.message;
       return;
     }
+    if (typeof reloadCollection === "function") reloadCollection();
     msg.textContent = "Moved to position " + (at + 1) +
-      (cat !== moveFor.c ? " in " + cat : "") + ". Pull down to refresh.";
+      (cat !== moveFor.c ? " in " + cat : "") + ".";
   });
 }
 
