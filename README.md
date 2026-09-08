@@ -67,9 +67,7 @@ Columns, in order:
 | K | Rating         | no    | score out of 10, with its reasoning           |
 | L | Preferred pressing | no | which pressing is worth owning              |
 | M | Pressing score | no    | how good your copy is, with what it is        |
-| N | Value low      | no    | cheapest copy listed, or a rough copy if the account can sell |
-| O | Value median   | no    | seller accounts only — a typical copy         |
-| P | Value high     | no    | seller accounts only — a mint copy            |
+| N | Value          | no    | cheapest copy currently listed on Discogs     |
 
 Position (J) is consecutive from 1 within each cube. Cube decides the run
 order between cubes; within a cube, categories run in the order set on the
@@ -100,14 +98,14 @@ selected by `mode`.
 
 ## Value history
 
-Columns N, O and P hold current values. Two important limits:
+Column N holds one value: the cheapest copy currently listed. Why only one:
 
 - The Low/Median/High shown on a Discogs release page come from SALES history,
   which is **not** in the public API. The app cannot read those numbers.
-- `price_suggestions` (a value per condition) needs seller privileges. Without
-  them only `marketplace/stats` is available, giving the cheapest copy
-  currently LISTED — one figure, written to N, with O and P left empty rather
-  than filled with the same number three times. History is kept in two places:
+- `price_suggestions` (a value per condition) needs seller privileges on the
+  account. Without them only `marketplace/stats` is available, and it returns
+  a single figure. Three columns would have implied a precision that was never
+  available, so there is one. History is kept in two places:
 
 - `Config!value_history` — dated aggregates (total, min, median, max; by cube
   and by category). This is what the chart draws.
