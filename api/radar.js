@@ -116,9 +116,8 @@ export default async function handler(req, res) {
         detail: out.detail,
         status: out.status,
         attempted: out.attempted,
-        note: "Models tried: " + (tried || "none") + ". A 400 or 404 here usually " +
-              "means the model doesn't support web search rather than that an " +
-              "allowance ran out."
+        note: "Google said: " + (String(out.detail || "(nothing)").slice(0, 220)) +
+              " \u2014 models tried: " + (tried || "none") + "."
       });
     }
 
