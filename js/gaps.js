@@ -51,7 +51,10 @@ function renderGaps(){
     ["rate",  "Rating",         g.noRate,     "scored once by the AI, then left alone"],
     ["press", "Preferred Pressing", g.noPressRec, "which pressing is worth owning"],
     ["owned", "Pressing Score", g.noOwned, "how good the copy you own is"],
-    ["value", "Value",          g.noValue, "the cheapest copy listed on Discogs"]
+    /* Not fillable from here: pricing runs as a slow background sweep
+       (js/valuesweep.js) because Discogs' rate limit makes it a ten
+       minute job, and a progress bar for that is worse than nothing. */
+    [null,    "Value",          g.noValue, "priced in the background, a few at a time"]
   ];
 
   var fixable = {};
