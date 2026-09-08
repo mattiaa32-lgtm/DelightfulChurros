@@ -8,7 +8,7 @@ var API_BASE="/api/";
    Sheets > File > Share > Publish to web > pick the sheet > CSV.
    Columns: Artist | Record name | Category | Cube | Discogs id |
             Cover URL | Description | First released | Pressing year |
-            Position | Rating | Preferred pressing | Pressing score | Value low | Value median | Value high
+            Position | Rating | Preferred pressing | Pressing score | Value
    The last three are optional and work the same way: the app fetches
    them itself (Cover URL from Discogs/iTunes; Description written by
    Gemini (free tier) via a small Vercel function \u2014 see api/describe.js)
@@ -294,13 +294,11 @@ function adopt(rows){
          pressing is (from Discogs) and why it earns that score. */
       owned:(r[12]||"").trim()||null,
       /* N: what a copy is currently listed at on Discogs */
-      /* N, O, P: what a copy fetches at worst, typically, and at best.
-         Discogs prices by CONDITION rather than by sales history, so
-         this is the spread from a rough copy to a mint one. */
-      valLo:parseFloat(String(r[13]||"").replace(/[^0-9.]/g,""))||null,
-      val:parseFloat(String(r[14]||"").replace(/[^0-9.]/g,""))||
-          parseFloat(String(r[13]||"").replace(/[^0-9.]/g,""))||null,
-      valHi:parseFloat(String(r[15]||"").replace(/[^0-9.]/g,""))||null,
+      /* N: the cheapest copy currently listed on Discogs. One figure,
+         because that is the only one the public API offers \u2014 the
+         low/median/high on a release page come from sales history, which
+         it does not expose. */
+      val:parseFloat(String(r[13]||"").replace(/[^0-9.]/g,""))||null,
       row: 0            /* filled in below: the sheet row, for writing back */
     };
   });
