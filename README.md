@@ -67,6 +67,7 @@ Columns, in order:
 | K | Rating         | no    | score out of 10, with its reasoning           |
 | L | Preferred pressing | no | which pressing is worth owning              |
 | M | Pressing score | no    | how good your copy is, with what it is        |
+| N | Value          | no    | what a copy is listed at on Discogs           |
 
 Position (J) is consecutive from 1 within each cube. Cube decides the run
 order between cubes; within a cube, categories run in the order set on the
