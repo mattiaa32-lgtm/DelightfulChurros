@@ -1,4 +1,4 @@
-/* Shelf service worker
+/* Shelf service worker 
    ---------------------------------------------------------------
    Deliberately conservative about the app's own code. A service
    worker that serves cached HTML/JS first is the classic way to end
