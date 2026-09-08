@@ -16,7 +16,8 @@ function gapReport(){
                RECOMMENDATION. They were briefly the same name, which
                made both counts wrong and pushed the totals past the
                number of records. */
-            noCategory:[], noCube:[], noDesc:[], noRate:[], noPressRec:[], noOwned:[] };
+            noCategory:[], noCube:[], noDesc:[], noRate:[], noPressRec:[], noOwned:[],
+            noValue:[] };
   RECS.forEach(function(r){
     if (!r.d) g.noId.push(r);
     if (!r.img && !resolvedCover(r)) g.noCover.push(r);
@@ -28,6 +29,7 @@ function gapReport(){
     if (!r.rate) g.noRate.push(r);
     if (!r.press) g.noPressRec.push(r);
     if (!r.owned) g.noOwned.push(r);
+    if (!r.val) g.noValue.push(r);
   });
   return g;
 }
@@ -48,7 +50,8 @@ function renderGaps(){
     ["desc",  "Description",    g.noDesc,     "written by the AI, and quota-limited"],
     ["rate",  "Rating",         g.noRate,     "scored once by the AI, then left alone"],
     ["press", "Preferred Pressing", g.noPressRec, "which pressing is worth owning"],
-    ["owned", "Pressing Score", g.noOwned, "how good the copy you own is"]
+    ["owned", "Pressing Score", g.noOwned, "how good the copy you own is"],
+    ["value", "Value",          g.noValue, "what a copy is listed at on Discogs"]
   ];
 
   var fixable = {};
@@ -77,6 +80,8 @@ function renderGaps(){
           (fixable.owned ? pick("owned", "Pressing scores",
             g.noOwned.length + " to assess \u2014 about " +
             Math.ceil(g.noOwned.length/12) + " AI requests") : "") +
+          (fixable.value ? pick("value", "Values",
+            g.noValue.length + " to price \u2014 Discogs, not AI, so no quota cost") : "") +
           (fixable.press ? pick("press", "Preferred pressings",
             g.noPressRec.length + " to research \u2014 about " +
             Math.ceil(g.noPressRec.length/12) + " AI requests") : "") +
@@ -130,7 +135,8 @@ function fillGaps(){
   if (!Object.keys(want).length){ say("Pick at least one thing to fill."); return; }
 
   if (btn) btn.disabled = true;
-  var steps = ["sync","years","desc","rate","press","owned"].filter(function(k){ return want[k]; });
+  var steps = ["sync","years","value","desc","rate","press","owned"]
+    .filter(function(k){ return want[k]; });
   var stepNo = 0;
 
   function finish(note){
@@ -184,13 +190,17 @@ function fillGaps(){
     var isEval = (step === "rate" || step === "press" || step === "owned");
     /* All three fill jobs share one endpoint now (Vercel caps a Hobby
        deployment at twelve functions), so the mode says which. */
+    /* Prices come from Discogs rather than the AI, so they cost no
+       quota and can run in larger batches. */
+    var isValue = (step === "value");
     var endpoint = "/api/fill";
-    var mode = isEval ? "eval" : "desc";
+    var mode = isValue ? "value" : isEval ? "eval" : "desc";
     var noun = step === "rate" ? "rating"
              : step === "press" ? "pressing note"
              : step === "owned" ? "pressing score"
+             : step === "value" ? "price"
              : "description";
-    var size = isEval ? 12 : 20;
+    var size = isValue ? 40 : isEval ? 12 : 20;
     var extra = isEval ? { only: step } : {};
     var total = 0, written = 0;
     (function batch(){
@@ -203,7 +213,7 @@ function fillGaps(){
       .then(function(x){
         var d = x.d;
         if (!x.ok || !d || !d.ok) return finish(failMsg(x, noun + "s"));
-        written += d.filled;
+        written += (d.filled !== undefined) ? d.filled : (d.priced || 0);
         total = Math.max(total, written + d.remaining);
         setProgress(written, total || 1);
         if (d.quota){
@@ -219,7 +229,17 @@ function fillGaps(){
           setTimeout(batch, 1200);   /* stay clear of the per-minute limit */
         } else {
           say("Wrote " + written + " " + noun + (written===1?"":"s") + ".");
-          nextStep();
+          /* Once prices are current, record the point \u2014 otherwise the
+             history only moves when someone remembers to press the
+             button in the Value panel. */
+          if (isValue && written){
+            fetch(endpoint, {
+              method:"POST", headers:{"Content-Type":"application/json"},
+              body: JSON.stringify({ mode:"value", passphrase: ownerPass(), snapshot:true })
+            }).then(function(){ nextStep(); }, function(){ nextStep(); });
+          } else {
+            nextStep();
+          }
         }
       })
       .catch(function(e){ finish(String(e && e.message || e)); });
