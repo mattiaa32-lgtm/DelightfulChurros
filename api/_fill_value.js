@@ -177,40 +177,54 @@ export async function handler(req, res) {
     const chunk = stale.slice(0, limit);
 
     const cells = [];
-    let checked = 0, priced = 0;
+    let checked = 0, priced = 0, noSuggestions = 0, statsOnly = 0, rateLimited = false;
     for (const item of chunk) {
       checked++;
       try {
         await sleep(GAP_MS);
         const r = await fetch("https://api.discogs.com/marketplace/price_suggestions/" +
                               item.id, { headers: auth });
-        if (r.status === 429) break;                  // resume next call
-        if (!r.ok) continue;
-        const d = await r.json();
-        /* Suggestions come per condition; the near-mint figure is the
-           fairest single number for a collection that isn't for sale. */
-        /* Discogs' price suggestions come per CONDITION \u2014 Poor through
-           Mint \u2014 not as a low/median/high of past sales. Sales history
-           isn't in the public API, so the honest range is across
-           conditions: what a rough copy fetches, what a typical one
-           does, and what a mint one does. That is a real spread and it
-           is what the numbers below mean. */
-        const vals = Object.keys(d || {})
-          .map(function (k) { return d[k] && d[k].value; })
-          .filter(function (v) { return isFinite(v) && v > 0; })
-          .sort(function (a, b) { return a - b; });
-        if (!vals.length) continue;
 
-        const lo = vals[0];
-        const hi = vals[vals.length - 1];
-        const mid = vals.length % 2
-          ? vals[(vals.length - 1) / 2]
-          : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
+        /* price_suggestions needs seller privileges on the account. A
+           collector who has never sold gets 401/403 for every record,
+           which silently priced nothing at all. marketplace/stats is
+           open to any authenticated user and always gives the lowest
+           current listing, so it is the fallback \u2014 one honest number
+           beats three that never arrive. */
+        if (r.status === 429) { rateLimited = true; break; }
 
+        let lo = null, mid = null, hi = null;
+        if (r.ok) {
+          const d = await r.json();
+          const vals = Object.keys(d || {})
+            .map(function (k) { return d[k] && d[k].value; })
+            .filter(function (v) { return isFinite(v) && v > 0; })
+            .sort(function (a, b) { return a - b; });
+          if (vals.length) {
+            lo = vals[0];
+            hi = vals[vals.length - 1];
+            mid = vals.length % 2
+              ? vals[(vals.length - 1) / 2]
+              : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
+          }
+        } else {
+          noSuggestions++;
+          await sleep(GAP_MS);
+          const st = await fetch("https://api.discogs.com/marketplace/stats/" + item.id,
+                                 { headers: auth });
+          if (st.status === 429) { rateLimited = true; break; }
+          if (st.ok) {
+            const sd = await st.json();
+            const p = sd && sd.lowest_price && sd.lowest_price.value;
+            if (isFinite(p) && p > 0) { lo = mid = hi = p; statsOnly++; }
+          }
+        }
+
+        if (lo === null) continue;
         const r2 = function (n) { return Math.round(n * 100) / 100; };
-        cells.push({ row: item.row, col: 14, value: r2(lo) });    // N  min
-        cells.push({ row: item.row, col: 15, value: r2(mid) });   // O  median
-        cells.push({ row: item.row, col: 16, value: r2(hi) });    // P  max
+        cells.push({ row: item.row, col: 14, value: r2(lo) });
+        cells.push({ row: item.row, col: 15, value: r2(mid) });
+        cells.push({ row: item.row, col: 16, value: r2(hi) });
         priced++;
       } catch (e) { /* leave it for the next run */ }
     }
@@ -220,7 +234,18 @@ export async function handler(req, res) {
     const remaining = Math.max(0, stale.length - checked);
     return res.status(200).json({
       ok: true, checked: checked, priced: priced,
-      remaining: remaining, done: remaining === 0
+      remaining: remaining, done: remaining === 0 || rateLimited,
+      rateLimited: rateLimited,
+      /* Say when nothing could be priced and why \u2014 a run that quietly
+         returns zero every time is indistinguishable from a broken one. */
+      note: (priced === 0 && checked > 0)
+        ? (noSuggestions === checked
+            ? "Discogs returned no price data for any of these. Price suggestions " +
+              "need seller privileges on the account; the marketplace fallback found " +
+              "no copies listed either."
+            : "No prices found for these records \u2014 they may have no copies for sale.")
+        : (statsOnly ? statsOnly + " priced from the lowest listing only " +
+                       "(no seller access for full suggestions)." : null)
     });
   } catch (err) {
     return res.status(502).json({ error: String(err && err.message ? err.message : err) });
