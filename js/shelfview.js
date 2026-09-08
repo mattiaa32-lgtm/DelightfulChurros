@@ -17,6 +17,8 @@ function shelfCounts(){
   return m;
 }
 
+var svOpenPicker = false;
+
 function renderCubePicker(){
   var el = document.getElementById("cubepick");
   if (!el) return;
@@ -24,34 +26,62 @@ function renderCubePicker(){
   var n = cubeCount();
   var cur = (typeof cubeFilter !== "undefined") ? cubeFilter : 0;
 
+  /* Collapsed by default: the grid is a control, not the content, and
+     on a phone it was pushing the records themselves below the fold.
+     The header carries the current state, so collapsing loses nothing. */
+  var label = cur
+    ? (CUBE_NAMES[cur] || ("Cube " + cur)) + " \u00b7 " + (counts[cur] || 0) + " records"
+    : "All cubes \u00b7 " + RECS.length + " records";
+
   var grid = "";
   for (var i = 1; i <= n; i++){
+    var c = counts[i] || 0;
     grid += "<button class='svcube" + (cur === i ? " on" : "") + "' data-cube='" + i + "'>" +
+      "<span class='svn'>" + c + "</span>" +
       "<span class='svname'>" + esc(CUBE_NAMES[i] || ("Cube " + i)) + "</span>" +
-      "<span class='svn'>" + (counts[i] || 0) + "</span>" +
     "</button>";
   }
 
   el.innerHTML =
-    "<div class='cubebar'>" +
-      "<div class='svgrid'>" + grid + "</div>" +
-      "<button class='chip svall" + (cur ? "" : " on") + "' id='svall'>All cubes</button>" +
-    "</div>" +
+    "<button class='cubehead" + (cur ? " filtered" : "") + "' id='cubehead' " +
+        "aria-expanded='" + svOpenPicker + "'>" +
+      "<span class='cubeicon'>" + gridIcon(n) + "</span>" +
+      "<span class='cubelabel'>" + esc(label) + "</span>" +
+      (cur ? "<span class='cubeclear' id='cubeclear'>Clear</span>" : "") +
+      "<span class='cubechev'>" + (svOpenPicker ? "\u2303" : "\u2304") + "</span>" +
+    "</button>" +
+    (svOpenPicker ? "<div class='svgrid'>" + grid + "</div>" : "") +
     "<div id='svsummary'></div>";
+
+  document.getElementById("cubehead").addEventListener("click", function(e){
+    if (e.target.id === "cubeclear"){
+      e.stopPropagation();
+      setCubeFilter(0); renderCubePicker();
+      return;
+    }
+    svOpenPicker = !svOpenPicker;
+    renderCubePicker();
+  });
 
   [].forEach.call(el.querySelectorAll(".svcube"), function(b){
     b.addEventListener("click", function(){
       var k = +this.dataset.cube;
-      if (cur === k){ setCubeFilter(0); svOpenSummary = false; }
+      if (cur === k){ setCubeFilter(0); }
       else { setCubeFilter(k); svOpenSummary = true; }
       renderCubePicker();
     });
   });
-  document.getElementById("svall").addEventListener("click", function(){
-    setCubeFilter(0); svOpenSummary = false; renderCubePicker();
-  });
 
   if (cur) renderCubeSummary(cur);
+}
+
+/* A tiny version of the shelf, so the collapsed header still says what
+   the control is. */
+function gridIcon(n){
+  var s = shelfShape(), out = "";
+  for (var i = 0; i < s.rows * s.cols; i++) out += "<i></i>";
+  return "<span class='gridicon' style='grid-template-columns:repeat(" +
+         s.cols + ",1fr)'>" + out + "</span>";
 }
 
 /* What's in the cube, by category, in the order they run along it.
