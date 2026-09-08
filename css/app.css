@@ -793,29 +793,31 @@ select option{background:#17130F;color:#F4F0E8}
 html.is-guest .is-guest-only{display:block}
 .setgroup.empty-for-guest{display:none}
 
-/* ---- browse by cube ---- */
-#shelfviewbox{display:none;padding:4px 0 8px}
-#shelfviewbox.show{display:block}
+/* ---- the cube picker, in place of the old filter chips ---- */
+.cubebar{display:flex;align-items:flex-end;gap:12px;margin:2px 0 10px;flex-wrap:wrap}
 .svgrid{display:grid;grid-template-columns:repeat(var(--cols,2),1fr);
-  grid-template-rows:repeat(var(--rows,2),1fr);gap:6px;
-  aspect-ratio:var(--shelfratio,1.05);max-width:min(100%,340px);margin:4px 0 16px}
-.svcube{background:var(--surface2);border:1px solid var(--line);border-radius:6px;
-  display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;
-  padding:8px;cursor:pointer;font-family:var(--sans);color:var(--muted);text-align:left}
-.svcube.on{border-color:var(--accent);color:var(--text);background:rgba(180,101,58,.1)}
-.svname{font-size:10.5px;letter-spacing:.06em;line-height:1.3}
-.svn{font-size:17px;font-weight:600;color:var(--text);letter-spacing:-.02em}
+  grid-template-rows:repeat(var(--rows,2),1fr);gap:4px;
+  aspect-ratio:var(--shelfratio,1.05);width:100%;max-width:190px;flex:0 0 auto}
+.svcube{background:var(--surface2);border:1px solid var(--line);border-radius:5px;
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;
+  padding:6px 7px;cursor:pointer;font-family:var(--sans);color:var(--muted);
+  text-align:left;overflow:hidden}
+.svcube.on{border-color:var(--accent);color:var(--text);background:rgba(180,101,58,.12)}
+.svname{font-size:9px;letter-spacing:.05em;line-height:1.25;text-transform:uppercase}
+.svn{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-.02em}
 .svcube.on .svn{color:var(--accent)}
-.svhead{font-size:10px;letter-spacing:.17em;text-transform:uppercase;color:var(--dim);
-  padding-bottom:6px;border-bottom:1px solid var(--line)}
-.svcat{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);
-  margin:14px 0 4px;letter-spacing:.05em}
-.svrow{display:flex;gap:10px;align-items:baseline;padding:7px 0;
-  border-bottom:1px solid var(--line);cursor:pointer}
-.svrow:hover .svrec{color:var(--accent)}
-.svpos{flex:0 0 2em;font-size:11.5px;color:var(--dim);text-align:right}
-.svrec{flex:1 1 auto;font-size:13.5px;line-height:1.4}
-.svrec b{font-weight:500}
+.svall{flex:0 0 auto}
+.svall.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.svtoggle{display:flex;justify-content:space-between;align-items:center;width:100%;
+  background:transparent;border:0;border-top:1px solid var(--line);
+  padding:10px 0;cursor:pointer;font-family:var(--sans);color:var(--muted);
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.svchev{color:var(--dim);font-size:13px}
+.svsum{padding-bottom:10px}
+.svsumrow{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px}
+.svsumcat{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.svsumn{flex:0 0 auto;color:var(--muted);font-size:12.5px}
+.svsumn small{color:var(--dim);font-size:11px}
 
 /* ---- value ---- */
 #valuesbox{display:none;padding:4px 0 8px}
