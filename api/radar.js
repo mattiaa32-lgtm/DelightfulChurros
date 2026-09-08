@@ -106,7 +106,9 @@ export default async function handler(req, res) {
                   ? "The daily allowance is gone; it resets at midnight Pacific."
                   : out.retryAfter
                     ? "Try again in about " + out.retryAfter + " seconds."
-                    : "If a minute doesn't help, the daily allowance is likely gone.")
+                    : "The capable models allow as few as five requests a " +
+                      "minute, so this is usually a short wait rather than " +
+                      "the daily allowance. Try again in a minute.")
         });
       }
       return res.status(502).json({
