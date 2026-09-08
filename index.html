@@ -1,314 +1,137 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#12100E">
-<title>Shelf</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" type="image/svg+xml" href="icon.svg">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<meta name="apple-mobile-web-app-title" content="Shelf">
-</head>
-<body>
-<header>
-  <div class="wrap">
-    <div class="brand"><h1>Shelf</h1><span class="count" id="count"></span>
-      <button class="connbadge unknown" id="connbadge" aria-label="Discogs connection"></button>
-      <button class="ownerbtn" id="ownerbtn" aria-label="Access mode">Guest</button>
-      <button class="gearbtn" id="settingslink" aria-label="Settings" title="Settings">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
-             stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="3.2"></circle>
-          <path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.47V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9.1 19.4a1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.47-1.07 1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32H9a1.6 1.6 0 0 0 .97-1.47V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.77V9a1.6 1.6 0 0 0 1.47.97H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.47.97z"></path>
-        </svg>
-      </button></div>
-    <div class="tabs" id="tabs">
-      <button class="tab" data-v="shelf" aria-pressed="true">Shelf</button>
-      <button class="tab" data-v="discover" aria-pressed="false">Discover</button>
-      <button class="tab" data-v="radar" aria-pressed="false">Radar</button>
-      <button class="tab" data-v="want" aria-pressed="false">Wantlist</button>
-      <button class="tab" data-v="dash" aria-pressed="false">Collection</button>
-      <button class="tab" data-v="hifi" aria-pressed="false">Setup</button>
-    </div>
-    <div id="shelfhead">
-      <div class="searchrow">
-        <input id="q" type="search" autocomplete="off" autocapitalize="off" spellcheck="false"
-               placeholder="Artist or record name" aria-label="Search by artist or record name">
-        <button class="iconbtn" id="dice" title="Pick one at random" aria-label="Pick one at random">?</button>
-      </div>
-      <!-- The cube filter, drawn as the shelf rather than a row of
-           chips: the shape is the information. -->
-      <div id="cubepick"></div>
-    </div>
-  </div>
-</header>
-<main class="wrap">
+/* Shelf service worker
+   ---------------------------------------------------------------
+   Deliberately conservative about the app's own code. A service
+   worker that serves cached HTML/JS first is the classic way to end
+   up staring at an old build after a deploy, so:
 
-  <div id="view-shelf">
-  <div id="connbox"><div id="connbody"></div></div>
-  <div class="toprow owner-only">
-    <button class="addtop" id="addlink">+ &nbsp;Add a record</button>
-    <button class="addtop synctop" id="synctop" title="Pull anything new from Discogs">
-      &#8635; &nbsp;Sync</button>
-  </div>
-  <p class="hint synced" id="synced"></p>
-  <p class="filingbanner owner-only" id="filingbanner" hidden></p>
-  <div id="arrivalsbox"><div id="arrivalsbody"></div></div>
-  <div id="gapsbox"><div id="gapsbody"></div></div>
-  <div id="valuesbox"><div id="valuesbody"></div></div>
-  <div id="safetybox"><div id="safetybody"></div></div>
-  <div id="filingbox"><div id="filingbody"></div></div>
-  <div id="addbox">
-    <div class="addrow">
-      <input id="addartist" type="text" placeholder="Artist" aria-label="Artist">
-      <input id="addtitle" type="text" placeholder="Record name" aria-label="Record name">
-    </div>
-    <div class="addrow">
-      <select id="addcat" aria-label="Category"></select>
-      <input id="adddiscogs" type="text" placeholder="Discogs release id" aria-label="Discogs release id">
-      <button class="chip" id="adddiscogs-search">Find on Discogs</button>
-    </div>
-    <div class="dgresults" id="addresults"></div>
-    <div class="placement" id="placement"></div>
-    <div class="addrow owner-only">
-      <label class="synclab"><input type="checkbox" id="adddiscogs-sync" checked>
-        Also add to my Discogs collection</label>
-    </div>
-    <div class="addrow owner-only">
-      <button class="chip" id="addsave">Add record</button>
-      <span class="hint" id="addmsg"></span>
-    </div>
-  </div>
-  <div class="chips" id="catchips"></div>
-  <div class="results" id="results"></div>
-  <div id="qrbox">
-    <input id="qrurl" type="url" placeholder="https://your-shelf-app-url" aria-label="Page address for the QR code">
-    <div id="qr"></div>
-    <p class="hint" id="qrhint"></p>
-  </div>
+     app shell (html/css/js)  network first, cache as fallback
+     images (covers, icons)   cache first, they never change
+     the Google Sheet CSV     network first, cache as fallback
+     /api/* (the AI calls)    never cached, never intercepted
 
-  <p class="foot">
-    Tap a record for its cube, its place in the run and what sits either side.<br>
-Settings are behind the gear, top right.
-  </p>
+   The cache name carries a version. Bump SW_VERSION when the shell
+   changes; everything under an older name is deleted on activate. */
 
-  <!-- One way in, rather than a footer that grows a link per feature.
-       Grouped by how often you'd touch each thing: the collection you
-       tend regularly, connections rarely, this device almost never. -->
-  <div class="setwrap" id="setwrap" hidden role="dialog" aria-modal="true" aria-label="Settings">
-    <div class="setpanel">
-      <div class="chathead">
-        <div class="chattitle">Settings</div>
-        <button class="chatclose" id="setclose" aria-label="Close">&times;</button>
-      </div>
-      <div class="setbody">
-        <!-- A guest can browse everything and change nothing, so the
-             actions that would only refuse them are hidden rather than
-             shown and then blocked. -->
-        <p class="hint is-guest-only" id="setguest">You're browsing as a guest.
-          Everything is visible; nothing can be changed. Tap
-          <b>Guest</b> in the header to unlock editing.</p>
-        <div class="setgroup owner-only">
-          <div class="setlabel">Collection</div>
-          <button class="setitem owner-only" id="arrivalslink">
-            <span>New arrivals</span>
-            <small>Place records that came in without a cube</small></button>
-          <button class="setitem owner-only" id="gapslink">
-            <span>Fill in the blanks</span>
-            <small>See what's missing, and fill it</small></button>
-          <button class="setitem" id="valueslink">
-            <span>Value</span>
-            <small>What it's worth, and how that moves</small></button>
-          <button class="setitem owner-only" id="filinglink">
-            <span>Shelf layout</span>
-            <small>Which category lives in which cube</small></button>
-        </div>
-        <div class="setgroup">
-          <div class="setlabel">Connections</div>
-          <button class="setitem" id="connlink">
-            <span>Discogs</span>
-            <small>Connect, disconnect, sync</small></button>
-        </div>
-        <div class="setgroup">
-          <div class="setlabel">This device</div>
-          <button class="setitem owner-only" id="safetylink">
-            <span>Backup</span>
-            <small>Everything, saved weekly and on demand</small></button>
-          <button class="setitem" id="qrlink">
-            <span>QR code</span>
-            <small>For opening the shelf on a phone</small></button>
-          <input type="file" id="restorefile" accept="application/json" hidden>
-        </div>
-      </div>
-    </div>
-  </div>
-  </div>
+var SW_VERSION = "v79";
+var SHELL_CACHE = "shelf-shell-" + SW_VERSION;
+var MEDIA_CACHE = "shelf-media-" + SW_VERSION;
 
-  <div id="view-discover" hidden>
-    <div class="dischead">
-      <div>
-        <div class="disctitle" id="discdate"></div>
-        <div class="hint" id="discsub">Records you don't own yet, picked for your taste.</div>
-      </div>
-      <button class="chip" id="advtoggle" aria-pressed="false">Adventurous</button>
-    </div>
-    <div id="discbody"></div>
-    <p class="foot">
-      Today's picks stay put until tomorrow — they won't shuffle while you're using the app.<br>
-      <a href="#" id="discnew">Refresh suggestions</a> &middot;
-      <a href="#" id="discseen">Show what I've been recommended</a>
-    </p>
-  </div>
+var SHELL = [
+  "./",
+  "index.html",
+  "css/app.css",
+  "js/data.js",
+  "js/covers.js",
+  "js/shelf.js",
+  "js/move.js",
+  "js/want.js",
+  "js/discover.js",
+  "js/radar.js",
+  "js/chat.js",
+  "js/dashboard.js",
+  "js/hifi.js",
+  "js/backup.js",
+  "js/ai.js",
+  "js/icons.js",
+  "js/ptr.js",
+  "js/auth.js",
+  "js/add.js",
+  "js/connect.js",
+  "js/filing.js",
+  "js/arrivals.js",
+  "js/gaps.js",
+  "js/safety.js",
+  "js/shelfview.js",
+  "js/values.js",
+  "js/panels.js",
+  "js/settings.js",
+  "js/ptr.js",
+  "js/auth.js",
+  "js/app.js",
+  "manifest.webmanifest",
+  "icon.svg",
+  "icon-180.png",
+  "icon-192.png"
+];
 
-  <div id="view-dash" hidden>
-    <div class="dischead">
-      <div><div class="disctitle">Collection</div>
-        <div class="hint">Counts are live from your sheet; the assessment updates when records change.</div></div>
-    </div>
-    <div id="dashstats"></div>
-    <div class="dischead"><div><div class="disctitle">Assessment</div></div></div>
-    <div id="dashjudge"></div>
-    <div id="dashdive" hidden></div>
-    <p class="foot">Tap a category in the chart or legend for a deep dive.<br>
-      <a href="#" id="dashrefresh">Regenerate assessment</a></p>
-  </div>
+self.addEventListener("install", function (e) {
+  e.waitUntil(
+    caches.open(SHELL_CACHE)
+      .then(function (c) { return c.addAll(SHELL); })
+      // one missing file shouldn't block the whole install
+      .catch(function () {})
+      .then(function () { return self.skipWaiting(); })
+  );
+});
 
-  <div id="view-radar" hidden>
-    <div class="dischead">
-      <div>
-        <div class="disctitle">On the horizon</div>
-        <div class="hint">Coming out soon, narrowed to what you collect.</div>
-      </div>
-      <a href="#" class="chip" id="radarrefresh">Check now</a>
-    </div>
-    <div id="radarbody"></div>
-    <p class="foot">Checked once a week. Web search has its own small allowance,
-      separate from the rest of the app — so this can be unavailable while
-      everything else still works.</p>
-  </div>
+self.addEventListener("activate", function (e) {
+  e.waitUntil(
+    caches.keys().then(function (names) {
+      return Promise.all(names.map(function (n) {
+        if (n !== SHELL_CACHE && n !== MEDIA_CACHE) return caches.delete(n);
+      }));
+    }).then(function () { return self.clients.claim(); })
+  );
+});
 
-  <div id="view-want" hidden>
-    <div class="dischead">
-      <div><div class="disctitle">Wantlist</div>
-        <div class="hint" id="wantcount"></div></div>
-    </div>
-    <div id="wantbody"></div>
-    <p class="foot">Saved from Discover, the chat, and category deep dives. Stored on this device.</p>
-  </div>
-
-  <div id="view-hifi" hidden>
-    <div class="dischead">
-      <div><div class="disctitle">Setup</div>
-        <div class="hint">Name each component and the app looks up its specs, with sources.</div></div>
-    </div>
-    <div id="gearchain"></div>
-    <div id="gearrows"></div>
-    <div class="dischead"><div><div class="disctitle">System evaluation</div></div></div>
-    <div id="sysbody"></div>
-    <p class="foot">Tap any box in the chain, or "details", to see specs and sources.<br>
-      <a href="#" id="sysrefresh">Re-evaluate system</a></p>
-  </div>
-</main>
-
-<div class="ownerwrap" id="ownerwrap" hidden role="dialog" aria-modal="true" aria-label="Access">
-  <div class="ownerpanel">
-    <div class="chathead"><div class="chattitle">Access</div>
-      <button class="chatclose" id="ownerclose" aria-label="Close">&times;</button></div>
-    <div class="ownerbody">
-      <p class="hint" id="ownermsg"></p>
-      <input id="ownerpass" type="password" autocomplete="current-password"
-             placeholder="Passphrase" aria-label="Owner passphrase">
-      <button class="chip" id="ownerdo">Unlock editing</button>
-    </div>
-  </div>
-</div>
-<div class="movewrap" id="movewrap" hidden role="dialog" aria-modal="true" aria-label="Move record">
-  <div class="movepanel">
-    <div class="chathead"><div class="chattitle" id="movetitle"></div>
-      <button class="chatclose" id="moveclose" aria-label="Close">&times;</button></div>
-    <div class="movebody" id="movebody"></div>
-  </div>
-</div>
-<button id="fab" aria-label="Ask what to play">&#9835;</button>
-<div class="chatwrap" id="chatwrap" hidden role="dialog" aria-modal="true" aria-label="Ask what to play">
-  <div class="chatpanel" id="chatpanel">
-    <div class="chathead">
-      <div class="grab" id="chatgrab"></div>
-      <div class="chattitle">Ask</div>
-      <div class="chips" id="chatmode">
-        <button class="chip" data-m="shelf" aria-pressed="true">From my shelf</button>
-        <button class="chip" data-m="new" aria-pressed="false">Something new</button>
-      </div>
-      <button class="chatclose" id="chatclose" aria-label="Close">&#215;</button>
-    </div>
-    <div class="chatintro" id="chatintro"></div>
-    <div class="chatlog" id="chatlog"></div>
-    <div class="prompts" id="prompts"></div>
-    <div class="askrow">
-      <button class="iconbtn" id="askmic" aria-label="Dictate" hidden>
-        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
-             stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
-          <rect x="9.25" y="3" width="5.5" height="10" rx="2.75"></rect>
-          <path d="M5.5 11a6.5 6.5 0 0 0 13 0"></path>
-          <line x1="12" y1="17.5" x2="12" y2="21"></line>
-        </svg>
-      </button>
-      <input id="askq" type="text" autocomplete="off"
-             placeholder="What are you in the mood for?" aria-label="Ask for a listening suggestion">
-      <button class="iconbtn" id="asksend" aria-label="Send">&#8593;</button>
-    </div>
-  </div>
-</div>
-<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="dtitle">
-  <div class="card" id="card"></div>
-</div>
-<div class="sheet" id="gearsheet" role="dialog" aria-modal="true">
-  <div class="card" id="gearcard"></div>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="js/ai.js"></script>
-<script src="js/icons.js"></script>
-<script src="js/data.js"></script>
-<script src="js/covers.js"></script>
-<script src="js/shelf.js"></script>
-<script src="js/move.js"></script>
-<script src="js/want.js"></script>
-<script src="js/discover.js"></script>
-<script src="js/radar.js"></script>
-<script src="js/chat.js"></script>
-<script src="js/dashboard.js"></script>
-<script src="js/hifi.js"></script>
-<script src="js/add.js"></script>
-<script src="js/connect.js"></script>
-<script src="js/filing.js"></script>
-<script src="js/arrivals.js"></script>
-<script src="js/gaps.js"></script>
-<script src="js/safety.js"></script>
-<script src="js/shelfview.js"></script>
-<script src="js/values.js"></script>
-<script src="js/panels.js"></script>
-<script src="js/settings.js"></script>
-<script src="js/backup.js"></script>
-<script src="js/ptr.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/app.js"></script>
-<script src="js/ptr.js"></script>
-<script>
-/* Offline support. Registered last and guarded, so a browser without
-   service workers (or a page opened over file://) just carries on. */
-if("serviceWorker" in navigator&&location.protocol.indexOf("http")===0){
-  window.addEventListener("load",function(){
-    navigator.serviceWorker.register("sw.js").catch(function(){});
-  });
+function isImage(req, url) {
+  return req.destination === "image" ||
+         /\.(png|jpg|jpeg|webp|gif|svg)(\?|$)/i.test(url.pathname);
 }
-</script>
-</body>
-</html>
+/* Webfonts are immutable and cross-origin; cache them like images so the
+   app doesn't fall back to system type when offline. */
+function isFont(req, url) {
+  return req.destination === "font" ||
+         url.hostname === "fonts.gstatic.com" ||
+         url.hostname === "fonts.googleapis.com";
+}
+
+self.addEventListener("fetch", function (e) {
+  var req = e.request;
+  if (req.method !== "GET") return;
+
+  var url;
+  try { url = new URL(req.url); } catch (err) { return; }
+
+  // Never touch the serverless functions: responses are per-request and
+  // an offline stale answer would be worse than a clear failure.
+  if (url.pathname.indexOf("/api/") === 0) return;
+
+  // Cover art and icons: immutable URLs, so cache first and keep them.
+  if (isImage(req, url) || isFont(req, url)) {
+    e.respondWith(
+      caches.match(req).then(function (hit) {
+        if (hit) return hit;
+        return fetch(req).then(function (res) {
+          if (res && (res.ok || res.type === "opaque")) {
+            var copy = res.clone();
+            caches.open(MEDIA_CACHE).then(function (c) { c.put(req, copy); });
+          }
+          return res;
+        }).catch(function () { return hit; });
+      })
+    );
+    return;
+  }
+
+  // Everything else (shell + the published sheet): network first so a
+  // deploy or a sheet edit lands immediately, cache only as a fallback.
+  e.respondWith(
+    fetch(req).then(function (res) {
+      /* The sheet is deliberately NOT cached: a stale collection is
+         worse than none, and it is small enough to refetch. */
+      if (res && res.ok && url.origin === self.location.origin) {
+        var copy = res.clone();
+        caches.open(SHELL_CACHE).then(function (c) { c.put(req, copy); });
+      }
+      return res;
+    }).catch(function () {
+      return caches.match(req).then(function (hit) {
+        if (hit) return hit;
+        // navigations fall back to the cached page rather than an error
+        if (req.mode === "navigate") return caches.match("index.html");
+        return new Response("", { status: 504, statusText: "Offline" });
+      });
+    })
+  );
+});
