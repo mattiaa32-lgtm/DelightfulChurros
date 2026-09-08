@@ -33,6 +33,16 @@ function applyOwnerState(){
   document.documentElement.classList.toggle("is-guest", !isOwner());
   var b = document.getElementById("ownerbtn");
   if (b) b.textContent = isOwner() ? "Editing on" : "Guest";
+  /* A settings group whose every item is owner-only has nothing left to
+     show a guest, so the heading goes too rather than sitting above a
+     gap. */
+  [].forEach.call(document.querySelectorAll(".setgroup"), function(g){
+    var items = g.querySelectorAll(".setitem");
+    var hidden = g.querySelectorAll(".setitem.owner-only");
+    if (items.length && items.length === hidden.length){
+      g.classList.toggle("empty-for-guest", !isOwner());
+    }
+  });
 }
 
 /* Verifies against the server rather than trusting local state, so a
