@@ -95,22 +95,18 @@ export async function handler(req, res) {
 
     /* --- take the snapshot from what's already recorded --- */
     if (body.snapshot === true) {
-      const vals = [], mids = [], his = [], byCube = {}, byCat = {};
+      const vals = [], byCube = {}, byCat = {};
       rows.forEach(function (r) {
         const v = parseFloat(String(r[13] || "").replace(/[^\d.]/g, ""));
-        const mid = parseFloat(String(r[14] || "").replace(/[^\d.]/g, ""));
-        const hi = parseFloat(String(r[15] || "").replace(/[^\d.]/g, ""));
         if (!isFinite(v) || v <= 0) return;
         vals.push(v);
-        if (isFinite(mid) && mid > 0) mids.push(mid);
-        if (isFinite(hi) && hi > 0) his.push(hi);
         const cube = String(r[3] || "").trim() || "?";
         const cat = String(r[2] || "").trim() || "Uncategorised";
         /* Grouped on the median, since that is the fair per-record
            figure; the collection-wide low and high are reported
            separately below. */
-        (byCube[cube] = byCube[cube] || []).push(isFinite(mid) && mid > 0 ? mid : v);
-        (byCat[cat] = byCat[cat] || []).push(isFinite(mid) && mid > 0 ? mid : v);
+        (byCube[cube] = byCube[cube] || []).push(v);
+        (byCat[cat] = byCat[cat] || []).push(v);
       });
       if (!vals.length) return res.status(400).json({ error: "no values recorded yet" });
 
@@ -127,10 +123,8 @@ export async function handler(req, res) {
         /* Three totals, not one: what the collection is worth if every
            copy is rough, typical, or mint. A single number would hide
            how wide that spread is. */
-        low: sum(vals),
-        mid: mids.length ? sum(mids) : sum(vals),
-        high: his.length ? sum(his) : sum(vals),
-        all: roll(mids.length ? mids : vals),
+        mid: sum(vals),
+        all: roll(vals),
         cubes: Object.fromEntries(Object.keys(byCube).map((k) => [k, roll(byCube[k])])),
         cats: Object.fromEntries(Object.keys(byCat).map((k) => [k, roll(byCat[k])]))
       };
@@ -153,9 +147,7 @@ export async function handler(req, res) {
          readable and chartable in the spreadsheet itself. */
       const perRecord = [];
       rows.forEach(function (r) {
-        const mid = parseFloat(String(r[14] || "").replace(/[^\d.]/g, ""));
-        const v = isFinite(mid) && mid > 0
-          ? mid : parseFloat(String(r[13] || "").replace(/[^\d.]/g, ""));
+        const v = parseFloat(String(r[13] || "").replace(/[^\d.]/g, ""));
         const id = String(r[4] || "").trim();
         if (id && isFinite(v) && v > 0) {
           perRecord.push({ id: id, artist: r[0], title: r[1], value: v });
@@ -229,7 +221,8 @@ export async function handler(req, res) {
         } else {
           noSuggestions++;
           await sleep(GAP_MS);
-          const st = await fetch("https://api.discogs.com/marketplace/stats/" + item.id,
+          const st = await fetch("https://api.discogs.com/marketplace/stats/" + item.id +
+                                 "?curr_abbr=DKK",
                                  { headers: auth });
           if (st.status === 429) { rateLimited = true; break; }
           if (st.ok) {
@@ -246,10 +239,15 @@ export async function handler(req, res) {
         }
 
         if (lo === null) continue;
-        const r2 = function (n) { return Math.round(n * 100) / 100; };
-        cells.push({ row: item.row, col: 14, value: r2(lo) });
-        if (mid !== null) cells.push({ row: item.row, col: 15, value: r2(mid) });
-        if (hi !== null) cells.push({ row: item.row, col: 16, value: r2(hi) });
+        /* One column, one meaning. Discogs' own low/median/high come from
+           SALES history, which its public API does not expose; the
+           per-condition suggestions that could stand in for them need
+           seller privileges. What is actually available is the cheapest
+           copy currently listed \u2014 so that is what is stored, under a
+           name that says so, rather than three columns implying a
+           precision that was never there. */
+        cells.push({ row: item.row, col: 14,
+                     value: Math.round((mid !== null ? mid : lo) * 100) / 100 });
         priced++;
       } catch (e) { /* leave it for the next run */ }
     }
@@ -259,6 +257,7 @@ export async function handler(req, res) {
     const remaining = Math.max(0, stale.length - checked);
     return res.status(200).json({
       ok: true, checked: checked, priced: priced,
+      suggestionsBlocked: suggestionsBlocked,
       remaining: remaining,
       /* Being rate limited is not being finished. Reporting it as done
          stopped the run after the first refusal and left the rest of the
