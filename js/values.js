@@ -157,6 +157,59 @@ function wireValues(){
   });
 }
 
+/* ---- weekly, on its own ---------------------------------------------
+   A value series is only useful if the points keep coming, and nobody
+   remembers to press a button every Sunday. So the first time the app is
+   opened after a week has passed, it refreshes the prices and takes a
+   snapshot in the background.
+
+   Prices are the slow part \u2014 one Discogs call per record \u2014 so this
+   works through them in batches and only snapshots once they are done.
+   Interrupting it costs nothing: the next open picks up where it
+   stopped, and a snapshot on a date that already has one replaces it
+   rather than adding a second point. */
+var VALUE_EVERY_MS = 7 * 24 * 3600 * 1000;
+
+function lastValueRun(){
+  try { return +localStorage.getItem("lastValueRun") || 0; } catch (e) { return 0; }
+}
+function noteValueRun(){
+  try { localStorage.setItem("lastValueRun", String(Date.now())); } catch (e) {}
+}
+
+function weeklyValueRun(){
+  if (!isOwner()) return;
+  if (Date.now() - lastValueRun() < VALUE_EVERY_MS) return;
+  if (!RECS.length) return;
+
+  var rounds = 0;
+  (function step(){
+    if (++rounds > 12) return;          /* don't grind forever in one session */
+    fetch("/api/values", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ passphrase: ownerPass(), limit: 40 })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d || !d.ok) return;
+      if (!d.done){ setTimeout(step, 1500); return; }
+      /* prices are current: record the point */
+      fetch("/api/values", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ passphrase: ownerPass(), snapshot: true })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(){ noteValueRun(); })
+      .catch(function(){});
+    })
+    .catch(function(){});
+  })();
+}
+
+if (typeof onDataReady === "function"){
+  onDataReady(function(){ setTimeout(weeklyValueRun, 25000); });
+}
+
 (function(){
   var link = document.getElementById("valueslink");
   if (!link) return;
