@@ -208,7 +208,7 @@ var pending = {};   /* the Discogs release currently chosen */
         .then(function(r){ return r.json().catch(function(){ return {}; }); })
         .then(function(d){
           msg.textContent = (d && d.ok)
-            ? "Added to the shelf and your Discogs collection. Pull down to refresh."
+            ? "Added to the shelf and your Discogs collection."
             : "Added to the shelf. Discogs didn't accept it" +
               (d && d.error ? " (" + d.error + ")" : "") + " \u2014 add it there by hand.";
         })
@@ -216,7 +216,7 @@ var pending = {};   /* the Discogs release currently chosen */
           msg.textContent = "Added to the shelf. Couldn't reach Discogs to add it there.";
         });
       } else {
-        msg.textContent = "Added. Pull down to refresh and it'll appear on the shelf.";
+        msg.textContent = "Added — it's on the shelf now.";
       /* The collection changed, so its value has too — one call. */
       if (typeof takeSnapshot === "function") takeSnapshot(function(){});
       }
