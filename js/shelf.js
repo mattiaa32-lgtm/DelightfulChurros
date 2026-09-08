@@ -96,7 +96,8 @@ function open(i){
       "<div class='valspread'><span class='vmid'><b>"+esc(money0(r.val))+
         "</b><small>cheapest listed</small></span></div>"+
       "<p class='hint'>The cheapest copy for sale on Discogs right now. Not a sale "+
-      "price \u2014 Discogs doesn't publish those through its API.</p></div>" : "")+
+      "price \u2014 Discogs doesn't publish those through its API.</p>"+
+      "<div class='recval' data-rv='"+esc(String(r.d||""))+"'></div></div>" : "")+
     "<dl class='facts'>"+
       /* first release first, then the specific pressing on the shelf */
       (cachedYear(r)?"<dt>First released</dt><dd data-yr='first'>"+esc(cachedYear(r))+"</dd>":"")+
@@ -122,6 +123,9 @@ function open(i){
     "<button class='close'>Close</button>";
   document.getElementById("sheet").classList.add("open");
   fillArt(document.getElementById("card"));
+  /* This record's own price history, from the weekly readings. */
+  var rv = document.querySelector("#card .recval");
+  if (rv && typeof drawRecordValue === "function") drawRecordValue(rv, r);
   upgradeDetailArt(r);
   upgradeDetailDesc(r);
 }
