@@ -159,14 +159,12 @@ document.getElementById("dice").addEventListener("click",function(){
   var p=RECS.filter(function(r){return !cubeFilter||r.k===cubeFilter;});
   if(p.length)open(p[Math.floor(Math.random()*p.length)].i);});
 
-document.getElementById("chips").innerHTML=
-  [["All",0],["Top left",1],["Top right",2],["Bottom left",3],["Bottom right",4]]
-  .map(function(c,i){return "<button class='chip' aria-pressed='"+(i===0)+"' data-k='"+c[1]+"'>"+c[0]+"</button>";}).join("");
-document.getElementById("chips").addEventListener("click",function(e){
-  var b=e.target.closest(".chip");if(!b)return;
-  cubeFilter=+b.dataset.k;
-  [].forEach.call(this.querySelectorAll(".chip"),function(c){c.setAttribute("aria-pressed",c===b);});
-  render();});
+/* The cube filter is drawn by js/shelfview.js as the shelf itself.
+   setCubeFilter is how it drives this module. */
+function setCubeFilter(k){
+  cubeFilter = k || 0;
+  render();
+}
 
 /* category chips: rebuilt whenever the category list can change (the
    sheet may introduce a category the baked-in copy didn't have) */
