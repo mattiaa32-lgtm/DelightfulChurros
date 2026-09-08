@@ -198,8 +198,8 @@ function doSync(dryRun){
         (d.toAdd > d.sample.length ? "<br>\u2026and " + (d.toAdd - d.sample.length) + " more" : "") +
         "</p>";
     }
-    if (!dryRun) html += "<p class='hint'>Pull down to refresh and see them on the shelf. " +
-      "New records have no cube yet.</p>";
+    if (!dryRun) html += "<p class='hint'>They're on the shelf now, without a cube \u2014 " +
+      "place them from <b>New arrivals</b>.</p>";
     out.innerHTML = html;
     /* A record's original release year is part of importing it, not a
        separate chore to remember. This runs after every sync, not only
@@ -263,7 +263,7 @@ function fillYears(opts){
       } else {
         show(filled
           ? "Done \u2014 filled <b>" + filled + "</b> original release year" +
-            (filled === 1 ? "" : "s") + ". Pull down to refresh."
+            (filled === 1 ? "" : "s") + "."
           : "Original release years were already complete.");
         if (btn){ btn.disabled = false; btn.textContent = "Fill release years"; }
         if (opts.then) opts.then();
@@ -298,7 +298,7 @@ function doDisconnect(){
   .then(function(d){
     if (d && d.ok){
       msg.textContent = wipe
-        ? "Disconnected and cleared " + (d.cleared || 0) + " records. Pull down to refresh."
+        ? "Disconnected and cleared " + (d.cleared || 0) + " records."
         : "Disconnected.";
       refreshConnBadge();
       setTimeout(renderConnect, 1200);
@@ -384,7 +384,7 @@ function doDisconnect(){
         if (d.toFill) bits.push("filled " + d.toFill + " blank cell" +
                                 (d.toFill === 1 ? "" : "s"));
         el.textContent = bits.join(", ").replace(/^./, function(c){ return c.toUpperCase(); }) +
-                         ". Pull down to refresh.";
+                         ".";
         /* carry straight on into the original-release-year lookups */
         fillYears({ el: el, asText: true });
       } else {
