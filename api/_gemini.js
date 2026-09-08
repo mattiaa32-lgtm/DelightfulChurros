@@ -49,7 +49,7 @@ async function listModels(apiKey) {
     const names = (d.models || [])
       .filter((m) => (m.supportedGenerationMethods || []).indexOf("generateContent") > -1)
       .map((m) => String(m.name || "").replace(/^models\//, ""))
-      .filter((n) => /flash|lite/i.test(n))       // the free-tier workhorses
+      .filter((n) => /flash|pro/i.test(n))       // the ones with usable free limits
       .filter((n) => !/vision|embedding|tts|image|audio|live/i.test(n));
     if (!names.length) return null;
     /* Cheapest first: lite variants, then plain flash. Within each,
@@ -135,23 +135,29 @@ export async function callGemini(apiKey, buildBody, opts) {
   opts = opts || {};
   let models = orderedModels();
 
-  /* Search grounding is not supported on every model \u2014 the small
-     "lite" variants in particular \u2014 and a model that cannot do it
-     answers with an error indistinguishable from being out of quota.
-     Walking the chain in its usual order therefore failed on all four
-     for reasons that had nothing to do with allowances, which is why the
-     radar never worked. Grounded calls try the capable models first. */
+  /* Grounded calls are handled differently, and the usage figures show
+     why: the capable models allow as few as FIVE requests a minute.
+     Walking a chain of four in quick succession spends that ceiling on
+     retries and the last attempt is refused \u2014 which reads as "the
+     allowance is gone" when the daily count is barely touched.
+     
+     So: ask the API which models this key actually has (the hard-coded
+     names were guesses and mostly do not exist here), pick the capable
+     ones, and try at most two with a pause between. */
   if (opts.grounded) {
-    models = models.slice().sort(function (a, b) {
-      var liteA = /lite/i.test(a) ? 1 : 0, liteB = /lite/i.test(b) ? 1 : 0;
-      return liteA - liteB;
-    });
+    const real = await listModels(apiKey);
+    const capable = (real || models).filter(function (m) { return !/lite/i.test(m); });
+    models = (capable.length ? capable : (real || models)).slice(0, 2);
   }
   const attempted = [];
   let last = null;
 
   for (let i = 0; i < models.length; i++) {
     const model = models[i];
+    /* A capable model may allow only five requests a minute, so a
+       second attempt fired immediately is refused by the first one's
+       own footprint. */
+    if (opts.grounded && i > 0) await new Promise(function (r) { setTimeout(r, 12000); });
     attempted.push(model);
     let res;
     try {
