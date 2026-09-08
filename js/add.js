@@ -217,6 +217,8 @@ var pending = {};   /* the Discogs release currently chosen */
         });
       } else {
         msg.textContent = "Added. Pull down to refresh and it'll appear on the shelf.";
+      /* The collection changed, so its value has too — one call. */
+      if (typeof takeSnapshot === "function") takeSnapshot(function(){});
       }
       ["addartist","addtitle","adddiscogs"].forEach(function(id2){
         document.getElementById(id2).value = "";
