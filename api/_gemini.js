@@ -10,11 +10,15 @@
 // output is comparable — this is about which bucket the request is
 // billed against, not about dropping to something much weaker.
 
+/* A starting guess only. The models a key actually has are discovered
+   from the API — these names drift between releases, and asking for one
+   that does not exist wastes a round trip on a 404. Cheap models first:
+   the lite variants have far larger daily allowances. */
 export const MODEL_CHAIN = [
-  "gemini-3.5-flash-lite",   // primary
-  "gemini-2.5-flash-lite",   // separate quota, similar output
-  "gemini-2.0-flash-lite",   // older, typically the most generous limits
-  "gemini-2.5-flash"         // last resort: smaller RPD but more capable
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+  "gemini-flash-lite-latest",
+  "gemini-3.8-flash"
 ];
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/";
@@ -46,19 +50,30 @@ async function listModels(apiKey) {
     );
     if (!r.ok) return null;
     const d = await r.json();
+    /* Filtering on "flash|pro" matched nano-banana-pro (images) and
+       lyria-pro (music), which were then asked to run a web search.
+       The filter has to be positive about what a text model IS, not
+       just what its name contains. */
     const names = (d.models || [])
       .filter((m) => (m.supportedGenerationMethods || []).indexOf("generateContent") > -1)
       .map((m) => String(m.name || "").replace(/^models\//, ""))
-      .filter((n) => /flash|pro/i.test(n))       // the ones with usable free limits
-      .filter((n) => !/vision|embedding|tts|image|audio|live/i.test(n));
-    if (!names.length) return null;
-    /* Cheapest first: lite variants, then plain flash. Within each,
-       newer version numbers first. */
+      .filter((n) => /^gemini-/i.test(n))
+      .filter((n) => !/nano|banana|lyria|imagen|veo|embedding|tts|vision|audio|live|image|music|thinking/i.test(n));
+
+    /* Order by what actually answers a grounded question well and has
+       headroom: full flash models first, then pro, then the lite ones,
+       and released versions before previews. */
+    const rank = function (n) {
+      var r = /lite/i.test(n) ? 2 : /-pro/i.test(n) ? 1 : 0;
+      if (/preview|exp/i.test(n)) r += 0.5;
+      return r;
+    };
     names.sort(function (a, b) {
-      const liteA = /lite/i.test(a) ? 0 : 1, liteB = /lite/i.test(b) ? 0 : 1;
-      if (liteA !== liteB) return liteA - liteB;
-      return b.localeCompare(a, undefined, { numeric: true });
+      var d1 = rank(a) - rank(b);
+      if (d1) return d1;
+      return b.localeCompare(a, undefined, { numeric: true });   // newer first
     });
+
     discovered = names.slice(0, 8);
     return discovered;
   } catch (e) {
