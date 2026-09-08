@@ -98,7 +98,14 @@ selected by `mode`.
 
 ## Value history
 
-Column N holds one value: the cheapest copy currently listed. Why only one:
+Two different things are tracked:
+
+- **The collection total** comes from Discogs' own `/collection/value` endpoint,
+  which returns minimum, median and maximum — the same figures its release
+  pages show. One authoritative call, and what the chart plots.
+- **Column N** holds the cheapest copy currently listed for each record. It runs
+  well below the median and is only used for the per-cube and per-category
+  splits, where relative size is the point. Why only one figure per record:
 
 - The Low/Median/High shown on a Discogs release page come from SALES history,
   which is **not** in the public API. The app cannot read those numbers.
