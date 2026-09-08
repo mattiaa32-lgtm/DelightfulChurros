@@ -10,7 +10,7 @@
    found by class rather than by name, so one added later is covered
    without changing anything here. */
 
-var PANEL_IDS = ["addbox", "arrivalsbox", "gapsbox", "filingbox", "connbox", "safetybox"];
+var PANEL_IDS = ["addbox", "arrivalsbox", "gapsbox", "filingbox", "connbox", "safetybox", "shelfviewbox", "valuesbox"];
 
 function closePanel(box){
   if (!box) return;
