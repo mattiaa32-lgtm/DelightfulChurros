@@ -119,6 +119,24 @@ async function postWithFallbacks(model, apiKey, buildBody) {
   let parsed = null;
   try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
 
+  /* The search tool has been spelled three ways across API versions:
+     google_search on 2.0+, googleSearch in some clients, and
+     google_search_retrieval on 1.5. A model that does not recognise the
+     one it is given answers 400, which is indistinguishable from any
+     other bad argument \u2014 so each spelling is tried before concluding
+     the model cannot search. */
+  if (parsed && parsed.tools && parsed.tools.length) {
+    const t = parsed.tools[0] || {};
+    if (t.google_search) {
+      const camel = JSON.parse(raw);
+      camel.tools = [{ googleSearch: {} }];
+      variants.push(JSON.stringify(camel));
+      const retrieval = JSON.parse(raw);
+      retrieval.tools = [{ google_search_retrieval: {} }];
+      variants.push(JSON.stringify(retrieval));
+    }
+  }
+
   if (parsed && parsed.generationConfig) {
     const g = parsed.generationConfig;
     if (g.thinkingConfig) {
@@ -214,6 +232,14 @@ export async function callGemini(apiKey, buildBody, opts) {
   /* Every name we knew about failed. Before giving up, ask the API what
      this key can actually use \u2014 the list may include models we do not
      have hard-coded, each with its own untouched daily allowance. */
+  /* The discovery fallback is for finding a model with quota left. It
+     has no business running for a grounded call that has already been
+     told the tool is unsupported \u2014 that only produced a list of eight
+     models all failing the same way. */
+  if (opts.grounded && last && last.status === 400) {
+    if (last) last.attempted = attempted;
+    return last;
+  }
   if (last && (last.status === 429 || last.status === 404)) {
     const real = await listModels(apiKey);
     const fresh = (real || []).filter((m) => attempted.indexOf(m) === -1);
