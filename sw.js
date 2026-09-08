@@ -1,4 +1,4 @@
-/* Shelf service worker 
+/* Shelf service worker
    ---------------------------------------------------------------
    Deliberately conservative about the app's own code. A service
    worker that serves cached HTML/JS first is the classic way to end
@@ -12,7 +12,7 @@
    The cache name carries a version. Bump SW_VERSION when the shell
    changes; everything under an older name is deleted on activate. */
 
-var SW_VERSION = "v93";
+var SW_VERSION = "v94";
 var SHELL_CACHE = "shelf-shell-" + SW_VERSION;
 var MEDIA_CACHE = "shelf-media-" + SW_VERSION;
 
