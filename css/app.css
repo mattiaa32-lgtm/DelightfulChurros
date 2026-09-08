@@ -787,3 +787,8 @@ select option{background:#17130F;color:#F4F0E8}
 .movelab{display:block;font-size:9.5px;letter-spacing:.17em;text-transform:uppercase;
   color:var(--dim);margin:12px 0 4px}
 #movecat,#moveafter{width:100%}
+
+/* shown only to guests, the mirror of .owner-only */
+.is-guest-only{display:none}
+html.is-guest .is-guest-only{display:block}
+.setgroup.empty-for-guest{display:none}
