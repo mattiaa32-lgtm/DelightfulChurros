@@ -29,6 +29,10 @@ function noteSweep(patch){
 
 function sweepValues(){
   if (sweepRunning || sweepStopped) return;
+  /* Stand aside if the same job is being run manually from "Fill in the
+     blanks" — two loops pricing the same records would spend the rate
+     limit twice as fast and finish no sooner. */
+  if (typeof gapsRunning !== "undefined" && gapsRunning) { setTimeout(sweepValues, 30000); return; }
   if (!isOwner() || !RECS.length) return;
 
   /* Nothing to do if every priceable record already has a value. */
