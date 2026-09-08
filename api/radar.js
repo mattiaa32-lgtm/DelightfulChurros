@@ -42,6 +42,35 @@ const SYSTEM = [
   "At most 8 items, most certain first."
 ].join("\n");
 
+/* Pulls whole {...} objects out of a partial array. Used when a reply
+   was truncated: everything before the break is still good. */
+function salvageEntries(raw) {
+  const out = [];
+  let depth = 0, start = -1, inStr = false, esc = false;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') { inStr = true; continue; }
+    if (c === "{") { if (depth === 0) start = i; depth++; }
+    else if (c === "}") {
+      depth--;
+      if (depth === 0 && start > -1) {
+        try {
+          const o = JSON.parse(raw.slice(start, i + 1));
+          if (o && (o.artist || o.title)) out.push(o);
+        } catch (e) {}
+        start = -1;
+      }
+    }
+  }
+  return out;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -83,7 +112,10 @@ export default async function handler(req, res) {
       return JSON.stringify({
         system_instruction: { parts: [{ text: SYSTEM }] },
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 1400 },
+        /* Grounded replies carry the search results with them and run far
+           longer than plain ones, so 1400 tokens cut this off mid-JSON.
+           Six entries with a sentence each needs room. */
+        generationConfig: { maxOutputTokens: 4000 },
         tools: [{ google_search: {} }]
       });
     }, { grounded: true });   /* capable models first: lite ones can't ground */
@@ -133,9 +165,18 @@ export default async function handler(req, res) {
       const m = String(out.text || "").match(/\[[\s\S]*\]/);
       if (m) { try { items = JSON.parse(m[0]); } catch (e2) { items = null; } }
     }
-    if (!Array.isArray(items)) {
-      return res.status(502).json({ error: "unparseable reply",
-                                    detail: String(out.text || "").slice(0, 200) });
+    /* A reply cut off mid-array still holds complete entries before the
+       break. Discarding all of them because the last one is half-written
+       loses good results for a formatting reason. */
+    if (!Array.isArray(items) || !items.length) {
+      items = salvageEntries(String(out.text || ""));
+    }
+    if (!Array.isArray(items) || !items.length) {
+      return res.status(502).json({
+        error: "the reply couldn't be read",
+        detail: String(out.text || "").slice(0, 300),
+        hint: "Usually a reply cut short before any entry was complete."
+      });
     }
 
     /* Surface the pages grounding actually used, so a claim about a
