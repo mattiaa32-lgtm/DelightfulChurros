@@ -119,9 +119,9 @@ function wireValues(){
     rb.disabled = true;
     var done = 0;
     (function step(){
-      fetch("/api/values", {
+      fetch("/api/fill", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ passphrase: ownerPass(), limit: 40 })
+        body: JSON.stringify({ mode: "value", passphrase: ownerPass(), limit: 40 })
       })
       .then(function(r){ return r.json(); })
       .then(function(d){
@@ -143,9 +143,9 @@ function wireValues(){
   if (sb) sb.addEventListener("click", function(){
     if (!isOwner()){ msg("Unlock editing first."); return; }
     msg("Taking a snapshot\u2026");
-    fetch("/api/values", {
+    fetch("/api/fill", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ passphrase: ownerPass(), snapshot: true })
+      body: JSON.stringify({ mode: "value", passphrase: ownerPass(), snapshot: true })
     })
     .then(function(r){ return r.json(); })
     .then(function(d){
@@ -185,18 +185,18 @@ function weeklyValueRun(){
   var rounds = 0;
   (function step(){
     if (++rounds > 12) return;          /* don't grind forever in one session */
-    fetch("/api/values", {
+    fetch("/api/fill", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ passphrase: ownerPass(), limit: 40 })
+      body: JSON.stringify({ mode: "value", passphrase: ownerPass(), limit: 40 })
     })
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (!d || !d.ok) return;
       if (!d.done){ setTimeout(step, 1500); return; }
       /* prices are current: record the point */
-      fetch("/api/values", {
+      fetch("/api/fill", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ passphrase: ownerPass(), snapshot: true })
+        body: JSON.stringify({ mode: "value", passphrase: ownerPass(), snapshot: true })
       })
       .then(function(r){ return r.json(); })
       .then(function(){ noteValueRun(); })
