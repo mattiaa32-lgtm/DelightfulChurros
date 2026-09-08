@@ -94,6 +94,7 @@ function renderValueTab(){
       "<button class='chip' id='valsnap'>Take a snapshot now</button>" +
       "<span class='hint' id='valmsg'></span>" +
     "</div>" +
+    "<p class='hint' id='sweepnote'></p>" +
     "<p class='hint'>Prices are what copies are <b>listed</b> at on Discogs, not " +
       "what they sold for \u2014 Discogs doesn't publish sale history through its API. " +
       priced + " of " + RECS.length + " records priced; fill the rest from " +
