@@ -51,7 +51,7 @@ function renderGaps(){
     ["rate",  "Rating",         g.noRate,     "scored once by the AI, then left alone"],
     ["press", "Preferred Pressing", g.noPressRec, "which pressing is worth owning"],
     ["owned", "Pressing Score", g.noOwned, "how good the copy you own is"],
-    ["value", "Value",          g.noValue, "what a copy is listed at on Discogs"]
+    ["value", "Value",          g.noValue, "the cheapest copy listed on Discogs"]
   ];
 
   var fixable = {};
