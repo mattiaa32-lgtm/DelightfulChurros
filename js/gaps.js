@@ -228,7 +228,10 @@ function fillGaps(){
              : step === "owned" ? "pressing score"
              : step === "value" ? "price"
              : "description";
-    var size = isValue ? 40 : isEval ? 12 : 20;
+    /* Smaller batches for values: Discogs' window is the constraint, so
+       shorter runs with the remaining-quota check between them get
+       further than long sprints that trip the limit. */
+    var size = isValue ? 20 : isEval ? 12 : 20;
     var extra = isEval ? { only: step } : {};
     var total = 0, written = 0;
     (function batch(){
@@ -272,8 +275,9 @@ function fillGaps(){
              of stopping partway. */
           var wait = d.pause ? d.pause * 1000 : (isValue ? 300 : 1200);
           say(d.pause
-            ? "Discogs rate limit \u2014 waiting " + d.pause + "s before carrying on. " +
-              written + " done, " + d.remaining + " to go. Leave this open."
+            ? "Pausing " + d.pause + "s for Discogs\u2019 rate limit \u2014 " +
+              written + " priced, " + d.remaining + " to go. It carries on by " +
+              "itself; you can also close this and it resumes next time."
             : "Writing " + noun + "s\u2026 " + written + " of " + total + ".");
           setTimeout(batch, wait);
         } else {
