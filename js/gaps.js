@@ -51,10 +51,7 @@ function renderGaps(){
     ["rate",  "Rating",         g.noRate,     "scored once by the AI, then left alone"],
     ["press", "Preferred Pressing", g.noPressRec, "which pressing is worth owning"],
     ["owned", "Pressing Score", g.noOwned, "how good the copy you own is"],
-    /* Not fillable from here: pricing runs as a slow background sweep
-       (js/valuesweep.js) because Discogs' rate limit makes it a ten
-       minute job, and a progress bar for that is worse than nothing. */
-    [null,    "Value",          g.noValue, "priced in the background, a few at a time"]
+    ["value", "Value",          g.noValue, "the cheapest copy listed on Discogs"]
   ];
 
   var fixable = {};
@@ -90,9 +87,14 @@ function renderGaps(){
                  difference would otherwise look like an off-by-one. */
               var priceable = g.noValue.filter(function(r){ return r.d; }).length;
               var skipped = g.noValue.length - priceable;
+              /* Discogs allows 60 requests a minute and this is one per
+                 record, so the honest thing is to say how long it takes
+                 rather than let it look stalled halfway through. */
+              var mins = Math.ceil(priceable / 30);
               return priceable + " to price" +
                 (skipped ? " (" + skipped + " with no Discogs link can't be)" : "") +
-                " \u2014 Discogs, not AI, so no quota cost";
+                " \u2014 about " + mins + " min, and it also runs on its own " +
+                "in the background";
             })()) : "") +
           (fixable.press ? pick("press", "Preferred pressings",
             g.noPressRec.length + " to research \u2014 about " +
@@ -139,6 +141,9 @@ function setProgress(done, total){
    stopping is immediate in practice and never leaves a half-written
    batch \u2014 whatever finished is already saved. */
 var gapsAborted = false;
+/* True while a manual fill is running, so the background price sweep
+   knows to stay out of the way. */
+var gapsRunning = false;
 
 function fillGaps(){
   var msg = document.getElementById("gapsmsg");
@@ -153,6 +158,7 @@ function fillGaps(){
   if (!Object.keys(want).length){ say("Pick at least one thing to fill."); return; }
 
   gapsAborted = false;
+  gapsRunning = true;
   if (btn) btn.disabled = true;
   var stop = document.getElementById("gapsstop");
   if (stop){
@@ -168,6 +174,7 @@ function fillGaps(){
   var stepNo = 0;
 
   function finish(note){
+    gapsRunning = false;
     if (btn) btn.disabled = false;
     var st = document.getElementById("gapsstop");
     if (st) st.hidden = true;
