@@ -96,6 +96,14 @@ Vercel's Hobby plan allows twelve functions per deployment. Files starting with
 of this: descriptions, evaluations and values were three routes and are now one,
 selected by `mode`.
 
+## What happens by itself
+
+`js/upkeep.js` runs the recurring work so it does not depend on being
+remembered. After a record is added: reload, fill its release year, snapshot the
+collection value, resume pricing. Once a week: sync from Discogs, fill years for
+anything new, take a value snapshot. Each remembers when it last ran, so opening
+the app twice in a morning does not repeat it. All owner-only.
+
 ## Pricing
 
 Per-record prices are one Discogs call each against a 60-a-minute ceiling, so
