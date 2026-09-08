@@ -90,6 +90,10 @@ function renderValueTab(){
         "</div>"
       : "<p class='hint'>Nothing priced in this selection yet.</p>") +
     "<div id='valchart'></div>" +
+    "<div class='addrow' style='margin-top:14px'>" +
+      "<button class='chip' id='valsnap'>Take a snapshot now</button>" +
+      "<span class='hint' id='valmsg'></span>" +
+    "</div>" +
     "<p class='hint'>Prices are what copies are <b>listed</b> at on Discogs, not " +
       "what they sold for \u2014 Discogs doesn't publish sale history through its API. " +
       priced + " of " + RECS.length + " records priced; fill the rest from " +
@@ -197,7 +201,37 @@ function drawValueChart(hist){
     "</div>";
 }
 
+/* Asks Discogs what the collection is worth and records the point. One
+   call, so it is quick even when per-record pricing has not finished \u2014
+   the headline figures do not depend on it. */
+function takeSnapshot(cb){
+  fetch("/api/fill", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ mode:"value", passphrase: ownerPass(), snapshot: true })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){ cb(d && d.ok ? null : new Error((d && d.error) || "failed"), d); })
+  .catch(function(e){ cb(e, null); });
+}
+
 function wireValueTab(){
+  var sb = document.getElementById("valsnap");
+  if (sb) sb.addEventListener("click", function(){
+    var m = document.getElementById("valmsg");
+    if (!isOwner()){ if (m) m.textContent = "Unlock editing first."; return; }
+    if (m) m.textContent = "Asking Discogs\u2026";
+    sb.disabled = true;
+    takeSnapshot(function(err, d){
+      sb.disabled = false;
+      if (err){ if (m) m.textContent = "Couldn't take a snapshot: " + err.message; return; }
+      VAL_LATEST = null;
+      renderValueTab();
+      var m2 = document.getElementById("valmsg");
+      if (m2) m2.textContent = d.fromDiscogs
+        ? "Snapshot taken from Discogs' own valuation."
+        : "Snapshot taken from the listings we have.";
+    });
+  });
   [].forEach.call(document.querySelectorAll(".ccyb"), function(b){
     b.addEventListener("click", function(){ VAL_CCY = this.dataset.ccy; renderValueTab(); });
   });
