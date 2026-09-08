@@ -59,6 +59,8 @@ function valueHistory(cb){
   .catch(function(){ cb([]); });
 }
 
+var VAL_LATEST = null;
+
 function renderValueTab(){
   var el = document.getElementById("valuebody");
   if (!el) return;
@@ -69,9 +71,19 @@ function renderValueTab(){
   el.innerHTML =
     ccyBar() +
     valFilters() +
+    (VAL_LATEST && VAL_LATEST.dgMid
+      ? "<div class='valgrid'>" +
+          valTile("Minimum", ccy(VAL_LATEST.dgMin), "Discogs, whole collection") +
+          valTile("Median", ccy(VAL_LATEST.dgMid), "Discogs, whole collection") +
+          valTile("Maximum", ccy(VAL_LATEST.dgMax), "Discogs, whole collection") +
+        "</div>" +
+        "<p class='hint'>Discogs' own valuation of the collection \u2014 the same " +
+          "three figures it shows on a release page, for everything you own. " +
+          "The breakdowns below use per-record listings, which run lower.</p>"
+      : "") +
     (s.n
       ? "<div class='valgrid'>" +
-          valTile("Total", ccy(s.total), s.n + " record" + (s.n === 1 ? "" : "s")) +
+          valTile("Sum of listings", ccy(s.total), s.n + " record" + (s.n === 1 ? "" : "s")) +
           valTile("Median record", ccy(s.median), "half are worth more") +
           (s.dearest ? valTile("Dearest", ccy(s.dearest.val),
             s.dearest.a + " \u2014 " + s.dearest.t) : "") +
@@ -84,7 +96,13 @@ function renderValueTab(){
       "<b>Fill in the blanks</b>.</p>";
 
   wireValueTab();
-  valueHistory(function(hist){ drawValueChart(hist); });
+  valueHistory(function(hist){
+    var prev = VAL_LATEST;
+    VAL_LATEST = hist.length ? hist[hist.length - 1] : null;
+    drawValueChart(hist);
+    /* Redraw once, when the headline figures first arrive. */
+    if (!prev && VAL_LATEST && VAL_LATEST.dgMid) renderValueTab();
+  });
 }
 
 function ccyBar(){
@@ -139,8 +157,14 @@ function drawValueChart(hist){
     return;
   }
 
-  /* One line, because there is one number. */
-  var series = [{ key: "mid", label: "Collection total", colour: "var(--accent)" }];
+  /* Discogs' three figures where they exist, falling back to our sum of
+     listings for older snapshots that predate them. */
+  var hasDg = pts.some(function(p){ return p.dgMid; });
+  var series = hasDg
+    ? [{ key: "dgMin", label: "Minimum", colour: "#7E7973" },
+       { key: "dgMid", label: "Median",  colour: "var(--accent)" },
+       { key: "dgMax", label: "Maximum", colour: "#9BAA57" }]
+    : [{ key: "mid", label: "Sum of listings", colour: "var(--accent)" }];
   var all = [];
   pts.forEach(function(p){
     series.forEach(function(s){ if (p[s.key]) all.push(p[s.key]); });
