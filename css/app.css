@@ -862,3 +862,15 @@ html.is-guest .is-guest-only{display:block}
 /* stop a long fill */
 .gapsstop{border-color:rgba(200,90,70,.45);color:#C86A5A}
 .gapsstop:hover{border-color:#C86A5A;color:#E08070}
+
+/* ---- value tab ---- */
+.ccybar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:4px 0 12px}
+.ccyb{padding:5px 11px;font-size:11.5px}
+.ccyb.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.ccynote{margin:0 0 0 4px;font-size:11px}
+.valfilters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.valfilters select{flex:1 1 150px;min-width:0}
+.valchart{width:100%;height:110px;display:block;margin:16px 0 6px}
+.vallegend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--dim)}
+.vallegend i{display:inline-block;width:9px;height:2px;margin-right:5px;vertical-align:middle}
+.valdates{margin-left:auto}
