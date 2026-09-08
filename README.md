@@ -96,6 +96,14 @@ Vercel's Hobby plan allows twelve functions per deployment. Files starting with
 of this: descriptions, evaluations and values were three routes and are now one,
 selected by `mode`.
 
+## Pricing
+
+Per-record prices are one Discogs call each against a 60-a-minute ceiling, so
+`js/valuesweep.js` runs them as a background sweep: fifteen at a time, paced at
+half the allowance, resuming wherever it stopped. There is no progress bar
+because there is nothing to wait for — the headline valuation is a single call
+and arrives at once.
+
 ## Value history
 
 Two different things are tracked:
