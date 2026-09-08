@@ -61,26 +61,56 @@ function renderRadar(items, note){
   }
 
   var c = radarCache();
+  /* Grouped by the collector's own categories, best-scoring first
+     within each: a flat list of ten mixed releases is harder to scan
+     than four short ones under headings you already think in. */
+  var groups = {};
+  items.forEach(function(r){
+    var k = (r.category && String(r.category).trim()) || "Other";
+    (groups[k] = groups[k] || []).push(r);
+  });
+  var order = Object.keys(groups).sort(function(a, b){
+    var ba = Math.max.apply(null, groups[a].map(function(x){ return +x.score || 0; }));
+    var bb = Math.max.apply(null, groups[b].map(function(x){ return +x.score || 0; }));
+    return bb - ba;
+  });
+
   el.innerHTML =
     (c && c.at ? "<p class='hint'>Checked " + esc(agoText(c.at)) + ". " +
       "Dates are as announced \u2014 worth confirming before counting on one.</p>" : "") +
-    items.map(function(r){
-      var q = encodeURIComponent((r.artist || "") + " " + (r.title || ""));
-      return "<div class='rec'>" +
-        "<div class='rtop'><span class='rart' data-a=\"" + esc(r.artist || "") +
-          "\" data-t=\"" + esc(r.title || "") + "\"></span>" +
-        "<span class='rinfo'>" +
-          "<span class='ra'>" + esc(r.artist || "") + "</span>" +
-          "<div class='rt'>" + esc(r.title || "") + "</div>" +
-          "<div class='rmeta'>" + esc([r.kind, r.when].filter(Boolean).join(" \u00b7 ")) + "</div>" +
-        "</span></div>" +
-        (r.why ? "<p class='rwhy'>" + esc(r.why) + "</p>" : "") +
-        "<div class='rlinks'>" +
-          (typeof svcIcon === "function"
-            ? "<a href='https://www.discogs.com/search/?q=" + q + "&type=release' " +
-              "target='_blank' rel='noopener'>" + svcIcon("discogs", true) + "Discogs</a>" : "") +
-          (r.source ? "<span class='radarsrc'>via " + esc(r.source) + "</span>" : "") +
-        "</div>" +
+    order.map(function(cat){
+      var list = groups[cat].sort(function(x, y){ return (+y.score || 0) - (+x.score || 0); });
+      return "<div class='radargrp'>" +
+        "<div class='radarcat'>" +
+          "<span class='cmdot' style='background:" +
+            ((typeof COLORS !== "undefined" && COLORS[cat]) || "#7E7973") + "'></span>" +
+          esc(cat) + "</div>" +
+        list.map(function(r){
+          var q = encodeURIComponent((r.artist || "") + " " + (r.title || ""));
+          var sc = (+r.score || 0);
+          return "<div class='rec'>" +
+            "<div class='rtop'><span class='rart' data-a=\"" + esc(r.artist || "") +
+              "\" data-t=\"" + esc(r.title || "") + "\"></span>" +
+            "<span class='rinfo'>" +
+              "<span class='ra'>" + esc(r.artist || "") + "</span>" +
+              "<div class='rt'>" + esc(r.title || "") + "</div>" +
+              "<div class='rmeta'>" + esc([r.kind, r.when].filter(Boolean).join(" \u00b7 ")) + "</div>" +
+            "</span>" +
+            (sc ? "<span class='radarscore'>" + sc.toFixed(1) + "</span>" : "") +
+            "</div>" +
+            /* What the album IS, then why it suits them — two different
+               questions, and the first is the one a stranger to the
+               record needs answered. */
+            (r.about ? "<p class='rsounds'>" + esc(r.about) + "</p>" : "") +
+            (r.why ? "<p class='rwhy'>" + esc(r.why) + "</p>" : "") +
+            "<div class='rlinks'>" +
+              (typeof svcIcon === "function"
+                ? "<a href='https://www.discogs.com/search/?q=" + q + "&type=release' " +
+                  "target='_blank' rel='noopener'>" + svcIcon("discogs", true) + "Discogs</a>" : "") +
+              (r.source ? "<span class='radarsrc'>via " + esc(r.source) + "</span>" : "") +
+            "</div>" +
+          "</div>";
+        }).join("") +
       "</div>";
     }).join("");
 
@@ -113,6 +143,7 @@ function loadRadar(force){
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       artists: radarArtists(),
+      categories: (typeof COLORS !== "undefined") ? Object.keys(COLORS) : [],
       weeks: 8,
       /* don't re-suggest what was already shown */
       avoid: (c && c.items ? c.items.map(function(i){ return i.artist + " \u2014 " + i.title; }) : [])
