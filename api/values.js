@@ -124,7 +124,28 @@ export default async function handler(req, res) {
       hist = hist.slice(-400);
       await sheetCall({ action: "setConfig", key: "value_history", value: JSON.stringify(hist) });
 
-      return res.status(200).json({ ok: true, snapshot: true, point: point, points: hist.length });
+      /* The aggregates above answer "what is it all worth"; they cannot
+         answer "what has THIS record done". So the same snapshot is also
+         written per record to a Values tab \u2014 one column per date,
+         readable and chartable in the spreadsheet itself. */
+      const perRecord = [];
+      rows.forEach(function (r) {
+        const v = parseFloat(String(r[13] || "").replace(/[^\d.]/g, ""));
+        const id = String(r[4] || "").trim();
+        if (id && isFinite(v) && v > 0) {
+          perRecord.push({ id: id, artist: r[0], title: r[1], value: v });
+        }
+      });
+      let perRecordSaved = 0;
+      try {
+        const vs = await sheetCall({ action: "valueSnap",
+                                     values: perRecord, date: point.date });
+        perRecordSaved = (vs && vs.records) || 0;
+      } catch (e) { /* aggregates are saved either way */ }
+
+      return res.status(200).json({ ok: true, snapshot: true, point: point,
+                                    points: hist.length, perRecord: perRecordSaved });
+
     }
 
     /* --- refresh the per-record values --- */
