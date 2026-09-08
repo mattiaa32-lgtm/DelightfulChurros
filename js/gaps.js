@@ -179,7 +179,7 @@ function fillGaps(){
     var st = document.getElementById("gapsstop");
     if (st) st.hidden = true;
     setProgress(0, 0);
-    say(note || "Done. Pull down to refresh.");
+    say(note || "Done.");
     setTimeout(function(){
       if (typeof loadSheet === "function") loadSheet();
       setTimeout(renderGaps, 1500);
