@@ -89,6 +89,13 @@ are cache-first since their URLs never change; and `/api/*` is never cached.
 When you change any file in `SHELL`, bump `SW_VERSION` in `sw.js` — older
 caches are deleted automatically on the next activation.
 
+## Serverless function count
+
+Vercel's Hobby plan allows twelve functions per deployment. Files starting with
+`_` are libraries, not routes, and do not count. `api/fill.js` exists because
+of this: descriptions, evaluations and values were three routes and are now one,
+selected by `mode`.
+
 ## Value history
 
 Column N holds each record's CURRENT value. History is kept in two places:
