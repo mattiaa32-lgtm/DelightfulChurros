@@ -92,11 +92,21 @@ function open(i){
     (r.owned ? scoreBlock("Pressing score", r.owned) : "")+
     (r.press ? "<div class='pressblock'><span class='ktitle'>Preferred pressing</span>"+
       "<p>"+esc(r.press)+"</p></div>" : "")+
-    (r.val ? "<div class='pressblock'><span class='ktitle'>What it's worth</span>"+
-      "<div class='valspread'><span><b>"+esc(money0(r.valLo||r.val))+"</b><small>rough</small></span>"+
-      "<span class='vmid'><b>"+esc(money0(r.val))+"</b><small>typical</small></span>"+
-      "<span><b>"+esc(money0(r.valHi||r.val))+"</b><small>mint</small></span></div>"+
-      "<p class='hint'>Listed prices by condition on Discogs, not sale prices.</p></div>" : "")+
+    /* Only show a spread when there genuinely is one. With seller access
+       Discogs gives a price per condition; without it only the cheapest
+       current listing is available, and three identical figures would
+       imply a precision that isn't there. */
+    (r.valLo ? "<div class='pressblock'><span class='ktitle'>What it's worth</span>"+
+      ((r.valHi && r.valHi !== r.valLo)
+        ? "<div class='valspread'><span><b>"+esc(money0(r.valLo))+"</b><small>rough</small></span>"+
+          "<span class='vmid'><b>"+esc(money0(r.val))+"</b><small>typical</small></span>"+
+          "<span><b>"+esc(money0(r.valHi))+"</b><small>mint</small></span></div>"+
+          "<p class='hint'>Discogs price suggestions by condition.</p>"
+        : "<div class='valspread'><span class='vmid'><b>"+esc(money0(r.valLo))+
+          "</b><small>cheapest listed</small></span></div>"+
+          "<p class='hint'>The cheapest copy currently for sale — not what copies "+
+          "have sold for, which Discogs doesn't publish through its API.</p>")+
+      "</div>" : "")+
     "<dl class='facts'>"+
       /* first release first, then the specific pressing on the shelf */
       (cachedYear(r)?"<dt>First released</dt><dd data-yr='first'>"+esc(cachedYear(r))+"</dd>":"")+
