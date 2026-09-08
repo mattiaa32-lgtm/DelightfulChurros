@@ -281,7 +281,10 @@ function fillGaps(){
           /* Once prices are current, record the point \u2014 otherwise the
              history only moves when someone remembers to press the
              button in the Value panel. */
-          if (isValue && written){
+          /* Always snapshot after a value run, even one that priced
+             nothing new: the collection figure comes from Discogs in a
+             single call and may well have moved regardless. */
+          if (isValue){
             fetch(endpoint, {
               method:"POST", headers:{"Content-Type":"application/json"},
               body: JSON.stringify({ mode:"value", passphrase: ownerPass(), snapshot:true })
