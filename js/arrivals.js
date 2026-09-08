@@ -162,7 +162,7 @@ function fileArrivals(){
     if (typeof afterRecordAdded === "function") afterRecordAdded();
     say("Filed " + n + " record" + (n === 1 ? "" : "s") +
         (skipped ? ", " + skipped + " still need a category" : "") +
-        ". Pull down to refresh.");
+        ".");
   });
 }
 
