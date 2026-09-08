@@ -134,6 +134,19 @@ async function postWithFallbacks(model, apiKey, buildBody) {
 export async function callGemini(apiKey, buildBody, opts) {
   opts = opts || {};
   let models = orderedModels();
+
+  /* Search grounding is not supported on every model \u2014 the small
+     "lite" variants in particular \u2014 and a model that cannot do it
+     answers with an error indistinguishable from being out of quota.
+     Walking the chain in its usual order therefore failed on all four
+     for reasons that had nothing to do with allowances, which is why the
+     radar never worked. Grounded calls try the capable models first. */
+  if (opts.grounded) {
+    models = models.slice().sort(function (a, b) {
+      var liteA = /lite/i.test(a) ? 1 : 0, liteB = /lite/i.test(b) ? 1 : 0;
+      return liteA - liteB;
+    });
+  }
   const attempted = [];
   let last = null;
 
