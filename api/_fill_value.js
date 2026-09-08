@@ -86,15 +86,22 @@ export async function handler(req, res) {
 
     /* --- take the snapshot from what's already recorded --- */
     if (body.snapshot === true) {
-      const vals = [], byCube = {}, byCat = {};
+      const vals = [], mids = [], his = [], byCube = {}, byCat = {};
       rows.forEach(function (r) {
         const v = parseFloat(String(r[13] || "").replace(/[^\d.]/g, ""));
+        const mid = parseFloat(String(r[14] || "").replace(/[^\d.]/g, ""));
+        const hi = parseFloat(String(r[15] || "").replace(/[^\d.]/g, ""));
         if (!isFinite(v) || v <= 0) return;
         vals.push(v);
+        if (isFinite(mid) && mid > 0) mids.push(mid);
+        if (isFinite(hi) && hi > 0) his.push(hi);
         const cube = String(r[3] || "").trim() || "?";
         const cat = String(r[2] || "").trim() || "Uncategorised";
-        (byCube[cube] = byCube[cube] || []).push(v);
-        (byCat[cat] = byCat[cat] || []).push(v);
+        /* Grouped on the median, since that is the fair per-record
+           figure; the collection-wide low and high are reported
+           separately below. */
+        (byCube[cube] = byCube[cube] || []).push(isFinite(mid) && mid > 0 ? mid : v);
+        (byCat[cat] = byCat[cat] || []).push(isFinite(mid) && mid > 0 ? mid : v);
       });
       if (!vals.length) return res.status(400).json({ error: "no values recorded yet" });
 
@@ -105,9 +112,16 @@ export async function handler(req, res) {
         median: +median(xs).toFixed(2),
         max: +Math.max.apply(null, xs).toFixed(2)
       });
+      const sum = function (xs) { return +xs.reduce(function (a, b) { return a + b; }, 0).toFixed(2); };
       const point = {
         date: new Date().toISOString().slice(0, 10),
-        all: roll(vals),
+        /* Three totals, not one: what the collection is worth if every
+           copy is rough, typical, or mint. A single number would hide
+           how wide that spread is. */
+        low: sum(vals),
+        mid: mids.length ? sum(mids) : sum(vals),
+        high: his.length ? sum(his) : sum(vals),
+        all: roll(mids.length ? mids : vals),
         cubes: Object.fromEntries(Object.keys(byCube).map((k) => [k, roll(byCube[k])])),
         cats: Object.fromEntries(Object.keys(byCat).map((k) => [k, roll(byCat[k])]))
       };
@@ -130,7 +144,9 @@ export async function handler(req, res) {
          readable and chartable in the spreadsheet itself. */
       const perRecord = [];
       rows.forEach(function (r) {
-        const v = parseFloat(String(r[13] || "").replace(/[^\d.]/g, ""));
+        const mid = parseFloat(String(r[14] || "").replace(/[^\d.]/g, ""));
+        const v = isFinite(mid) && mid > 0
+          ? mid : parseFloat(String(r[13] || "").replace(/[^\d.]/g, ""));
         const id = String(r[4] || "").trim();
         if (id && isFinite(v) && v > 0) {
           perRecord.push({ id: id, artist: r[0], title: r[1], value: v });
@@ -173,13 +189,29 @@ export async function handler(req, res) {
         const d = await r.json();
         /* Suggestions come per condition; the near-mint figure is the
            fairest single number for a collection that isn't for sale. */
-        const pick = d["Near Mint (NM or M-)"] || d["Very Good Plus (VG+)"] ||
-                     d["Mint (M)"] || Object.values(d || {})[0];
-        const v = pick && pick.value;
-        if (isFinite(v) && v > 0) {
-          cells.push({ row: item.row, col: 14, value: Math.round(v * 100) / 100 });
-          priced++;
-        }
+        /* Discogs' price suggestions come per CONDITION \u2014 Poor through
+           Mint \u2014 not as a low/median/high of past sales. Sales history
+           isn't in the public API, so the honest range is across
+           conditions: what a rough copy fetches, what a typical one
+           does, and what a mint one does. That is a real spread and it
+           is what the numbers below mean. */
+        const vals = Object.keys(d || {})
+          .map(function (k) { return d[k] && d[k].value; })
+          .filter(function (v) { return isFinite(v) && v > 0; })
+          .sort(function (a, b) { return a - b; });
+        if (!vals.length) continue;
+
+        const lo = vals[0];
+        const hi = vals[vals.length - 1];
+        const mid = vals.length % 2
+          ? vals[(vals.length - 1) / 2]
+          : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
+
+        const r2 = function (n) { return Math.round(n * 100) / 100; };
+        cells.push({ row: item.row, col: 14, value: r2(lo) });    // N  min
+        cells.push({ row: item.row, col: 15, value: r2(mid) });   // O  median
+        cells.push({ row: item.row, col: 16, value: r2(hi) });    // P  max
+        priced++;
       } catch (e) { /* leave it for the next run */ }
     }
 
