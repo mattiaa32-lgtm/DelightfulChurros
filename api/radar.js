@@ -86,37 +86,38 @@ export default async function handler(req, res) {
         generationConfig: { maxOutputTokens: 1400 },
         tools: [{ google_search: {} }]
       });
-    });
+    }, { grounded: true });   /* capable models first: lite ones can't ground */
 
     if (!out.ok) {
-      /* Web search is metered separately from ordinary generation, and
-         far more tightly \u2014 so this can be refused while every other AI
-         feature still works. Saying that plainly avoids the conclusion
-         that the whole app is out of quota. */
+      /* Two very different failures were being reported as one. A model
+         that cannot ground answers 400 or 404; only 429 is an allowance.
+         Reporting the first as the second sent us hunting a quota that
+         was never the problem. */
+      const tried = (out.attempted || []).join(", ");
       if (out.status === 429) {
         return res.status(429).json({
           error: "the web-search allowance is used up",
           quota: out.quota || "unknown",
           retryAfter: out.retryAfter,
-          note: (function(){
-            var base = "Web search is metered separately from the rest of the app, " +
-                       "so everything else may still work. ";
-            if (out.quota === "daily")
-              return base + "The daily allowance is gone; it resets at midnight Pacific.";
-            if (out.retryAfter)
-              return base + "Try again in about " + out.retryAfter + " seconds.";
-            /* No retry hint and no quota id: honestly unknown, so say
-               both rather than pick one and be wrong. */
-            return base + "Google didn't say which limit was hit. If a minute " +
-                   "doesn't help, the daily allowance is likely gone \u2014 that " +
-                   "resets at midnight Pacific.";
-          })(),
           attempted: out.attempted,
-          status: out.status,
-          upstream: String(out.detail || "").slice(0, 200)
+          note: "Web search is metered separately from the rest of the app, so " +
+                "everything else may still work. " +
+                (out.quota === "daily"
+                  ? "The daily allowance is gone; it resets at midnight Pacific."
+                  : out.retryAfter
+                    ? "Try again in about " + out.retryAfter + " seconds."
+                    : "If a minute doesn't help, the daily allowance is likely gone.")
         });
       }
-      return res.status(502).json({ error: "the search failed", detail: out.detail });
+      return res.status(502).json({
+        error: "the search couldn't run",
+        detail: out.detail,
+        status: out.status,
+        attempted: out.attempted,
+        note: "Models tried: " + (tried || "none") + ". A 400 or 404 here usually " +
+              "means the model doesn't support web search rather than that an " +
+              "allowance ran out."
+      });
     }
 
     let items = null;
