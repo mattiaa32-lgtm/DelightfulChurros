@@ -256,10 +256,26 @@ function fillGaps(){
           (written === 1 ? "" : "s") + ". Everything written is saved.");
         /* Discogs said nothing could be priced \u2014 repeating that for
            another 150 records helps nobody. */
-        if (d.note && d.priced === 0 && written === 0) return finish(d.note);
+        if (d.note && d.priced === 0 && written === 0 && !d.rateLimited) return finish(d.note);
+        /* Rate limited: wait it out and carry on, rather than stopping
+           at twenty-odd records as though the job were finished. */
+        if (d.rateLimited && !gapsAborted){
+          var wait = (d.retryAfter || 60);
+          say("Discogs rate limit \u2014 waiting " + wait + "s, then carrying on. " +
+              written + " done so far.");
+          setTimeout(batch, wait * 1000);
+          return;
+        }
         if (!d.done){
-          say("Writing " + noun + "s\u2026 " + written + " of " + total + ".");
-          setTimeout(batch, isValue ? 300 : 1200);
+          /* A rate-limited batch asks for a pause rather than reporting
+             completion, so the run waits it out and carries on instead
+             of stopping partway. */
+          var wait = d.pause ? d.pause * 1000 : (isValue ? 300 : 1200);
+          say(d.pause
+            ? "Discogs is rate limiting \u2014 waiting " + d.pause + "s, " +
+              written + " done so far."
+            : "Writing " + noun + "s\u2026 " + written + " of " + total + ".");
+          setTimeout(batch, wait);
         } else {
           say("Wrote " + written + " " + noun + (written===1?"":"s") + ".");
           /* Once prices are current, record the point \u2014 otherwise the
