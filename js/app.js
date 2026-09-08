@@ -1,5 +1,5 @@
 /* =================== tabs & bootstrap =================== */
-var VIEWS=["shelf","discover","radar","want","dash","hifi"];
+var VIEWS=["shelf","discover","radar","value","want","dash","hifi"];
 function showView(v){
   VIEWS.forEach(function(n){
     var el=document.getElementById("view-"+n);
@@ -13,6 +13,7 @@ function showView(v){
      hits the network until you actually go looking for it */
   if(v==="discover")loadDaily(false);
   if(v==="radar")loadRadarIfReady();
+  if(v==="value"&&typeof renderValueTab==="function")renderValueTab();
   if(v==="want")renderWantView();
   if(v==="dash")loadDash();
   if(v==="hifi")loadHifi();
