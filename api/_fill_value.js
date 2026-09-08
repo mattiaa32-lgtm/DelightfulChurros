@@ -201,6 +201,7 @@ export async function handler(req, res) {
     const cells = [];
     let checked = 0, priced = 0, noSuggestions = 0, statsOnly = 0;
     let rateLimited = false, suggestionsBlocked = false;
+    let retryHint = null, lastRemaining = null;
     for (const item of chunk) {
       checked++;
       try {
@@ -245,7 +246,23 @@ export async function handler(req, res) {
           const st = await fetch("https://api.discogs.com/marketplace/stats/" + item.id +
                                  "?curr_abbr=DKK",
                                  { headers: auth });
-          if (st.status === 429) { rateLimited = true; break; }
+          if (st.status === 429) {
+            rateLimited = true;
+            retryHint = +(st.headers && st.headers.get && st.headers.get("Retry-After")) || null;
+            break;
+          }
+          /* Discogs reports how much of the window is left on every
+             response. Watching it lets the run slow down BEFORE being
+             refused, rather than sprinting into the limit and waiting a
+             minute each time \u2014 which is why each attempt got a little
+             further and then stalled. */
+          const remainH = st.headers && st.headers.get &&
+                          +st.headers.get("X-Discogs-Ratelimit-Remaining");
+          if (isFinite(remainH) && remainH >= 0) {
+            lastRemaining = remainH;
+            if (remainH <= 4) { await sleep(8000); }
+            else if (remainH <= 10) { await sleep(2500); }
+          }
           if (st.ok) {
             const sd = await st.json();
             const p = sd && sd.lowest_price && sd.lowest_price.value;
@@ -287,8 +304,9 @@ export async function handler(req, res) {
       rateLimited: rateLimited,
       /* A 429 is transient: the client should wait rather than stop, and
          rather than retrying straight into the same wall. */
-      retryAfter: rateLimited ? 60 : null,
-      pause: rateLimited ? 65 : 0,
+      retryAfter: rateLimited ? (retryHint || 60) : null,
+      pause: rateLimited ? (retryHint || 60) + 5 : 0,
+      headroom: lastRemaining,
       /* Say when nothing could be priced and why \u2014 a run that quietly
          returns zero every time is indistinguishable from a broken one. */
       note: rateLimited
