@@ -45,6 +45,10 @@ function holes(r){var n=cubeCount(),o="";for(var i=0;i<n;i++){
 /* Renders "8.0 \u2014 identity \u2014 reasoning" as a labelled score with its
    argument underneath. The stored string may have one dash or two: the
    record score has no identity, the pressing score does. */
+function money0(n){
+  return "\u00a3" + Math.round(Number(n) || 0).toLocaleString();
+}
+
 function scoreBlock(label, raw){
   var parts = String(raw).split("\u2014").map(function(x){ return x.trim(); });
   var num = parts.shift() || "";
@@ -88,6 +92,11 @@ function open(i){
     (r.owned ? scoreBlock("Pressing score", r.owned) : "")+
     (r.press ? "<div class='pressblock'><span class='ktitle'>Preferred pressing</span>"+
       "<p>"+esc(r.press)+"</p></div>" : "")+
+    (r.val ? "<div class='pressblock'><span class='ktitle'>What it's worth</span>"+
+      "<div class='valspread'><span><b>"+esc(money0(r.valLo||r.val))+"</b><small>rough</small></span>"+
+      "<span class='vmid'><b>"+esc(money0(r.val))+"</b><small>typical</small></span>"+
+      "<span><b>"+esc(money0(r.valHi||r.val))+"</b><small>mint</small></span></div>"+
+      "<p class='hint'>Listed prices by condition on Discogs, not sale prices.</p></div>" : "")+
     "<dl class='facts'>"+
       /* first release first, then the specific pressing on the shelf */
       (cachedYear(r)?"<dt>First released</dt><dd data-yr='first'>"+esc(cachedYear(r))+"</dd>":"")+
