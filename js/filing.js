@@ -16,9 +16,6 @@
 
 /* CUBE_NAMES lives in data.js */
 
-function unfiledRecords(){
-  return RECS.filter(function(r){ return !r.k || !String(r.k).match(/^[1-4]$/); });
-}
 /* A record is unfiled when the sheet's Cube cell is empty. adopt()
    defaults a blank cube to 1 so the shelf still renders, so the blank
    has to be read from the row itself rather than from r.k. */
@@ -278,11 +275,12 @@ function applyFiling(renumberAll){
   var i = 0;
   function next(){
     if (i >= cells.length){
+      if (typeof reloadCollection === "function") reloadCollection();
       msg.textContent = "Done" + (moved ? " \u2014 moved " + moved + " record" +
         (moved === 1 ? "" : "s") + " to a different cube" : "") + ". " + (missing.length
         ? missing.length + " record" + (missing.length === 1 ? "" : "s") +
           " still need a category or a cube for it. " : "") +
-        "Pull down to refresh.";
+        ".";
       return;
     }
     var batch = cells.slice(i, i + 100);
@@ -367,6 +365,6 @@ function saveKnownYears(){
       return;
     }
     say("Saved " + cells.length + " original release year" +
-        (cells.length === 1 ? "" : "s") + " to the sheet. Pull down to refresh.");
+        (cells.length === 1 ? "" : "s") + " to the sheet.");
   });
 }
