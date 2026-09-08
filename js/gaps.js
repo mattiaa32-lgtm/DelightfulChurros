@@ -272,8 +272,8 @@ function fillGaps(){
              of stopping partway. */
           var wait = d.pause ? d.pause * 1000 : (isValue ? 300 : 1200);
           say(d.pause
-            ? "Discogs is rate limiting \u2014 waiting " + d.pause + "s, " +
-              written + " done so far."
+            ? "Discogs rate limit \u2014 waiting " + d.pause + "s before carrying on. " +
+              written + " done, " + d.remaining + " to go. Leave this open."
             : "Writing " + noun + "s\u2026 " + written + " of " + total + ".");
           setTimeout(batch, wait);
         } else {
