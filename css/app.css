@@ -874,3 +874,7 @@ html.is-guest .is-guest-only{display:block}
 .vallegend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--dim)}
 .vallegend i{display:inline-block;width:9px;height:2px;margin-right:5px;vertical-align:middle}
 .valdates{margin-left:auto}
+
+/* a record's own price history */
+.recval{margin-top:10px}
+.recspark{width:100%;height:48px;display:block}
