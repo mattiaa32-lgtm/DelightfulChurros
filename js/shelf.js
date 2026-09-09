@@ -69,8 +69,12 @@ function holes(r){var n=cubeCount(),o="";for(var i=0;i<n;i++){
 /* Renders "8.0 \u2014 identity \u2014 reasoning" as a labelled score with its
    argument underneath. The stored string may have one dash or two: the
    record score has no identity, the pressing score does. */
+/* Uses whatever currency the Value tab is set to, rather than a
+   hard-coded pound sign \u2014 the figure is stored in DKK, so a fixed
+   symbol was simply wrong. */
 function money0(n){
-  return "\u00a3" + Math.round(Number(n) || 0).toLocaleString();
+  if (typeof ccy === "function") return ccy(n);
+  return Math.round(Number(n) || 0).toLocaleString() + " kr";
 }
 
 function scoreBlock(label, raw){
