@@ -58,9 +58,12 @@ function radarArtists(){
    collection list already covers it. */
 function wantedForRadar(){
   if (typeof wantList !== "function") return [];
-  return wantList()
-    .filter(function(e){ return e && !e.got && (e.artist || e.title); })
-    .slice(-40)
+  var open = wantList().filter(function(e){ return e && !e.got && (e.artist || e.title); });
+  /* Watched records first and without limit; the rest fill what is left
+     of a reasonable prompt. */
+  var watched = open.filter(function(e){ return e.watch; });
+  var rest = open.filter(function(e){ return !e.watch; }).slice(-30);
+  return watched.concat(rest)
     /* Plain strings: the prompt reads these as a list, and objects
        arrived as "[object Object]". */
     .map(function(e){
@@ -113,9 +116,13 @@ function renderRadar(items, note){
   /* Two tabs: what is coming out, and what is being pressed again. They
      answer different questions, and mixed together the handful of new
      albums disappeared among the reissues. */
-  var fresh = items.filter(function(r){ return !isReissue(r); });
-  var again = items.filter(isReissue);
-  var show = (radarTab === "old") ? again : fresh;
+  /* Wantlist matches are their own tab: you asked for those specifically,
+     so they should not have to be found among twenty other releases. */
+  var want = items.filter(function(r){ return r.wantlist; });
+  var rest = items.filter(function(r){ return !r.wantlist; });
+  var fresh = rest.filter(function(r){ return !isReissue(r); });
+  var again = rest.filter(isReissue);
+  var show = radarTab === "old" ? again : radarTab === "want" ? want : fresh;
 
   /* Grouped by the collector's own categories, best-scoring first
      within each: a flat list of ten mixed releases is harder to scan
@@ -137,13 +144,18 @@ function renderRadar(items, note){
         "New albums <span>" + fresh.length + "</span></button>" +
       "<button class='radartab" + (radarTab === "old" ? " on" : "") + "' data-t='old'>" +
         "Reissues <span>" + again.length + "</span></button>" +
+      "<button class='radartab" + (radarTab === "want" ? " on" : "") + "' data-t='want'>" +
+        "Wantlist <span>" + want.length + "</span></button>" +
     "</div>" +
     (c && c.at ? "<p class='hint'>Checked " + esc(agoText(c.at)) + ". " +
       "Dates are as announced \u2014 worth confirming before counting on one.</p>" : "") +
     (!show.length
       ? "<p class='hint'>" + (radarTab === "new"
-          ? "Nothing new announced that fits \u2014 try the reissues."
-          : "No reissues found this time \u2014 try the new albums.") + "</p>"
+          ? "Nothing new announced that fits \u2014 try the other tabs."
+          : radarTab === "want"
+            ? "Nothing announced for anything on your wantlist. Mark records " +
+              "with <b>Watch for a pressing</b> and they'll be checked every time."
+            : "No reissues found this time \u2014 try the other tabs.") + "</p>"
       : "") +
     order.map(function(cat){
       var list = groups[cat].sort(function(x, y){ return (+y.score || 0) - (+x.score || 0); });
@@ -239,6 +251,10 @@ function loadRadar(force){
          have decided you want but don't have. A reissue of something on
          it is the single most useful thing the radar can surface. */
       wanted: wantedForRadar(),
+      watched: (typeof wantList === "function"
+        ? wantList().filter(function(e){ return e && !e.got && e.watch; })
+            .map(function(e){ return (e.artist || "") + " \u2014 " + (e.title || ""); })
+        : []),
       categories: (typeof COLORS !== "undefined") ? Object.keys(COLORS) : [],
       weeks: 8,
       /* don't re-suggest what was already shown */
