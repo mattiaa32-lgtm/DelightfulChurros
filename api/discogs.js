@@ -105,7 +105,12 @@ export default async function handler(req, res) {
       const q = String(body.q || "").trim();
       if (!q) return res.status(400).json({ error: "q required" });
       const page = Math.max(1, parseInt(body.page, 10) || 1);
-      const out = await dg("/database/search?type=release&per_page=12&page=" + page +
+      /* "master" collapses every pressing of an album into one entry.
+         For the wantlist that is what you want \u2014 you want the record,
+         not a particular 1989 repress. The shelf's add flow still asks
+         for releases, since there you are recording the copy you own. */
+      const kind = body.type === "master" ? "master" : "release";
+      const out = await dg("/database/search?type=" + kind + "&per_page=12&page=" + page +
                            "&q=" + encodeURIComponent(q), cred);
       if (!out.ok) {
         return res.status(out.status === 429 ? 429 : 502)
