@@ -915,3 +915,11 @@ html.is-guest .is-guest-only{display:block}
 .radarscore b{font-size:19px;font-weight:600;color:var(--accent);letter-spacing:-.02em}
 .radarscore small{font-size:10px;color:var(--dim);margin-left:1px}
 .rwhy{font-size:12.5px;color:var(--dim);line-height:1.5;margin:6px 0 0}
+
+/* the collection arriving */
+.loading{display:flex;align-items:center;justify-content:center;gap:11px;
+  padding:56px 0;color:var(--dim);font-size:13px}
+.spinner{width:16px;height:16px;border:2px solid var(--line);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin .8s linear infinite;flex:0 0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
