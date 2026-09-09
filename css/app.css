@@ -952,3 +952,14 @@ html.is-guest .is-guest-only{display:block}
   background:var(--surface2);color:var(--text);border:1px solid var(--line);
   border-radius:6px;padding:9px 10px;resize:vertical;margin-bottom:8px}
 #wantaddclose{flex:0 0 auto;padding:7px 12px;font-size:15px;line-height:1}
+
+/* radar: new albums vs reissues */
+.radartabs{display:flex;gap:6px;margin:2px 0 12px}
+.radartab{flex:1 1 0;background:transparent;border:1px solid var(--line);
+  border-radius:6px;padding:9px 8px;cursor:pointer;font-family:var(--sans);
+  font-size:12px;color:var(--muted);display:flex;align-items:center;
+  justify-content:center;gap:7px}
+.radartab.on{border-color:var(--accent);color:var(--text);background:rgba(180,101,58,.1)}
+.radartab span{font-size:11px;color:var(--dim);border:1px solid var(--line);
+  border-radius:9px;padding:1px 6px;min-width:18px}
+.radartab.on span{color:var(--accent);border-color:rgba(180,101,58,.4)}
