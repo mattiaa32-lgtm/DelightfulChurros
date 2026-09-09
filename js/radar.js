@@ -1,5 +1,5 @@
 /* =================== release radar ==================================
-   What's coming out that this collection suggests an interest in. 
+   What's coming out that this collection suggests an interest in.
 
    Narrowing is the whole point: a feed of everything being pressed is
    noise. The endpoint gets the artists you actually collect \u2014 weighted
