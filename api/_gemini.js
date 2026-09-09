@@ -112,8 +112,29 @@ function readQuota(body) {
   return { quotaId: qm ? qm[1] : null, quota, retryAfter };
 }
 
+/* Every generation is pinned here rather than in each endpoint, which is
+   how most of them ended up unpinned. Temperature 0 and a fixed seed
+   make a reply as repeatable as the API allows, so two devices asking
+   the same question get the same answer.
+
+   Worth being honest about the limit: a seed holds within one model
+   version, and the chain can fall through to a different model, so this
+   reduces drift rather than eliminating it. What actually fixes an
+   answer is writing it to the sheet once and never asking again \u2014
+   which is what descriptions, ratings and pressing notes do. */
+const SEED = 7;
+
+function pinGeneration(bodyText) {
+  let b;
+  try { b = JSON.parse(bodyText); } catch (e) { return bodyText; }
+  b.generationConfig = b.generationConfig || {};
+  if (b.generationConfig.temperature === undefined) b.generationConfig.temperature = 0;
+  if (b.generationConfig.seed === undefined) b.generationConfig.seed = SEED;
+  return JSON.stringify(b);
+}
+
 async function postWithFallbacks(model, apiKey, buildBody) {
-  const raw = buildBody(model);
+  const raw = pinGeneration(buildBody(model));
   const variants = [raw];
 
   let parsed = null;
@@ -143,6 +164,13 @@ async function postWithFallbacks(model, apiKey, buildBody) {
       const a = JSON.parse(raw);
       delete a.generationConfig.thinkingConfig;
       variants.push(JSON.stringify(a));
+    }
+    /* Some models reject `seed`. Dropping it is better than failing, but
+       it is the last thing to go, not the first. */
+    if (g.seed !== undefined) {
+      const c = JSON.parse(raw);
+      delete c.generationConfig.seed;
+      variants.push(JSON.stringify(c));
     }
     if (g.responseMimeType) {
       const b = JSON.parse(raw);
