@@ -3,7 +3,31 @@
 function mini(r){var n=cubeCount(),o="";for(var i=0;i<n;i++){o+="<i"+(i===r.k-1?" class='on'":"")+"></i>";}
   return "<span class='mini' aria-hidden='true'>"+o+"</span>";}
 
+/* True until the sheet has been read once. Without this the app opens
+   showing "no records found", which reads as an empty collection rather
+   than one still arriving \u2014 and the shelf takes a moment because it is
+   a published CSV, not a local file. */
+var COLLECTION_LOADING = true;
+
+/* Drawn immediately, before anything else runs \u2014 render() may not have
+   been called yet when the page first paints, and an empty results area
+   is what makes the app look like it has no records. */
+(function(){
+  var res = document.getElementById("results");
+  if (res && !res.innerHTML.trim()){
+    res.innerHTML = "<div class='loading'><span class='spinner'></span>" +
+      "<span>Gathering your collection\u2026</span></div>";
+  }
+})();
+
 function render(){
+  if (COLLECTION_LOADING && !RECS.length){
+    var res = document.getElementById("results");
+    if (res) res.innerHTML =
+      "<div class='loading'><span class='spinner'></span>" +
+      "<span>Gathering your collection\u2026</span></div>";
+    return;
+  }
   var q=document.getElementById("q").value.trim();
   var terms=norm(q).split(/\s+/).filter(Boolean);
   var list=RECS.filter(function(r){
