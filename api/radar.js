@@ -81,7 +81,11 @@ const SYSTEM = [
   '  "when":"a date or month, as announced","score":8.5,"category":"...",',
   '  "why":"one line about the release","about":"what the album is",',
   '  "source":"the site you found it on"}]',
-  "Aim for 10 items, best fit first. Fewer is fine if that is all you can",
+  "BUDGETS: about 10 new albums, about 10 reissues, and one entry for EVERY",
+  'record marked as watched below (mark those with "wantlist": true). The',
+  "watched ones are not optional and do not count against the other two.",
+  "",
+  "Aim for 10 items in each of the first two passes, best fit first. Fewer is fine if that is all you can",
   "substantiate \u2014 but do not stop at five or six when a wider search would",
   "find more. Work through their most-collected artists individually, then",
   "their main genres, then notable reissues due in the window. Eight to ten",
@@ -139,6 +143,10 @@ export default async function handler(req, res) {
   /* Records they have decided they want but do not own \u2014 a more direct
      statement of intent than anything inferred from the shelf. */
   const wanted = (body.wanted || []).slice(0, 40);
+  /* Records explicitly marked for watching. Every one of these must be
+     reported on, however many there are \u2014 the ten-item budgets apply to
+     the other two passes. */
+  const watched = (body.watched || []).slice(0, 60);
   if (!artists.length) return res.status(400).json({ error: "no artists supplied" });
   const weeks = Math.min(12, Math.max(2, parseInt(body.weeks, 10) || 8));
 
@@ -148,6 +156,12 @@ export default async function handler(req, res) {
   const prompt =
     "Today is " + today + ". Look " + weeks + " weeks ahead.\n\n" +
     "Artists this collector owns (a sample):\n" + artists.join(", ") + "\n\n" +
+    (watched.length
+      ? "WATCHED \u2014 they have asked to be told the moment any of these is " +
+        "pressed. Search for each one BY NAME and return an entry for every " +
+        'one of them with "wantlist": true, saying plainly if nothing is ' +
+        "announced. Do not omit any.\n" + watched.join("\n") + "\n\n"
+      : "") +
     (wanted.length
       ? "ON THEIR WANTLIST \u2014 records they want but do not own. An announced " +
         "or new pressing of any of these is the most wanted result there is: " +
@@ -170,7 +184,7 @@ export default async function handler(req, res) {
         /* Grounded replies carry the search results with them and run far
            longer than plain ones, so 1400 tokens cut this off mid-JSON.
            Six entries with a sentence each needs room. */
-        generationConfig: { maxOutputTokens: 6000 },
+        generationConfig: { maxOutputTokens: 14000 },
         tools: [{ google_search: {} }]
       });
     }, { grounded: true });   /* capable models first: lite ones can't ground */
@@ -250,7 +264,9 @@ export default async function handler(req, res) {
       ok: true,
       /* The prompt asks for ten; trimming to eight afterwards silently
          threw two away. */
-      items: items.slice(0, 10),
+      /* Three passes now: ten new, ten reissues, and every watched
+         record. Ten total would have thrown most of it away. */
+      items: items.slice(0, 40),
       sources: sources.slice(0, 6),
       grounded: sources.length > 0,
       checked: today
