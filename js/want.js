@@ -21,6 +21,10 @@ function wantAdd(rec){
     sounds:rec.sounds||"", why:rec.why||"",
     pressing:rec.pressing||"", pressing_why:rec.pressing_why||"",
     pressing_search:rec.pressing_search||"",
+    /* Kept when the entry came from a Discogs search: the id is what
+       lets the arrival check match it against the collection later, and
+       the cover saves fetching art the search already returned. */
+    id:rec.id||null, cover:rec.cover||null,
     added:new Date().toISOString().slice(0,10)
   });
   try{localStorage.setItem("wantlist",JSON.stringify(list.slice(-300)));}catch(e){}
@@ -226,3 +230,74 @@ function pushLists(){
 if (typeof onDataReady === "function"){
   onDataReady(function(){ setTimeout(function(){ syncLists(); }, 6000); });
 }
+
+/* ---- adding one by hand -------------------------------------------
+   Records reached the wantlist only from Discover or the chat, which
+   missed the obvious case: reading about something, or standing in a
+   shop, and wanting to note it down.
+
+   It searches Discogs rather than taking free text, so the entry carries
+   a release id and cover art \u2014 which is what lets the radar recognise it
+   later and the arrival check spot it when you buy it. */
+function wantSearch(){
+  var q = (document.getElementById("wantq").value || "").trim();
+  var out = document.getElementById("wantresults");
+  if (!q){ out.innerHTML = ""; return; }
+
+  out.innerHTML = "<p class='hint'>Searching Discogs\u2026</p>";
+  fetch("/api/discogs?action=search&q=" + encodeURIComponent(q))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var hits = (d && d.results) || [];
+      if (!hits.length){
+        out.innerHTML = "<p class='hint'>Nothing found. Try the artist and " +
+          "album separately, or a different spelling.</p>";
+        return;
+      }
+      out.innerHTML = hits.slice(0, 6).map(function(h, i){
+        var parts = String(h.title || "").split(" - ");
+        var artist = h.artist || parts[0] || "";
+        var title = h.album || parts.slice(1).join(" - ") || h.title || "";
+        return "<div class='wantfound' data-i='" + i + "'" +
+          " data-artist=\"" + esc(artist) + "\" data-title=\"" + esc(title) + "\"" +
+          " data-id='" + esc(String(h.id || "")) + "'" +
+          " data-cover=\"" + esc(h.cover || h.thumb || "") + "\">" +
+          (h.thumb ? "<img src='" + esc(h.thumb) + "' alt=''>" : "<span class='wantnoart'></span>") +
+          "<span class='wantinfo'><b>" + esc(artist) + "</b>" +
+          "<span>" + esc(title) + (h.year ? " \u00b7 " + esc(String(h.year)) : "") + "</span></span>" +
+          "<span class='wantpick'>" +
+            (wantHas(artist, title) ? "On the list" : "Add") + "</span>" +
+        "</div>";
+      }).join("");
+
+      [].forEach.call(out.querySelectorAll(".wantfound"), function(row){
+        row.addEventListener("click", function(){
+          var a = this.dataset.artist, t = this.dataset.title;
+          if (wantHas(a, t)) return;
+          wantAdd({ artist: a, title: t,
+                    id: this.dataset.id || null,
+                    cover: this.dataset.cover || null });
+          this.querySelector(".wantpick").textContent = "On the list";
+          renderWantView();
+        });
+      });
+    })
+    .catch(function(){
+      out.innerHTML = "<p class='hint'>Couldn't reach Discogs just now.</p>";
+    });
+}
+
+(function(){
+  var link = document.getElementById("wantaddlink");
+  if (!link) return;
+  link.addEventListener("click", function(e){
+    e.preventDefault();
+    var box = document.getElementById("wantaddbox");
+    box.classList.toggle("show");
+    if (box.classList.contains("show")) document.getElementById("wantq").focus();
+  });
+  document.getElementById("wantsearch").addEventListener("click", wantSearch);
+  document.getElementById("wantq").addEventListener("keydown", function(e){
+    if (e.key === "Enter"){ e.preventDefault(); wantSearch(); }
+  });
+})();
