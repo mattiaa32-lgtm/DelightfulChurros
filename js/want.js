@@ -68,6 +68,21 @@ function wantBtn(rec){
 /* A note on a wanted record: which pressing to look for, what you were
    told about it, where you saw it. The list is a hunting list, and the
    reason you wrote something down is often the useful part. */
+/* Marks a wanted record for watching. Watched records are always sent
+   to the radar and always reported back, however many there are \u2014 the
+   unwatched ones compete for ten places by how well they fit. Wanting
+   something and wanting to be told the moment it is pressed are
+   different levels of interest, and only you know which is which. */
+function wantWatch(artist, title){
+  var list = wantList(), k = wantKey(artist, title), now = null;
+  list.forEach(function(e){
+    if (wantKey(e.artist, e.title) === k){ e.watch = !e.watch; now = e.watch; }
+  });
+  try { localStorage.setItem("wantlist", JSON.stringify(list)); } catch (e) {}
+  if (typeof pushLists === "function") pushLists();
+  return now;
+}
+
 function wantNote(artist, title, text){
   var list = wantList(), k = wantKey(artist, title), hit = false;
   list.forEach(function(e){
@@ -107,6 +122,9 @@ function renderWantView(){
                 ? "<p class='wantnotetext'>" + esc(r.note) + "</p>" +
                   "<button class='wantnotebtn'>Edit note</button>"
                 : "<button class='wantnotebtn'>Add a note</button>") +
+              "<button class='wantwatchbtn" + (r.watch ? " on" : "") + "'>" +
+                (r.watch ? "\u2713 Watching for a pressing" : "Watch for a pressing") +
+              "</button>" +
             "</div>";
         }).join("")
       : "<p class='hint'>Nothing left on the hunt \u2014 everything here has arrived.</p>") +
@@ -141,6 +159,14 @@ function renderWantView(){
         renderWantView();
       });
       box.querySelector(".wantnotecancel").addEventListener("click", renderWantView);
+    });
+  });
+
+  [].forEach.call(el.querySelectorAll(".wantwatchbtn"), function(btn){
+    btn.addEventListener("click", function(){
+      var box = this.closest(".wantnote");
+      wantWatch(box.dataset.a, box.dataset.t);
+      renderWantView();
     });
   });
 
