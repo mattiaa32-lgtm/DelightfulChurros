@@ -126,6 +126,15 @@ function fillRecArt(scope){
   [].forEach.call((scope||document).querySelectorAll(".rart[data-a]"),function(el){
     if(el.dataset.done)return; el.dataset.done="1";
     var a=el.dataset.a,t=el.dataset.t;
+
+    /* If the entry already carries a cover \u2014 a wantlist record added
+       from a Discogs search does \u2014 use that one. Looking it up again by
+       artist and title returned a different pressing's sleeve, so the
+       record you added showed art you had not chosen. */
+    if(el.dataset.cover){
+      setRecArt(el,el.dataset.cover,function(){});
+      return;
+    }
     if(!el.innerHTML.trim()){
       el.innerHTML="<span class='rph'>"+esc((a||"?").charAt(0).toUpperCase())+"</span>";
     }
@@ -145,7 +154,10 @@ function recCardHTML(r){
   var meta=[r.year,r.genre].filter(Boolean).join(" \u00b7 ");
   return "<div class='rec'>"+
     "<div class='rtop'>"+
-      "<span class='rart' data-a=\""+esc(r.artist||"")+"\" data-t=\""+esc(r.title||"")+"\"></span>"+
+      /* Carry the cover the entry already has, so it is not looked up
+         again and answered with a different pressing's sleeve. */
+      "<span class='rart' data-a=\""+esc(r.artist||"")+"\" data-t=\""+esc(r.title||"")+"\""+
+        (r.cover?" data-cover=\""+esc(r.cover)+"\"":"")+"></span>"+
       "<span class='rinfo'>"+
         "<span class='ra'>"+esc(r.artist||"")+"</span>"+
         "<div class='rt'>"+esc(r.title||"")+"</div>"+
