@@ -57,7 +57,7 @@ function refreshRates(){
   })
   .catch(function(){});   /* the built-in rates still work */
 }
-var valFilter = { cube: 0, cat: "" };
+var valFilter = { cube: 0, cat: "", row: 0 };
 
 function agoDays(ts){
   var d = Math.round((Date.now() - ts) / 86400000);
@@ -76,6 +76,7 @@ function valRecords(){
     if (!r.val) return false;
     if (valFilter.cube && r.k !== valFilter.cube) return false;
     if (valFilter.cat && r.c !== valFilter.cat) return false;
+    if (valFilter.row && r.row !== valFilter.row) return false;
     return true;
   });
 }
@@ -124,7 +125,8 @@ function renderValueTab(){
   el.innerHTML =
     ccyBar() +
     valFilters() +
-    (VAL_LATEST && VAL_LATEST.dgMid
+    (valFilter.row ? "" : "") +
+    (!valFilter.row && VAL_LATEST && VAL_LATEST.dgMid
       ? "<div class='valgrid'>" +
           valTile("Minimum", ccy(VAL_LATEST.dgMin), "Discogs, whole collection") +
           valTile("Median", ccy(VAL_LATEST.dgMid), "Discogs, whole collection") +
@@ -136,13 +138,20 @@ function renderValueTab(){
       : "") +
     (s.n
       ? "<div class='valgrid'>" +
-          valTile("Sum of listings", ccy(s.total), s.n + " record" + (s.n === 1 ? "" : "s")) +
-          valTile("Median record", ccy(s.median), "half are worth more") +
-          (s.dearest ? valTile("Dearest", ccy(s.dearest.val),
-            s.dearest.a + " \u2014 " + s.dearest.t) : "") +
+          /* One record selected: a total, a median and a dearest are the
+             same number three times, which reads as broken rather than
+             informative. Show it once. */
+          (valFilter.row
+            ? valTile("Listed at", ccy(s.total), "cheapest copy on Discogs")
+            : valTile("Sum of listings", ccy(s.total),
+                s.n + " record" + (s.n === 1 ? "" : "s")) +
+              valTile("Median record", ccy(s.median), "half are worth more") +
+              (s.dearest ? valTile("Dearest", ccy(s.dearest.val),
+                s.dearest.a + " \u2014 " + s.dearest.t) : "")) +
         "</div>"
       : "<p class='hint'>Nothing priced in this selection yet.</p>") +
     "<div id='valchart'></div>" +
+    "<div id='valrecchart'></div>" +
     "<div class='addrow' style='margin-top:14px'>" +
       "<button class='chip' id='valsnap'>Take a snapshot now</button>" +
       "<span class='hint' id='valmsg'></span>" +
@@ -154,6 +163,13 @@ function renderValueTab(){
       "<b>Fill in the blanks</b>.</p>";
 
   wireValueTab();
+  /* One record selected: its own readings are the relevant series, not
+     the collection's. */
+  if (valFilter.row){
+    var one = RECS.filter(function(r){ return r.row === valFilter.row; })[0];
+    var rc = document.getElementById("valrecchart");
+    if (one && rc && typeof drawRecordValue === "function") drawRecordValue(rc, one);
+  }
   valueHistory(function(hist){
     var prev = VAL_LATEST;
     VAL_LATEST = hist.length ? hist[hist.length - 1] : null;
@@ -191,6 +207,25 @@ function valFilters(){
         return "<option value=\"" + esc(c) + "\"" + (valFilter.cat === c ? " selected" : "") +
                ">" + esc(c) + "</option>"; }).join("") +
     "</select>" +
+    /* And down to a single record, since "what is this one worth, and
+       what has it done" is the question a collection total cannot
+       answer. The list follows the cube and category above it, so
+       narrowing those shortens this one. */
+    (function(){
+      var priced = RECS.filter(function(r){
+        if (!r.val) return false;
+        if (valFilter.cube && r.k !== valFilter.cube) return false;
+        if (valFilter.cat && r.c !== valFilter.cat) return false;
+        return true;
+      }).sort(function(x, y){ return (y.val || 0) - (x.val || 0); });
+      if (!priced.length) return "";
+      return "<select id='valrec'><option value='0'>All records</option>" +
+        priced.map(function(r){
+          return "<option value='" + r.row + "'" +
+            (valFilter.row === r.row ? " selected" : "") + ">" +
+            esc(r.a + " \u2014 " + r.t) + "</option>";
+        }).join("") + "</select>";
+    })() +
   "</div>";
 }
 
@@ -292,11 +327,18 @@ function wireValueTab(){
   });
   var cu = document.getElementById("valcube");
   if (cu) cu.addEventListener("change", function(){
-    valFilter.cube = +this.value; renderValueTab();
+    valFilter.cube = +this.value; valFilter.row = 0; renderValueTab();
   });
   var ca = document.getElementById("valcat");
   if (ca) ca.addEventListener("change", function(){
-    valFilter.cat = this.value; renderValueTab();
+    /* Changing the cube or category can exclude the chosen record, so
+       the record filter is cleared rather than silently showing
+       nothing. */
+    valFilter.cat = this.value; valFilter.row = 0; renderValueTab();
+  });
+  var re = document.getElementById("valrec");
+  if (re) re.addEventListener("change", function(){
+    valFilter.row = +this.value; renderValueTab();
   });
 }
 
