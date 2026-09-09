@@ -963,3 +963,12 @@ html.is-guest .is-guest-only{display:block}
 .radartab span{font-size:11px;color:var(--dim);border:1px solid var(--line);
   border-radius:9px;padding:1px 6px;min-width:18px}
 .radartab.on span{color:var(--accent);border-color:rgba(180,101,58,.4)}
+
+/* watching a wanted record */
+.wantwatchbtn{display:block;margin-top:6px;background:transparent;border:0;padding:0;
+  cursor:pointer;font-family:var(--sans);font-size:11px;color:var(--dim);
+  letter-spacing:.08em;text-transform:uppercase}
+.wantwatchbtn:hover{color:var(--accent)}
+.wantwatchbtn.on{color:var(--accent)}
+.radartabs{flex-wrap:wrap}
+.radartab{flex:1 1 30%;min-width:0;padding:9px 6px;font-size:11.5px;gap:5px}
