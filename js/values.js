@@ -8,8 +8,61 @@
    category and the totals and history narrow with it. */
 
 var VAL_CCY = "DKK";
+/* A starting point only \u2014 refreshed monthly from the European Central
+   Bank's published rates (via frankfurter.app, no key needed) and kept
+   in the sheet so every device shows the same figures.
+
+   Denmark pegs the krone to the euro within a narrow band, so DKK\u2192EUR
+   barely moves; USD and GBP genuinely drift, which is what makes the
+   refresh worth having. */
 var VAL_RATES = { DKK: 1, EUR: 0.134, USD: 0.145, GBP: 0.112 };
+var RATES_EVERY_MS = 30 * 24 * 3600 * 1000;
+
+function loadRates(){
+  /* From the sheet first: it is the shared copy. */
+  fetch("/api/sheet", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ action:"getConfig", key:"fx_rates" })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    var stored = null;
+    try { stored = JSON.parse((d && d.value) || "null"); } catch (e) {}
+    if (stored && stored.rates){
+      VAL_RATES = stored.rates;
+      VAL_RATES_AT = stored.at || null;
+      if (typeof renderValueTab === "function" &&
+          document.getElementById("valuebody")) renderValueTab();
+    }
+    if (!stored || !stored.at || Date.now() - stored.at > RATES_EVERY_MS) refreshRates();
+  })
+  .catch(function(){});
+}
+var VAL_RATES_AT = null;
+
+function refreshRates(){
+  if (!isOwner()) return;                 /* only the owner can write them back */
+  fetch("https://api.frankfurter.app/latest?from=DKK&to=EUR,USD,GBP")
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (!d || !d.rates) return;
+    var next = { DKK: 1, EUR: +d.rates.EUR, USD: +d.rates.USD, GBP: +d.rates.GBP };
+    if (!isFinite(next.EUR) || !isFinite(next.USD)) return;
+    VAL_RATES = next;
+    VAL_RATES_AT = Date.now();
+    sheetWrite("setConfig", { key:"fx_rates",
+      value: JSON.stringify({ rates: next, at: VAL_RATES_AT, on: d.date }) }, function(){});
+    if (typeof renderValueTab === "function" &&
+        document.getElementById("valuebody")) renderValueTab();
+  })
+  .catch(function(){});   /* the built-in rates still work */
+}
 var valFilter = { cube: 0, cat: "" };
+
+function agoDays(ts){
+  var d = Math.round((Date.now() - ts) / 86400000);
+  return d < 1 ? "today" : d === 1 ? "yesterday" : d + " days ago";
+}
 
 function ccy(n){
   var v = (Number(n) || 0) * (VAL_RATES[VAL_CCY] || 1);
@@ -117,8 +170,9 @@ function ccyBar(){
              "' data-ccy='" + c + "'>" + c + "</button>";
     }).join("") +
     (VAL_CCY === "DKK" ? "" :
-      "<span class='hint ccynote'>converted at " + VAL_RATES[VAL_CCY] +
-      " per kr \u2014 approximate</span>") +
+      "<span class='hint ccynote'>at " + VAL_RATES[VAL_CCY] + " per kr" +
+      (VAL_RATES_AT ? ", updated " + esc(agoDays(VAL_RATES_AT)) : " \u2014 approximate") +
+      "</span>") +
   "</div>";
 }
 
@@ -277,7 +331,7 @@ function weeklyValueRun(){
   })();
 }
 if (typeof onDataReady === "function"){
-  onDataReady(function(){ setTimeout(weeklyValueRun, 25000); });
+  onDataReady(function(){ setTimeout(loadRates, 4000); });
 }
 
 /* ---- a record's own history --------------------------------------
