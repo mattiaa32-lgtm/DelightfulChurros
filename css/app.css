@@ -939,3 +939,15 @@ html.is-guest .is-guest-only{display:block}
   text-overflow:ellipsis;white-space:nowrap}
 .wantpick{flex:0 0 auto;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
   color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:4px 8px}
+
+/* notes on a wanted record */
+.wantnote{margin:-6px 0 16px;padding-left:2px}
+.wantnotetext{font-size:12.5px;color:var(--muted);line-height:1.5;margin:0 0 6px;
+  padding-left:9px;border-left:2px solid var(--line)}
+.wantnotebtn{background:transparent;border:0;padding:0;cursor:pointer;
+  font-family:var(--sans);font-size:11px;color:var(--dim);letter-spacing:.08em;
+  text-transform:uppercase}
+.wantnotebtn:hover{color:var(--accent)}
+.wantnotein{width:100%;font-family:var(--sans);font-size:13px;line-height:1.5;
+  background:var(--surface2);color:var(--text);border:1px solid var(--line);
+  border-radius:6px;padding:9px 10px;resize:vertical;margin-bottom:8px}
