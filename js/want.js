@@ -245,26 +245,51 @@ function wantSearch(){
   if (!q){ out.innerHTML = ""; return; }
 
   out.innerHTML = "<p class='hint'>Searching Discogs\u2026</p>";
-  fetch("/api/discogs?action=search&q=" + encodeURIComponent(q))
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      var hits = (d && d.results) || [];
+  /* POST with a JSON body \u2014 the endpoint reads req.body, so the GET with
+     query parameters I first wrote never reached the search at all. */
+  fetch("/api/discogs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "search", q: q })
+  })
+    .then(function(r){
+      return r.text().then(function(t){
+        var d = null; try { d = JSON.parse(t); } catch (e) {}
+        return { ok: r.ok, status: r.status, d: d, raw: t };
+      });
+    })
+    .then(function(x){
+      if (!x.d){
+        out.innerHTML = "<p class='hint'>The search endpoint returned " + x.status +
+          " and not JSON \u2014 api/discogs.js may not be deployed.</p>";
+        return;
+      }
+      if (!x.ok){
+        out.innerHTML = "<p class='hint'>Discogs said: " +
+          esc((x.d.detail || x.d.error || "something went wrong")) + "</p>";
+        return;
+      }
+      var hits = x.d.results || [];
       if (!hits.length){
         out.innerHTML = "<p class='hint'>Nothing found. Try the artist and " +
           "album separately, or a different spelling.</p>";
         return;
       }
       out.innerHTML = hits.slice(0, 6).map(function(h, i){
+        /* Discogs returns one "Artist - Title" string. */
         var parts = String(h.title || "").split(" - ");
-        var artist = h.artist || parts[0] || "";
-        var title = h.album || parts.slice(1).join(" - ") || h.title || "";
+        var artist = parts[0] || "";
+        var title = parts.slice(1).join(" - ") || h.title || "";
         return "<div class='wantfound' data-i='" + i + "'" +
           " data-artist=\"" + esc(artist) + "\" data-title=\"" + esc(title) + "\"" +
           " data-id='" + esc(String(h.id || "")) + "'" +
-          " data-cover=\"" + esc(h.cover || h.thumb || "") + "\">" +
-          (h.thumb ? "<img src='" + esc(h.thumb) + "' alt=''>" : "<span class='wantnoart'></span>") +
+          " data-cover=\"" + esc(h.thumb || "") + "\">" +
+          (h.thumb ? "<img src='" + esc(h.thumb) + "' alt='' loading='lazy'>"
+                   : "<span class='wantnoart'></span>") +
           "<span class='wantinfo'><b>" + esc(artist) + "</b>" +
-          "<span>" + esc(title) + (h.year ? " \u00b7 " + esc(String(h.year)) : "") + "</span></span>" +
+          "<span>" + esc(title) +
+            (h.year ? " \u00b7 " + esc(String(h.year)) : "") +
+            (h.label ? " \u00b7 " + esc(h.label) : "") + "</span></span>" +
           "<span class='wantpick'>" +
             (wantHas(artist, title) ? "On the list" : "Add") + "</span>" +
         "</div>";
