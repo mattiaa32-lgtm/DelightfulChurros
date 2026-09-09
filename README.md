@@ -112,6 +112,17 @@ half the allowance, resuming wherever it stopped. There is no progress bar
 because there is nothing to wait for — the headline valuation is a single call
 and arrives at once.
 
+## Shared across devices
+
+Anything that would otherwise differ between phone and laptop lives in the
+sheet's Config tab, not in browser storage: the Discogs token, the radar
+results, and the currency rates. Two devices each running their own weekly
+search produced two different radars and spent the search allowance twice.
+
+Rates are refreshed monthly from the European Central Bank via frankfurter.app
+(no key). DKK is pegged to EUR so that pair barely moves; USD and GBP drift,
+which is what makes the refresh worth having.
+
 ## Value history
 
 Two different things are tracked:
