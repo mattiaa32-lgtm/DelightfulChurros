@@ -206,6 +206,18 @@ Settings are behind the gear, top right.
     <div class="dischead">
       <div><div class="disctitle">Wantlist</div>
         <div class="hint" id="wantcount"></div></div>
+      <a href="#" class="chip" id="wantaddlink">Add a record</a>
+    </div>
+    <!-- Records get here from Discover and the chat, but the obvious
+         case was missing: reading about something, or standing in a shop,
+         and wanting to note it down. -->
+    <div id="wantaddbox">
+      <div class="addrow">
+        <input id="wantq" type="search" placeholder="Artist and title, or paste a Discogs link"
+               autocomplete="off" enterkeyhint="search">
+        <button class="chip" id="wantsearch">Search</button>
+      </div>
+      <div id="wantresults"></div>
     </div>
     <div id="wantbody"></div>
     <p class="foot">Saved from Discover, the chat, and category deep dives. Stored on this device.</p>
