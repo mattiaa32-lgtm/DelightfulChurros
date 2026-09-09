@@ -951,3 +951,4 @@ html.is-guest .is-guest-only{display:block}
 .wantnotein{width:100%;font-family:var(--sans);font-size:13px;line-height:1.5;
   background:var(--surface2);color:var(--text);border:1px solid var(--line);
   border-radius:6px;padding:9px 10px;resize:vertical;margin-bottom:8px}
+#wantaddclose{flex:0 0 auto;padding:7px 12px;font-size:15px;line-height:1}
