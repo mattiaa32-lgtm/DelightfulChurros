@@ -262,6 +262,8 @@ function recordSortKey(r){
    title, articles ignored) and sort after the positioned ones, so a
    half-filled column still behaves sensibly. */
 function adopt(rows){
+  /* The sheet has answered; from here an empty shelf really is empty. */
+  if (typeof COLLECTION_LOADING !== "undefined") COLLECTION_LOADING = false;
   var recs = rows.map(function(r){
     var rawCube = (r[3] === undefined || r[3] === null) ? "" : String(r[3]).trim();
     var cn = parseInt(rawCube, 10);
