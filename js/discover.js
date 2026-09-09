@@ -168,6 +168,24 @@ function renderDaily(recs){
   fillRecArt(body);
 }
 var discBusy=false;
+var discCheckedShared=false;
+
+/* Today's picks as stored by whichever device generated them. Anything
+   from an earlier day is ignored \u2014 the point is that today's three are
+   the same everywhere, not that old ones are preserved. */
+function sharedPicks(cb){
+  fetch("/api/sheet",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action:"getConfig",key:"disc_shared"})
+  })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    var p=null;
+    try{p=JSON.parse((d&&d.value)||"null");}catch(e){}
+    cb(p&&p.day===todayKey()?p.recs:null);
+  })
+  .catch(function(){cb(null);});
+}
 /* The radar shares the Discover tab: both answer "what should I get",
    one from taste and one from what is actually being pressed. */
 function loadRadarIfReady(){
@@ -181,6 +199,23 @@ function loadDaily(force){
   if(!force){
     var cached=null;try{cached=localStorage.getItem(key);}catch(e){}
     if(cached){try{renderDaily(JSON.parse(cached));return;}catch(e){}}
+    /* Nothing on this device yet: another one may already have picked
+       today's three. Two devices each generating their own meant two
+       different sets of "today's picks", and two AI requests for one
+       day's worth of suggestions. */
+    if(!discCheckedShared){
+      discCheckedShared=true;
+      sharedPicks(function(recs){
+        if(recs&&recs.length){
+          try{localStorage.setItem(key,JSON.stringify(recs));}catch(e){}
+          rememberSeen(recs);
+          renderDaily(recs);
+        } else {
+          loadDaily(force);
+        }
+      });
+      return;
+    }
   }
   discBusy=true;
   document.getElementById("discbody").innerHTML=
@@ -198,6 +233,11 @@ function loadDaily(force){
   }).then(function(recs){
     if(!Array.isArray(recs))throw new Error("failed");
     try{localStorage.setItem(key,JSON.stringify(recs));}catch(e){}
+    /* Share today's set, so every device shows the same three. */
+    if(typeof sheetWrite==="function"&&typeof isOwner==="function"&&isOwner()){
+      sheetWrite("setConfig",{key:"disc_shared",
+        value:JSON.stringify({day:todayKey(),recs:recs})},function(){});
+    }
     rememberSeen(recs);
     renderDaily(recs);
     discBusy=false;
