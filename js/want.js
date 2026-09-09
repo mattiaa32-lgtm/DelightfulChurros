@@ -24,12 +24,14 @@ function wantAdd(rec){
     added:new Date().toISOString().slice(0,10)
   });
   try{localStorage.setItem("wantlist",JSON.stringify(list.slice(-300)));}catch(e){}
+  if(typeof pushLists==="function")pushLists();
   return true;
 }
 function wantRemove(artist,title){
   var k=wantKey(artist,title);
   var list=wantList().filter(function(w){return wantKey(w.artist,w.title)!==k;});
   try{localStorage.setItem("wantlist",JSON.stringify(list));}catch(e){}
+  if(typeof pushLists==="function")pushLists();
 }
 /* one delegated handler covers every want button on the page, wherever
    it was rendered from \u2014 discover cards, chat picks, the wantlist itself */
@@ -138,3 +140,89 @@ function clearArrived(){
 }
 
 if (typeof onDataReady === "function") onDataReady(reconcileWantlist);
+
+
+/* ---- the same wantlist on every device ----------------------------
+   The wantlist and the listened marks lived only in the browser that
+   made them, so a record saved on the phone was invisible on the laptop
+   — and the wantlist is exactly the thing you want in your pocket in a
+   shop and on the laptop when browsing.
+
+   They now go through the sheet's Config tab, the same way the Discogs
+   token does. Merging rather than replacing, so nothing is lost when two
+   devices have both added things since the last sync. */
+var LISTS_KEY = "device_lists_shared";
+var listsSyncing = false;
+
+function localLists(){
+  var out = {};
+  ["wantlist", "discseen2"].forEach(function(k){
+    try { out[k] = JSON.parse(localStorage.getItem(k) || "[]"); } catch (e) { out[k] = []; }
+  });
+  return out;
+}
+
+function mergeById(mine, theirs, idOf){
+  var seen = {}, out = [];
+  mine.concat(theirs || []).forEach(function(e){
+    var id = idOf(e);
+    if (!id || seen[id]) return;
+    seen[id] = 1;
+    out.push(e);
+  });
+  return out;
+}
+
+function syncLists(cb){
+  if (listsSyncing){ if (cb) cb(); return; }
+  listsSyncing = true;
+
+  fetch("/api/sheet", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ action:"getConfig", key: LISTS_KEY })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    var remote = {};
+    try { remote = JSON.parse((d && d.value) || "{}") || {}; } catch (e) {}
+    var mine = localLists();
+
+    var merged = {
+      wantlist: mergeById(mine.wantlist || [], remote.wantlist || [],
+        function(e){ return (e.artist || "") + "|" + (e.title || ""); }),
+      discseen2: mergeById(mine.discseen2 || [], remote.discseen2 || [],
+        function(e){ return e && e.k; })
+    };
+
+    try {
+      localStorage.setItem("wantlist", JSON.stringify(merged.wantlist));
+      localStorage.setItem("discseen2", JSON.stringify(merged.discseen2));
+    } catch (e) {}
+
+    /* Write back only if this device actually adds something, so a
+       read-only device never rewrites the shared copy. */
+    var grew = (merged.wantlist.length !== (remote.wantlist || []).length) ||
+               (merged.discseen2.length !== (remote.discseen2 || []).length);
+    if (grew && typeof sheetWrite === "function" && isOwner()){
+      sheetWrite("setConfig", { key: LISTS_KEY, value: JSON.stringify(merged) },
+                 function(){});
+    }
+
+    listsSyncing = false;
+    if (typeof renderWantView === "function" &&
+        document.getElementById("wantbody")) renderWantView();
+    if (cb) cb();
+  })
+  .catch(function(){ listsSyncing = false; if (cb) cb(); });
+}
+
+/* Push after any change, so the other device sees it next time it looks. */
+function pushLists(){
+  if (!isOwner() || typeof sheetWrite !== "function") return;
+  var mine = localLists();
+  sheetWrite("setConfig", { key: LISTS_KEY, value: JSON.stringify(mine) }, function(){});
+}
+
+if (typeof onDataReady === "function"){
+  onDataReady(function(){ setTimeout(function(){ syncLists(); }, 6000); });
+}
