@@ -238,72 +238,74 @@ function loadRadar(force){
   }
 
   el.innerHTML = "<p class='hint'>Searching for upcoming pressings\u2026 " +
-    "this one takes a few seconds.</p>";
+    "this takes a minute, in three passes.</p>";
 
-  fetch("/api/radar", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      artists: radarArtists(),
-      /* The wantlist is the most direct statement of intent there is \u2014
-         records you've decided you want but don't own. A new pressing of
-         one of those matters more than a good guess from the shelf. */
-      /* The wantlist is a stronger signal than the shelf: it is what you
-         have decided you want but don't have. A reissue of something on
-         it is the single most useful thing the radar can surface. */
-      wanted: wantedForRadar(),
-      watched: (typeof wantList === "function"
-        ? wantList().filter(function(e){ return e && !e.got && e.watch; })
-            .map(function(e){ return (e.artist || "") + " \u2014 " + (e.title || ""); })
-        : []),
-      categories: (typeof COLORS !== "undefined") ? Object.keys(COLORS) : [],
-      weeks: 8,
-      /* don't re-suggest what was already shown */
-      avoid: (c && c.items ? c.items.map(function(i){ return i.artist + " \u2014 " + i.title; }) : [])
-    })
-  })
-  .then(function(r){
-    return r.text().then(function(t){
-      var d = null; try { d = JSON.parse(t); } catch (e) {}
-      return { ok: r.ok, status: r.status, d: d, raw: t };
-    });
-  })
-  .then(function(x){
-    if (!x.d){
-      renderRadar(null, "The radar endpoint returned " + x.status +
-        " and not JSON \u2014 api/radar.js may not be deployed.");
-      return;
-    }
-    if (!x.ok){
-      /* A 429 here is a per-minute ceiling, not an exhausted day: the
-         capable models allow as few as five requests a minute. Making
-         someone press the button again in twenty seconds is a poor way
-         to spend their attention, so it waits and retries itself. */
-      if (x.status === 429 && x.d.retryAfter && (radarRetries || 0) < 3){
-        radarRetries = (radarRetries || 0) + 1;
-        var secs = Math.max(5, Math.min(90, x.d.retryAfter + 3));
-        countdown(secs, function(left){
-          renderRadar(null, "Discogs\u2019 search model is busy \u2014 retrying in " +
-            left + "s. (Its limit is a few requests a minute.)");
-        }, function(){ loadRadar(force); });
+  /* Three separate searches rather than one doing three jobs. Each gets
+     a whole request to itself, which is what it takes to come back with
+     ten rather than three. They run in turn with a pause, because the
+     capable models allow only a few requests a minute. */
+  var passes = ["new", "reissue", "wantlist"];
+  var collected = [];
+  var failures = [];
+
+  function runPass(i){
+    if (i >= passes.length){
+      if (!collected.length){
+        renderRadar(null, failures[0] || "Nothing found this time.");
         return;
       }
-      radarRetries = 0;
-      renderRadar(null,
-        esc(x.d.error || "The search failed.") +
-        (x.d.attempted ? "<br><span style='opacity:.7'>Tried: " +
-          esc(x.d.attempted.join(", ")) + "</span>" : "") +
-        (x.d.note ? "<br><span style='opacity:.8'>" + esc(x.d.note) + "</span>" : "") +
-        (x.d.detail && !x.d.note ? "<br>" + esc(String(x.d.detail).slice(0,140)) : ""));
+      saveRadar(collected);
+      renderRadar(collected);
       return;
     }
-    radarRetries = 0;
-    var items = x.d.items || [];
-    saveRadar(items);
-    renderRadar(items);
-  })
-  .catch(function(err){
-    renderRadar(null, "Couldn't reach the radar: " + esc(String(err && err.message || err)));
-  });
+    var p = passes[i];
+    el.innerHTML = "<p class='hint'>Searching\u2026 " +
+      (p === "new" ? "new albums" : p === "reissue" ? "reissues" : "your wantlist") +
+      " (" + (i + 1) + " of 3)" +
+      (collected.length ? " \u2014 " + collected.length + " found so far" : "") +
+      "</p>";
+
+    fetch("/api/radar", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pass: p,
+        artists: radarArtists(),
+        wanted: wantedForRadar(),
+        watched: (typeof wantList === "function"
+          ? wantList().filter(function(e){ return e && !e.got && e.watch; })
+              .map(function(e){ return (e.artist || "") + " \u2014 " + (e.title || ""); })
+          : []),
+        weeks: 8,
+        force: true,
+        avoid: collected.map(function(x){ return x.artist + " \u2014 " + x.title; })
+      })
+    })
+    .then(function(r){
+      return r.text().then(function(t){
+        var d = null; try { d = JSON.parse(t); } catch (e) {}
+        return { ok: r.ok, status: r.status, d: d };
+      });
+    })
+    .then(function(x){
+      if (x.ok && x.d && x.d.items){
+        x.d.items.forEach(function(it){
+          if (p === "wantlist") it.wantlist = true;
+          collected.push(it);
+        });
+      } else if (x.d){
+        failures.push(esc(x.d.error || "A search failed.") +
+          (x.d.note ? "<br><span style='opacity:.8'>" + esc(x.d.note) + "</span>" : ""));
+      }
+      /* A pause between passes: the models that can search allow only a
+         few requests a minute. */
+      setTimeout(function(){ runPass(i + 1); }, 14000);
+    })
+    .catch(function(){
+      setTimeout(function(){ runPass(i + 1); }, 14000);
+    });
+  }
+
+  runPass(0);
 }
 
 (function(){
