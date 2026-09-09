@@ -116,7 +116,8 @@ and arrives at once.
 
 Anything that would otherwise differ between phone and laptop lives in the
 sheet's Config tab, not in browser storage: the Discogs token, the radar
-results, and the currency rates. Two devices each running their own weekly
+results, the currency rates, the wantlist and listened marks, and the day's
+Discover picks. Two devices each running their own weekly
 search produced two different radars and spent the search allowance twice.
 
 Rates are refreshed monthly from the European Central Bank via frankfurter.app
