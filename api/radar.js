@@ -126,6 +126,9 @@ export default async function handler(req, res) {
      cheap part and brevity here buys nothing \u2014 but a shorter list keeps
      the model focused on who is actually collected in depth. */
   const artists = (body.artists || []).slice(0, 25);
+  /* Records they have decided they want but do not own \u2014 a more direct
+     statement of intent than anything inferred from the shelf. */
+  const wanted = (body.wanted || []).slice(0, 40);
   if (!artists.length) return res.status(400).json({ error: "no artists supplied" });
   const weeks = Math.min(12, Math.max(2, parseInt(body.weeks, 10) || 8));
 
@@ -135,6 +138,12 @@ export default async function handler(req, res) {
   const prompt =
     "Today is " + today + ". Look " + weeks + " weeks ahead.\n\n" +
     "Artists this collector owns (a sample):\n" + artists.join(", ") + "\n\n" +
+    (wanted.length
+      ? "ON THEIR WANTLIST \u2014 records they want but do not own. An announced " +
+        "or new pressing of any of these is the most wanted result there is: " +
+        "search for each one specifically, score it 9.5 or above, and say in " +
+        '"why" that it is on their wantlist.\n' + wanted.join("\n") + "\n\n"
+      : "") +
     (avoid.length ? "Already suggested before, do not repeat:\n" + avoid.join("\n") + "\n\n" : "") +
     "Return the JSON array now.";
 
