@@ -113,7 +113,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "bad JSON body" });
   }
 
-  const mode = payload.mode === "discover" ? "discover" : "mood";
+  /* "one" describes a single named record, for something added to the
+     wantlist by hand. Entries from Discover and the chat arrive with a
+     description already; a manual add had none, so the same list held
+     two visibly different kinds of entry. */
+  const mode = payload.mode === "discover" ? "discover"
+             : payload.mode === "one" ? "one" : "mood";
   const collection = collectionLines(payload.records);
   if (!collection) {
     return res.status(400).json({ error: "no records supplied" });
@@ -122,7 +127,38 @@ export default async function handler(req, res) {
   let system;
   let contents = [];
 
-  if (mode === "mood") {
+  if (mode === "one") {
+    const artist = String(payload.artist || "").slice(0, 120);
+    const title = String(payload.title || "").slice(0, 160);
+    if (!artist && !title) return res.status(400).json({ error: "artist or title required" });
+
+    system = [
+      "You describe one record for a collector who has just added it to their",
+      "wantlist. Reply with ONLY a JSON object, no markdown fences:",
+      '{"year":"","genre":"","sounds":"","fits":"","why":"","pressing":"",',
+      ' "pressing_why":""}',
+      "",
+      '  "sounds"  two or three sentences on what the record sounds like.',
+      '  "fits"    which ONE of their categories it belongs in, copied exactly',
+      "            from the list below.",
+      '  "why"     one or two sentences on why it suits this collection,',
+      "            naming records they already own where that is the reason.",
+      '  "pressing" which pressing is worth hunting for \u2014 label and era, in',
+      "            words that can be searched. Say plainly if there is no",
+      "            consensus rather than inventing one.",
+      '  "pressing_why" one sentence on why that pressing.',
+      "",
+      "Write about the record. Do not begin with \"The collector\" or describe",
+      "them in the third person.",
+      "",
+      "THEIR CATEGORIES:\n" + (payload.categories || []).join("\n"),
+      "",
+      "THEIR COLLECTION:\n" + collection
+    ].join("\n");
+
+    contents.push({ role: "user", parts: [{ text:
+      "Describe this record: " + artist + " \u2014 " + title }] });
+  } else if (mode === "mood") {
     system = MOOD_SYSTEM + "\n\nTHEIR COLLECTION:\n" + collection;
     const history = Array.isArray(payload.history) ? payload.history.slice(-8) : [];
     history.forEach(function (m) {
@@ -170,7 +206,7 @@ export default async function handler(req, res) {
       system_instruction: { parts: [{ text: system }] },
       contents: contents,
       generationConfig: {
-        maxOutputTokens: mode === "discover" ? 900 : 700,
+        maxOutputTokens: mode === "discover" ? 900 : mode === "one" ? 700 : 700,
         responseMimeType: "application/json",
         thinkingConfig: { thinkingBudget: 0 }
       }
@@ -198,7 +234,38 @@ export default async function handler(req, res) {
     if (!parsed) {
       // Model didn't return usable JSON. For mood we can still show the
       // prose; for discover there's nothing safe to render.
-      if (mode === "mood") {
+      if (mode === "one") {
+    const artist = String(payload.artist || "").slice(0, 120);
+    const title = String(payload.title || "").slice(0, 160);
+    if (!artist && !title) return res.status(400).json({ error: "artist or title required" });
+
+    system = [
+      "You describe one record for a collector who has just added it to their",
+      "wantlist. Reply with ONLY a JSON object, no markdown fences:",
+      '{"year":"","genre":"","sounds":"","fits":"","why":"","pressing":"",',
+      ' "pressing_why":""}',
+      "",
+      '  "sounds"  two or three sentences on what the record sounds like.',
+      '  "fits"    which ONE of their categories it belongs in, copied exactly',
+      "            from the list below.",
+      '  "why"     one or two sentences on why it suits this collection,',
+      "            naming records they already own where that is the reason.",
+      '  "pressing" which pressing is worth hunting for \u2014 label and era, in',
+      "            words that can be searched. Say plainly if there is no",
+      "            consensus rather than inventing one.",
+      '  "pressing_why" one sentence on why that pressing.',
+      "",
+      "Write about the record. Do not begin with \"The collector\" or describe",
+      "them in the third person.",
+      "",
+      "THEIR CATEGORIES:\n" + (payload.categories || []).join("\n"),
+      "",
+      "THEIR COLLECTION:\n" + collection
+    ].join("\n");
+
+    contents.push({ role: "user", parts: [{ text:
+      "Describe this record: " + artist + " \u2014 " + title }] });
+  } else if (mode === "mood") {
         return res.status(200).json({ reply: raw, picks: [] });
       }
       return res.status(502).json({ error: "unparseable reply" });
