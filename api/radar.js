@@ -71,7 +71,11 @@ const SYSTEM = [
   '  "when":"a date or month, as announced","score":8.5,"category":"...",',
   '  "why":"one line about the release","about":"what the album is",',
   '  "source":"the site you found it on"}]',
-  "At most 10 items, best fit first."
+  "Aim for 10 items, best fit first. Fewer is fine if that is all you can",
+  "substantiate \u2014 but do not stop at five or six when a wider search would",
+  "find more. Work through their most-collected artists individually, then",
+  "their main genres, then notable reissues due in the window. Eight to ten",
+  "well-founded entries is the target."
 ].join("\n");
 
 /* Pulls whole {...} objects out of a partial array. Used when a reply
