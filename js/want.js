@@ -65,6 +65,20 @@ function wantBtn(rec){
   return "<button class='wantbtn"+(on?" on":"")+"' data-want=\""+data+"\">"+
          (on?"\u2713 On wantlist":"+ Wantlist")+"</button>";
 }
+/* A note on a wanted record: which pressing to look for, what you were
+   told about it, where you saw it. The list is a hunting list, and the
+   reason you wrote something down is often the useful part. */
+function wantNote(artist, title, text){
+  var list = wantList(), k = wantKey(artist, title), hit = false;
+  list.forEach(function(e){
+    if (wantKey(e.artist, e.title) === k){ e.note = text; hit = true; }
+  });
+  if (!hit) return false;
+  try { localStorage.setItem("wantlist", JSON.stringify(list)); } catch (e) {}
+  if (typeof pushLists === "function") pushLists();
+  return true;
+}
+
 function renderWantView(){
   var el=document.getElementById("wantbody"),list=wantList();
   document.getElementById("wantcount").textContent=
@@ -84,7 +98,17 @@ function renderWantView(){
 
   el.innerHTML =
     (want.length
-      ? want.slice().reverse().map(function(r){ return recCardHTML(r); }).join("")
+      ? want.slice().reverse().map(function(r){
+          /* The card, plus a note you can write on it. */
+          return recCardHTML(r) +
+            "<div class='wantnote' data-a=\"" + esc(r.artist || "") +
+              "\" data-t=\"" + esc(r.title || "") + "\">" +
+              (r.note
+                ? "<p class='wantnotetext'>" + esc(r.note) + "</p>" +
+                  "<button class='wantnotebtn'>Edit note</button>"
+                : "<button class='wantnotebtn'>Add a note</button>") +
+            "</div>";
+        }).join("")
       : "<p class='hint'>Nothing left on the hunt \u2014 everything here has arrived.</p>") +
     (got.length
       ? "<div class='gotsec'><div class='ktitle'>Arrived \u2014 now on the shelf</div>" +
@@ -98,6 +122,28 @@ function renderWantView(){
       : "");
 
   fillRecArt(el);
+
+  [].forEach.call(el.querySelectorAll(".wantnotebtn"), function(btn){
+    btn.addEventListener("click", function(){
+      var box = this.closest(".wantnote");
+      var a = box.dataset.a, t = box.dataset.t;
+      var cur = (wantList().filter(function(e){
+        return wantKey(e.artist, e.title) === wantKey(a, t); })[0] || {}).note || "";
+      box.innerHTML =
+        "<textarea class='wantnotein' rows='2' placeholder='Which pressing, " +
+          "where you saw it, what you were told\u2026'>" + esc(cur) + "</textarea>" +
+        "<div class='addrow'><button class='chip wantnotesave'>Save</button>" +
+        "<button class='chip wantnotecancel'>Cancel</button></div>";
+      var ta = box.querySelector(".wantnotein");
+      ta.focus();
+      box.querySelector(".wantnotesave").addEventListener("click", function(){
+        wantNote(a, t, ta.value.trim());
+        renderWantView();
+      });
+      box.querySelector(".wantnotecancel").addEventListener("click", renderWantView);
+    });
+  });
+
   var cb = document.getElementById("wantclear");
   if (cb) cb.addEventListener("click", function(){ clearArrived(); renderWantView(); });
 }
@@ -250,7 +296,9 @@ function wantSearch(){
   fetch("/api/discogs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "search", q: q })
+    /* Masters, so one album appears once rather than as fifteen
+       pressings you then have to choose between. */
+    body: JSON.stringify({ action: "search", q: q, type: "master" })
   })
     .then(function(r){
       return r.text().then(function(t){
