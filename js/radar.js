@@ -13,6 +13,14 @@
 var RADAR_EVERY_MS = 7 * 24 * 3600 * 1000;
 var radarRetries = 0;
 var radarCheckedShared = false;
+var radarTab = "new";
+
+/* Anything not clearly a reissue counts as new. The model returns
+   "new album", "album", "anniversary edition", "repress" and variants,
+   so an unfamiliar word must not make an entry vanish from both tabs. */
+function isReissue(r){
+  return /reissu|repress|anniversar|remaster/i.test(String(r.kind || ""));
+}
 
 /* Counts down out loud, so a wait looks like a wait rather than a
    stall, then runs the next thing. */
@@ -101,11 +109,19 @@ function renderRadar(items, note){
   }
 
   var c = radarCache();
+
+  /* Two tabs: what is coming out, and what is being pressed again. They
+     answer different questions, and mixed together the handful of new
+     albums disappeared among the reissues. */
+  var fresh = items.filter(function(r){ return !isReissue(r); });
+  var again = items.filter(isReissue);
+  var show = (radarTab === "old") ? again : fresh;
+
   /* Grouped by the collector's own categories, best-scoring first
      within each: a flat list of ten mixed releases is harder to scan
      than four short ones under headings you already think in. */
   var groups = {};
-  items.forEach(function(r){
+  show.forEach(function(r){
     var k = (r.category && String(r.category).trim()) || "Other";
     (groups[k] = groups[k] || []).push(r);
   });
@@ -116,8 +132,19 @@ function renderRadar(items, note){
   });
 
   el.innerHTML =
+    "<div class='radartabs'>" +
+      "<button class='radartab" + (radarTab === "new" ? " on" : "") + "' data-t='new'>" +
+        "New albums <span>" + fresh.length + "</span></button>" +
+      "<button class='radartab" + (radarTab === "old" ? " on" : "") + "' data-t='old'>" +
+        "Reissues <span>" + again.length + "</span></button>" +
+    "</div>" +
     (c && c.at ? "<p class='hint'>Checked " + esc(agoText(c.at)) + ". " +
       "Dates are as announced \u2014 worth confirming before counting on one.</p>" : "") +
+    (!show.length
+      ? "<p class='hint'>" + (radarTab === "new"
+          ? "Nothing new announced that fits \u2014 try the reissues."
+          : "No reissues found this time \u2014 try the new albums.") + "</p>"
+      : "") +
     order.map(function(cat){
       var list = groups[cat].sort(function(x, y){ return (+y.score || 0) - (+x.score || 0); });
       return "<div class='radargrp'>" +
@@ -155,6 +182,13 @@ function renderRadar(items, note){
         }).join("") +
       "</div>";
     }).join("");
+
+  [].forEach.call(el.querySelectorAll(".radartab"), function(b){
+    b.addEventListener("click", function(){
+      radarTab = this.dataset.t;
+      renderRadar(items);
+    });
+  });
 
   if (typeof fillRecArt === "function") fillRecArt(el);
 }
