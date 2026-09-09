@@ -147,14 +147,43 @@ export default async function handler(req, res) {
      reported on, however many there are \u2014 the ten-item budgets apply to
      the other two passes. */
   const watched = (body.watched || []).slice(0, 60);
+
+  /* One request asked to do three different searches does all three
+     shallowly \u2014 which is why three passes in one prompt returned three
+     or four results each. Each pass is now its own request, so the model
+     can spend a whole search on one question. */
+  const pass = ["new", "reissue", "wantlist"].indexOf(body.pass) > -1
+    ? body.pass : null;
   if (!artists.length) return res.status(400).json({ error: "no artists supplied" });
   const weeks = Math.min(12, Math.max(2, parseInt(body.weeks, 10) || 8));
 
   const today = new Date().toISOString().slice(0, 10);
   const avoid = (body.avoid || []).slice(0, 60);
 
+  const PASS_BRIEF = {
+    new:
+      "THIS SEARCH IS ONLY ABOUT NEW ALBUMS \u2014 records being released for " +
+      "the first time. No reissues, no repressings, no anniversary editions.\n" +
+      "Work through their most-collected artists one at a time and find what " +
+      "each has announced. Then look at notable new records in their genres " +
+      "by artists of real standing. Return TEN if you can substantiate ten; " +
+      "this is the only thing you are looking for, so look properly.",
+    reissue:
+      "THIS SEARCH IS ONLY ABOUT REISSUES AND REPRESSINGS of older albums.\n" +
+      "Look at what the reissue labels have announced, at anniversary " +
+      "editions due, and at landmark records in their genres getting fresh " +
+      "pressings. Return TEN if you can substantiate ten.",
+    wantlist:
+      "THIS SEARCH IS ONLY ABOUT THE RECORDS LISTED AS WATCHED BELOW.\n" +
+      "Search for each one BY NAME and return an entry for EVERY one, with " +
+      '"wantlist": true. Where nothing is announced, say so plainly in ' +
+      '"why" and give it a low score \u2014 an honest "nothing yet" is what ' +
+      "they asked for. Do not omit any of them and do not add others."
+  };
+
   const prompt =
     "Today is " + today + ". Look " + weeks + " weeks ahead.\n\n" +
+    (pass ? PASS_BRIEF[pass] + "\n\n" : "") +
     "Artists this collector owns (a sample):\n" + artists.join(", ") + "\n\n" +
     (watched.length
       ? "WATCHED \u2014 they have asked to be told the moment any of these is " +
@@ -267,6 +296,7 @@ export default async function handler(req, res) {
       /* Three passes now: ten new, ten reissues, and every watched
          record. Ten total would have thrown most of it away. */
       items: items.slice(0, 40),
+      pass: pass,
       sources: sources.slice(0, 6),
       grounded: sources.length > 0,
       checked: today
