@@ -45,6 +45,21 @@ function radarArtists(){
    different radars and spent the search allowance twice. A local copy is
    kept as well, purely so the tab can draw something immediately while
    the shared one loads. */
+/* Records saved to the wantlist but not yet acquired. Anything already
+   marked as arrived is dropped \u2014 it is on the shelf now, and the
+   collection list already covers it. */
+function wantedForRadar(){
+  if (typeof wantList !== "function") return [];
+  return wantList()
+    .filter(function(e){ return e && !e.got && (e.artist || e.title); })
+    .slice(-40)
+    /* Plain strings: the prompt reads these as a list, and objects
+       arrived as "[object Object]". */
+    .map(function(e){
+      return (e.artist || "") + " \u2014 " + (e.title || "");
+    });
+}
+
 function radarCache(){
   try { return JSON.parse(localStorage.getItem("radar") || "null"); }
   catch (e) { return null; }
@@ -183,6 +198,13 @@ function loadRadar(force){
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       artists: radarArtists(),
+      /* The wantlist is the most direct statement of intent there is \u2014
+         records you've decided you want but don't own. A new pressing of
+         one of those matters more than a good guess from the shelf. */
+      /* The wantlist is a stronger signal than the shelf: it is what you
+         have decided you want but don't have. A reissue of something on
+         it is the single most useful thing the radar can surface. */
+      wanted: wantedForRadar(),
       categories: (typeof COLORS !== "undefined") ? Object.keys(COLORS) : [],
       weeks: 8,
       /* don't re-suggest what was already shown */
