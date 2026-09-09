@@ -352,12 +352,49 @@ function wantSearch(){
                     cover: this.dataset.cover || null });
           this.querySelector(".wantpick").textContent = "On the list";
           renderWantView();
+          /* Entries from Discover and the chat carry a description; one
+             added here had none, so the same list showed two visibly
+             different kinds of entry. Fetched after saving, so the
+             record appears at once and fills in when the text arrives. */
+          describeWanted(a, t);
         });
       });
     })
     .catch(function(){
       out.innerHTML = "<p class='hint'>Couldn't reach Discogs just now.</p>";
     });
+}
+
+/* Fills in what a manually added record sounds like, where it fits, and
+   which pressing to hunt for \u2014 the same fields the chat provides. */
+function describeWanted(artist, title){
+  if (typeof aiFetchUser !== "function") return;
+  var box = document.querySelector(".wantnote[data-a=\"" + artist + "\"]");
+  aiFetchUser(API_BASE + "recommend", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      mode: "one", artist: artist, title: title,
+      records: (typeof collectionPayload === "function") ? collectionPayload() : [],
+      categories: (typeof COLORS !== "undefined") ? Object.keys(COLORS) : []
+    })
+  })
+  .then(function(r){ return r.ok ? r.json() : null; })
+  .then(function(d){
+    if (!d) return;
+    var list = wantList(), k = wantKey(artist, title), hit = false;
+    list.forEach(function(e){
+      if (wantKey(e.artist, e.title) !== k) return;
+      hit = true;
+      ["year","genre","sounds","fits","why","pressing","pressing_why"].forEach(function(f){
+        if (d[f] && !e[f]) e[f] = d[f];
+      });
+    });
+    if (!hit) return;
+    try { localStorage.setItem("wantlist", JSON.stringify(list)); } catch (e) {}
+    if (typeof pushLists === "function") pushLists();
+    renderWantView();
+  })
+  .catch(function(){ /* the entry is saved either way */ });
 }
 
 (function(){
@@ -370,6 +407,12 @@ function wantSearch(){
     if (box.classList.contains("show")) document.getElementById("wantq").focus();
   });
   document.getElementById("wantsearch").addEventListener("click", wantSearch);
+  var close = document.getElementById("wantaddclose");
+  if (close) close.addEventListener("click", function(){
+    document.getElementById("wantaddbox").classList.remove("show");
+    document.getElementById("wantq").value = "";
+    document.getElementById("wantresults").innerHTML = "";
+  });
   document.getElementById("wantq").addEventListener("keydown", function(e){
     if (e.key === "Enter"){ e.preventDefault(); wantSearch(); }
   });
