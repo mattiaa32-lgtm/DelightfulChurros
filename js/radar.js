@@ -12,6 +12,7 @@
 
 var RADAR_EVERY_MS = 7 * 24 * 3600 * 1000;
 var radarRetries = 0;
+var radarCheckedShared = false;
 
 /* Counts down out loud, so a wait looks like a wait rather than a
    stall, then runs the next thing. */
@@ -39,13 +40,37 @@ function radarArtists(){
   }).slice(0, 60);
 }
 
+/* Held in the sheet rather than the browser, so every device shows the
+   same list. Two devices each doing their own weekly search produced two
+   different radars and spent the search allowance twice. A local copy is
+   kept as well, purely so the tab can draw something immediately while
+   the shared one loads. */
 function radarCache(){
   try { return JSON.parse(localStorage.getItem("radar") || "null"); }
   catch (e) { return null; }
 }
 function saveRadar(items){
-  try { localStorage.setItem("radar", JSON.stringify({ at: Date.now(), items: items })); }
-  catch (e) {}
+  var payload = { at: Date.now(), items: items };
+  try { localStorage.setItem("radar", JSON.stringify(payload)); } catch (e) {}
+  if (typeof sheetWrite === "function" && typeof isOwner === "function" && isOwner()){
+    sheetWrite("setConfig", { key: "radar_shared", value: JSON.stringify(payload) },
+               function(){});
+  }
+}
+
+/* The shared copy, if it is newer than this device's. */
+function sharedRadar(cb){
+  fetch("/api/sheet", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ action:"getConfig", key:"radar_shared" })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    var p = null;
+    try { p = JSON.parse((d && d.value) || "null"); } catch (e) {}
+    cb(p);
+  })
+  .catch(function(){ cb(null); });
 }
 
 function renderRadar(items, note){
@@ -131,6 +156,19 @@ function loadRadar(force){
   var c = radarCache();
   if (!force && c && Date.now() - c.at < RADAR_EVERY_MS){
     renderRadar(c.items);
+    return;
+  }
+  /* Before searching, see whether another device already did it. */
+  if (!force && !radarCheckedShared){
+    radarCheckedShared = true;
+    sharedRadar(function(p){
+      if (p && p.items && Date.now() - p.at < RADAR_EVERY_MS){
+        try { localStorage.setItem("radar", JSON.stringify(p)); } catch (e) {}
+        renderRadar(p.items);
+      } else {
+        loadRadar(force);
+      }
+    });
     return;
   }
   if (!RECS.length){
