@@ -18,6 +18,8 @@ function gearAll(){
 }
 function gearSave(g){
   try{localStorage.setItem("gear",JSON.stringify(g));}catch(e){}
+  /* One hi-fi. */
+  if (typeof pushShared === "function") pushShared();
 }
 function gearHash(){
   var g=gearAll();
