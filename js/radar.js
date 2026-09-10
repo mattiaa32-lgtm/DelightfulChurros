@@ -78,10 +78,7 @@ function radarCache(){
 function saveRadar(items){
   var payload = { at: Date.now(), items: items };
   try { localStorage.setItem("radar", JSON.stringify(payload)); } catch (e) {}
-  if (typeof sheetWrite === "function" && typeof isOwner === "function" && isOwner()){
-    sheetWrite("setConfig", { key: "radar_shared", value: JSON.stringify(payload) },
-               function(){});
-  }
+  if (typeof shareResult === "function") shareResult("radar", payload);
 }
 
 /* The shared copy, if it is newer than this device's. */
@@ -356,3 +353,12 @@ function loadRadar(force, skipShared){
   var link = document.getElementById("radarrefresh");
   if (link) link.addEventListener("click", function(e){ e.preventDefault(); loadRadar(true); });
 })();
+
+
+if (typeof onShared === "function"){
+  onShared("radar", function(p){
+    if (!p || !p.items) return;
+    try { localStorage.setItem("radar", JSON.stringify(p)); } catch (e) {}
+    if (!document.getElementById("view-radar").hidden) renderRadar(p.items);
+  });
+}
