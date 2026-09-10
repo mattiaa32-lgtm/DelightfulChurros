@@ -118,6 +118,17 @@ function renderRadar(items, note){
      albums disappeared among the reissues. */
   /* Wantlist matches are their own tab: you asked for those specifically,
      so they should not have to be found among twenty other releases. */
+  /* Also deduplicated here, so a list cached before this fix still
+     renders correctly rather than needing a fresh search. */
+  var uniq = [], marks = {};
+  items.forEach(function(r){
+    var k = norm(r.artist || "") + "|" + norm(r.title || "");
+    if (marks[k]) return;
+    marks[k] = true;
+    uniq.push(r);
+  });
+  items = uniq;
+
   var want = items.filter(function(r){ return r.wantlist; });
   var rest = items.filter(function(r){ return !r.wantlist; });
   var fresh = rest.filter(function(r){ return !isReissue(r); });
@@ -247,6 +258,7 @@ function loadRadar(force){
   var passes = ["new", "reissue", "wantlist"];
   var collected = [];
   var failures = [];
+  var seen = {};
 
   function runPass(i){
     if (i >= passes.length){
@@ -290,6 +302,23 @@ function loadRadar(force){
       if (x.ok && x.d && x.d.items){
         x.d.items.forEach(function(it){
           if (p === "wantlist") it.wantlist = true;
+          /* Three searches can each turn up the same record, and a
+             watched one is especially likely to appear twice. Keep the
+             first, since the passes run in priority order. */
+          var k = norm(it.artist || "") + "|" + norm(it.title || "");
+          if (!k.replace("|", "")) return;
+          if (seen[k]){
+            /* Keeping the first copy dropped the wantlist flag when an
+               earlier pass had already found the record \u2014 so a watched
+               album that IS being reissued vanished from the wantlist
+               tab, which is the one place you wanted it. Merge instead
+               of discarding. */
+            if (it.wantlist) seen[k].wantlist = true;
+            if (it.why && it.wantlist) seen[k].why = it.why;
+            if (!seen[k].about && it.about) seen[k].about = it.about;
+            return;
+          }
+          seen[k] = it;
           collected.push(it);
         });
       } else if (x.d){
