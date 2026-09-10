@@ -185,13 +185,20 @@ export default async function handler(req, res) {
     "Today is " + today + ". Look " + weeks + " weeks ahead.\n\n" +
     (pass ? PASS_BRIEF[pass] + "\n\n" : "") +
     "Artists this collector owns (a sample):\n" + artists.join(", ") + "\n\n" +
-    (watched.length
+    (watched.length && pass !== "new" && pass !== "reissue"
       ? "WATCHED \u2014 they have asked to be told the moment any of these is " +
         "pressed. Search for each one BY NAME and return an entry for every " +
         'one of them with "wantlist": true, saying plainly if nothing is ' +
         "announced. Do not omit any.\n" + watched.join("\n") + "\n\n"
       : "") +
-    (wanted.length
+    /* The other two passes are told what NOT to return instead: a
+       wantlist record coming back from the new-albums pass as well as
+       the wantlist pass is the same record twice. */
+    (wanted.length && (pass === "new" || pass === "reissue")
+      ? "Do NOT return any of these \u2014 they are covered by a separate " +
+        "search:\n" + wanted.join("\n") + "\n\n"
+      : "") +
+    (wanted.length && pass !== "new" && pass !== "reissue"
       ? "ON THEIR WANTLIST \u2014 records they want but do not own. An announced " +
         "or new pressing of any of these is the most wanted result there is: " +
         "search for each one specifically, score it 9.5 or above, and say in " +
