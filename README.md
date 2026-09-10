@@ -116,8 +116,12 @@ and arrives at once.
 
 Anything that would otherwise differ between phone and laptop lives in the
 sheet's Config tab, not in browser storage: the Discogs token, the radar
-results, the currency rates, the wantlist and listened marks, and the day's
-Discover picks. Two devices each running their own weekly
+results, the currency rates, the wantlist and listened marks, the day's Discover
+picks, and (via `js/onestate.js`) the shelf shape, the cube map, the category
+order and the hi-fi setup.
+
+Genuinely local: the owner passphrase, and the "when did this last run"
+timestamps, which are about a device's own housekeeping. Two devices each running their own weekly
 search produced two different radars and spent the search allowance twice.
 
 Rates are refreshed monthly from the European Central Bank via frankfurter.app
