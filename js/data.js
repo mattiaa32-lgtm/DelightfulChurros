@@ -49,6 +49,8 @@ function saveShelfShape(rows, cols){
   try { localStorage.setItem("shelfShape", JSON.stringify({ rows: rows, cols: cols })); } catch (e) {}
   CUBE_NAMES = buildCubeNames();
   applyShelfShapeCSS();
+  /* One shelf, so every device should agree about its shape. */
+  if (typeof pushShared === "function") pushShared();
 }
 
 /* The grids are drawn by CSS from these two variables, so publishing
