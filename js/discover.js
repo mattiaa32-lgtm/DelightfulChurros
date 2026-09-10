@@ -185,6 +185,16 @@ var discCheckedShared=false;
 /* Today's picks as stored by whichever device generated them. Anything
    from an earlier day is ignored \u2014 the point is that today's three are
    the same everywhere, not that old ones are preserved. */
+/* When this device last adopted or published a set. Comparing against
+   the shared copy's stamp is what makes "the most recent generation
+   wins" true rather than "whichever device asked first". */
+function discStamp(){
+  try{return +localStorage.getItem("disc_at")||0;}catch(e){return 0;}
+}
+function noteDiscStamp(t){
+  try{localStorage.setItem("disc_at",String(t||Date.now()));}catch(e){}
+}
+
 function sharedPicks(cb){
   fetch("/api/sheet",{
     method:"POST",headers:{"Content-Type":"application/json"},
@@ -194,7 +204,10 @@ function sharedPicks(cb){
   .then(function(d){
     var p=null;
     try{p=JSON.parse((d&&d.value)||"null");}catch(e){}
-    cb(p&&p.day===todayKey()?p.recs:null);
+    /* Only today's, and only if it is newer than what this device last
+       saw \u2014 otherwise a device would keep re-adopting its own set. */
+    if(!p||p.day!==todayKey()){cb(null);return;}
+    cb({recs:p.recs,at:p.at||0});
   })
   .catch(function(){cb(null);});
 }
@@ -213,19 +226,16 @@ function loadDaily(force){
     if(cached){
       try{
         renderDaily(JSON.parse(cached));
-        /* Show this device's copy immediately, then adopt the shared one
-           if another device picked today's three first. Without this,
-           two devices that had each generated a set kept showing
-           different "today's picks". */
-        if(!discCheckedShared){
-          discCheckedShared=true;
-          sharedPicks(function(recs){
-            if(recs&&recs.length){
-              try{localStorage.setItem(key,JSON.stringify(recs));}catch(e){}
-              renderDaily(recs);
-            }
-          });
-        }
+        /* Checked on every open rather than once per session: a
+           once-only guard meant a device that checked before the sheet
+           was reachable never looked again. */
+        sharedPicks(function(p){
+          if(p&&p.recs&&p.recs.length&&p.at>discStamp()){
+            try{localStorage.setItem(key,JSON.stringify(p.recs));}catch(e){}
+            noteDiscStamp(p.at);
+            renderDaily(p.recs);
+          }
+        });
         return;
       }catch(e){}
     }
@@ -235,11 +245,12 @@ function loadDaily(force){
        day's worth of suggestions. */
     if(!discCheckedShared){
       discCheckedShared=true;
-      sharedPicks(function(recs){
-        if(recs&&recs.length){
-          try{localStorage.setItem(key,JSON.stringify(recs));}catch(e){}
-          rememberSeen(recs);
-          renderDaily(recs);
+      sharedPicks(function(p){
+        if(p&&p.recs&&p.recs.length){
+          try{localStorage.setItem(key,JSON.stringify(p.recs));}catch(e){}
+          noteDiscStamp(p.at);
+          rememberSeen(p.recs);
+          renderDaily(p.recs);
         } else {
           loadDaily(force);
         }
@@ -263,10 +274,11 @@ function loadDaily(force){
   }).then(function(recs){
     if(!Array.isArray(recs))throw new Error("failed");
     try{localStorage.setItem(key,JSON.stringify(recs));}catch(e){}
+    noteDiscStamp(Date.now());
     /* Share today's set, so every device shows the same three. */
     if(typeof sheetWrite==="function"&&typeof isOwner==="function"&&isOwner()){
       sheetWrite("setConfig",{key:"disc_shared",
-        value:JSON.stringify({day:todayKey(),recs:recs})},function(){});
+        value:JSON.stringify({day:todayKey(),at:Date.now(),recs:recs})},function(){});
     }
     rememberSeen(recs);
     renderDaily(recs);
