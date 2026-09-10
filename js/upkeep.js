@@ -33,6 +33,9 @@ function afterRecordAdded(){
      sheet write has already returned, so there is nothing to wait for
      beyond Google publishing the change. */
   reloadCollection();
+  /* Let the other devices know, so they reload too rather than showing a
+     collection that is quietly one record behind. */
+  if (typeof noteCollectionChanged === "function") noteCollectionChanged();
 
   setTimeout(function(){
     if (typeof fillYears === "function") fillYears({ el: null, asText: true });
