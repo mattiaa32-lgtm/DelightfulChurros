@@ -115,7 +115,7 @@ and arrives at once.
 ## Shared across devices
 
 Generated results — Discover picks, radar, collection assessment, category
-dives, system evaluation, spec lookups — go through `js/live.js`. Each is
+dives, system evaluation, spec lookups — go through `js/sync.js`. Each is
 written to the sheet under `gen:<key>`, with a small `gen_index` recording
 when each last changed. Open devices poll the index every 45 seconds (only when
 visible) and fetch just what moved, so generating something anywhere shows up
@@ -126,7 +126,7 @@ module that calls `onShared`.
 Anything that would otherwise differ between phone and laptop lives in the
 sheet's Config tab, not in browser storage: the Discogs token, the radar
 results, the currency rates, the wantlist and listened marks, the day's Discover
-picks, and (via `js/onestate.js`) the shelf shape, the cube map, the category
+picks, and (via `js/sync.js`) the shelf shape, the cube map, the category
 order and the hi-fi setup.
 
 Genuinely local: the owner passphrase, and the "when did this last run"
