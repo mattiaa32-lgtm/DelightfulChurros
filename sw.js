@@ -12,7 +12,7 @@
    The cache name carries a version. Bump SW_VERSION when the shell
    changes; everything under an older name is deleted on activate. */
 
-var SW_VERSION = "v110";
+var SW_VERSION = "v111";
 var SHELL_CACHE = "shelf-shell-" + SW_VERSION;
 var MEDIA_CACHE = "shelf-media-" + SW_VERSION;
 
@@ -21,6 +21,7 @@ var SHELL = [
   "index.html",
   "css/app.css",
   "js/data.js",
+  "js/sync.js",
   "js/covers.js",
   "js/shelf.js",
   "js/move.js",
@@ -45,8 +46,6 @@ var SHELL = [
   "js/values.js",
   "js/valuesweep.js",
   "js/panels.js",
-  "js/live.js",
-  "js/onestate.js",
   "js/upkeep.js",
   "js/settings.js",
   "js/ptr.js",
