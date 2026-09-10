@@ -189,6 +189,7 @@ function loadAssessment(force){
     return res.json();
   }).then(function(a){
     try{localStorage.setItem(key,JSON.stringify(a));}catch(e){}
+    if(typeof shareResult==="function") shareResult("assess",{key:key,data:a});
     renderAssessment(a);dashBusy=false;
   }).catch(function(err){
     document.getElementById("dashjudge").innerHTML="<p class='hint'>"+
@@ -322,6 +323,7 @@ function openCatDive(cat){
     return res.json();
   }).then(function(d){
     try{localStorage.setItem(key,JSON.stringify(d));}catch(e){}
+    if(typeof shareResult==="function") shareResult("dive",{key:key,data:d});
     renderCatDive(cat,d);diveBusy=false;
   }).catch(function(err){
     el.innerHTML="<p class='hint'>"+
@@ -355,5 +357,20 @@ function loadDash(){
   onDataReady(function(){
     renderDashComputed();
     if(!dashDrawn){dashDrawn=true;loadAssessment(false);}
+  });
+}
+
+
+/* An assessment or a category dive generated elsewhere. The key includes
+   a hash of the collection, so one made against a different shelf is
+   simply stored and not shown. */
+if (typeof onShared === "function"){
+  ["assess", "dive"].forEach(function(k){
+    onShared(k, function(p){
+      if (!p || !p.key) return;
+      try { localStorage.setItem(p.key, JSON.stringify(p.data)); } catch (e) {}
+      if (!document.getElementById("view-dash").hidden &&
+          typeof renderDash === "function") renderDash();
+    });
   });
 }
