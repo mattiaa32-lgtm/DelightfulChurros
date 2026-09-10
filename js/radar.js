@@ -221,7 +221,7 @@ function agoText(ts){
   return d < 1 ? "today" : d === 1 ? "yesterday" : d + " days ago";
 }
 
-function loadRadar(force){
+function loadRadar(force, skipShared){
   var el = document.getElementById("radarbody");
   if (!el) return;
 
@@ -232,8 +232,7 @@ function loadRadar(force){
      kept showing their own results forever. */
   if (!force && c && Date.now() - c.at < RADAR_EVERY_MS){
     renderRadar(c.items);
-    if (!radarCheckedShared){
-      radarCheckedShared = true;
+    {
       sharedRadar(function(p){
         if (p && p.items && p.at > c.at){
           try { localStorage.setItem("radar", JSON.stringify(p)); } catch (e) {}
@@ -243,14 +242,18 @@ function loadRadar(force){
     }
     return;
   }
-  if (!force && !radarCheckedShared){
-    radarCheckedShared = true;
+  /* Nothing cached here: ask the sheet before searching. The guard is
+     per call rather than per session \u2014 a session-long flag meant a
+     device that checked once, before the sheet was reachable, never
+     looked again, which is why two devices could stay out of step all
+     day. */
+  if (!force && !skipShared){
     sharedRadar(function(p){
       if (p && p.items && Date.now() - p.at < RADAR_EVERY_MS){
         try { localStorage.setItem("radar", JSON.stringify(p)); } catch (e) {}
         renderRadar(p.items);
       } else {
-        loadRadar(force);
+        loadRadar(force, true);      /* checked; go and search */
       }
     });
     return;
