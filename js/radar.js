@@ -226,11 +226,23 @@ function loadRadar(force){
   if (!el) return;
 
   var c = radarCache();
+  /* Draw the local copy at once so the tab isn't blank, then check the
+     shared one \u2014 previously the shared copy was only consulted when a
+     device had NOTHING cached, so two devices that had each searched
+     kept showing their own results forever. */
   if (!force && c && Date.now() - c.at < RADAR_EVERY_MS){
     renderRadar(c.items);
+    if (!radarCheckedShared){
+      radarCheckedShared = true;
+      sharedRadar(function(p){
+        if (p && p.items && p.at > c.at){
+          try { localStorage.setItem("radar", JSON.stringify(p)); } catch (e) {}
+          renderRadar(p.items);
+        }
+      });
+    }
     return;
   }
-  /* Before searching, see whether another device already did it. */
   if (!force && !radarCheckedShared){
     radarCheckedShared = true;
     sharedRadar(function(p){
