@@ -184,7 +184,10 @@ function wikiGear(name,cb){
       return tryHit(hits,0);
     })
     .then(function(out){
-      if(out){try{localStorage.setItem(key,JSON.stringify(out));}catch(e){}}
+      if(out){
+        try{localStorage.setItem(key,JSON.stringify(out));}catch(e){}
+        if(typeof shareResult==="function") shareResult("specs",{key:key,data:out});
+      }
       cb(out||null);
     })
     .catch(function(){cb(null);});
@@ -404,6 +407,7 @@ function loadSystem(force){
     return res.json();
   }).then(function(a){
     try{localStorage.setItem(key,JSON.stringify(a));}catch(e){}
+    if(typeof shareResult==="function") shareResult("sysEval",{key:key,data:a});
     renderSystem(a);sysBusy=false;
   }).catch(function(err){
     el.innerHTML="<p class='hint'>"+
@@ -516,3 +520,15 @@ document.addEventListener("click",function(e){
   var b=e.target.closest("#gearmore");
   if(b)loadGearDetail(b.dataset.k);
 });
+
+
+if (typeof onShared === "function"){
+  ["sysEval", "specs"].forEach(function(k){
+    onShared(k, function(p){
+      if (!p || !p.key) return;
+      try { localStorage.setItem(p.key, JSON.stringify(p.data)); } catch (e) {}
+      if (!document.getElementById("view-hifi").hidden &&
+          typeof renderHifi === "function") renderHifi();
+    });
+  });
+}
