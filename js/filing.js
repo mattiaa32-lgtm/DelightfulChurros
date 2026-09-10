@@ -44,6 +44,9 @@ function cubeMap(){
 }
 function saveCubeMap(m){
   try { localStorage.setItem("cubeMap", JSON.stringify(m)); } catch (e) {}
+  /* Filing writes cube numbers to the sheet from this map, so two
+     devices disagreeing about it is worse than cosmetic. */
+  if (typeof pushShared === "function") pushShared();
 }
 
 /* Where a category sits WITHIN its cube. Two categories sharing a cube
@@ -58,6 +61,7 @@ function catOrder(){
 }
 function saveCatOrder(o){
   try { localStorage.setItem("catOrder", JSON.stringify(o)); } catch (e) {}
+  if (typeof pushShared === "function") pushShared();
 }
 function orderOf(cat){
   var o = catOrder();
