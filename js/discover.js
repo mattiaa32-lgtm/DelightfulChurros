@@ -277,8 +277,9 @@ function loadDaily(force){
     noteDiscStamp(Date.now());
     /* Share today's set, so every device shows the same three. */
     if(typeof sheetWrite==="function"&&typeof isOwner==="function"&&isOwner()){
-      sheetWrite("setConfig",{key:"disc_shared",
-        value:JSON.stringify({day:todayKey(),at:Date.now(),recs:recs})},function(){});
+      /* Published through the shared index, so other devices pick it up
+         while they are open rather than on their next visit. */
+      if(typeof shareResult==="function") shareResult("disc",{day:todayKey(),recs:recs});
     }
     rememberSeen(recs);
     renderDaily(recs);
@@ -307,3 +308,13 @@ document.getElementById("discseen").addEventListener("click",function(e){
     : "<p class='hint'>Nothing recommended yet.</p>";
   document.getElementById("discdate").textContent="Previously recommended";
 });
+
+
+/* Adopt a set generated on another device. */
+if (typeof onShared === "function"){
+  onShared("disc", function(p){
+    if (!p || p.day !== todayKey() || !p.recs || !p.recs.length) return;
+    try { localStorage.setItem("disc:" + todayKey(), JSON.stringify(p.recs)); } catch (e) {}
+    if (!document.getElementById("view-discover").hidden) renderDaily(p.recs);
+  });
+}
