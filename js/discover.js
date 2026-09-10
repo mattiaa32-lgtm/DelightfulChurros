@@ -210,7 +210,25 @@ function loadDaily(force){
   document.getElementById("discdate").textContent=force?"A different set":"Today's picks";
   if(!force){
     var cached=null;try{cached=localStorage.getItem(key);}catch(e){}
-    if(cached){try{renderDaily(JSON.parse(cached));return;}catch(e){}}
+    if(cached){
+      try{
+        renderDaily(JSON.parse(cached));
+        /* Show this device's copy immediately, then adopt the shared one
+           if another device picked today's three first. Without this,
+           two devices that had each generated a set kept showing
+           different "today's picks". */
+        if(!discCheckedShared){
+          discCheckedShared=true;
+          sharedPicks(function(recs){
+            if(recs&&recs.length){
+              try{localStorage.setItem(key,JSON.stringify(recs));}catch(e){}
+              renderDaily(recs);
+            }
+          });
+        }
+        return;
+      }catch(e){}
+    }
     /* Nothing on this device yet: another one may already have picked
        today's three. Two devices each generating their own meant two
        different sets of "today's picks", and two AI requests for one
