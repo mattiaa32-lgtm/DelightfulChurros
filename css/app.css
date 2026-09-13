@@ -972,3 +972,52 @@ html.is-guest .is-guest-only{display:block}
 .wantwatchbtn.on{color:var(--accent)}
 .radartabs{flex-wrap:wrap}
 .radartab{flex:1 1 30%;min-width:0;padding:9px 6px;font-size:11.5px;gap:5px}
+
+/* ================================================================
+   Phones: fit the screen, always
+   Anything wider than the viewport makes the whole page zoomable, and
+   then every other screen is slightly off too. These are the elements
+   that could exceed a narrow screen: wide tables, long unbroken strings,
+   fixed-width charts, and rows of controls.
+   ================================================================ */
+html,body{max-width:100%;overflow-x:hidden}
+*,*::before,*::after{box-sizing:border-box}
+
+/* long titles, catalogue numbers and URLs can't push the layout wider */
+.rt,.ra,.dt,.svrec,.valrow,.wantinfo b,.pressline,.gapname{
+  overflow-wrap:anywhere;word-break:break-word}
+
+@media (max-width:560px){
+  .wrap{padding:0 14px}
+
+  /* charts and diagrams scale rather than overflow */
+  .donut{width:min(170px,44vw);height:min(170px,44vw)}
+  .valchart,.valspark,.recspark{width:100%}
+  .svgrid,.shelf{max-width:min(100%,240px)}
+
+  /* rows of controls wrap instead of running off the edge */
+  .addrow,.ccybar,.valfilters,.cubebar,.radartabs{flex-wrap:wrap}
+  .addrow > *,.valfilters > *{min-width:0}
+  select,input[type="search"],input[type="text"]{max-width:100%}
+
+  /* the signal chain scrolls sideways, with a hint that it does */
+  .chainwrap{margin:0 -14px;padding-left:14px;padding-right:14px;
+    -webkit-overflow-scrolling:touch}
+  .chainwrap::after{content:"";display:block;width:14px;flex:0 0 auto}
+
+  /* tab bar stays on one line by shrinking, not by overflowing */
+  #tabs{overflow-x:auto;scrollbar-width:none}
+  #tabs::-webkit-scrollbar{display:none}
+  .tab{flex:0 0 auto}
+
+  /* the three radar tabs fit across a narrow screen */
+  .radartab{flex:1 1 0;padding:8px 4px;font-size:11px}
+  .radartab span{padding:0 4px}
+}
+
+@media (max-width:380px){
+  .valgrid{grid-template-columns:1fr 1fr}
+  .radartab{font-size:10.5px}
+}
+.rec.tappable{cursor:pointer}
+.rec.tappable:hover .rt{color:var(--accent)}
