@@ -13,9 +13,14 @@
    records before it are left alone. */
 
 var moveFor = null;
+var movePre = null;
 
-function openMove(rec){
+/* `pre` lets a caller open this already answered \u2014 New arrivals passes
+   the category and placement it worked out, so the panel shows the
+   suggestion rather than a blank form, and you accept or change it. */
+function openMove(rec, pre){
   moveFor = rec;
+  movePre = pre || null;
   var wrap = document.getElementById("movewrap");
   if (!wrap) return;
   document.getElementById("movetitle").textContent = rec.a + " \u2014 " + rec.t;
@@ -25,7 +30,8 @@ function openMove(rec){
     "<label class='movelab'>Category</label>" +
     "<select id='movecat'>" +
       Object.keys(COLORS).sort().map(function(c){
-        return "<option value=\"" + esc(c) + "\"" + (c === rec.c ? " selected" : "") +
+        var want = (movePre && movePre.category) || rec.c;
+        return "<option value=\"" + esc(c) + "\"" + (c === want ? " selected" : "") +
                ">" + esc(c) + "</option>";
       }).join("") +
     "</select>" +
@@ -67,6 +73,15 @@ function fillMoveTargets(){
       return "<option value='after:" + p.row + "'>After " +
              esc(p.a + " \u2014 " + p.t) + "</option>";
     }).join("");
+  /* A caller's suggestion wins over "at the end", provided it is still
+     one of the options after any category change. */
+  if (movePre && movePre.choice){
+    var ok = false;
+    for (var i = 0; i < sel.options.length; i++){
+      if (sel.options[i].value === movePre.choice){ ok = true; break; }
+    }
+    if (ok){ sel.value = movePre.choice; return; }
+  }
   sel.value = "after:" + peers[peers.length - 1].row;   /* default: at the end */
 }
 
@@ -74,6 +89,7 @@ function closeMove(){
   var w = document.getElementById("movewrap");
   if (w) w.hidden = true;
   moveFor = null;
+  movePre = null;
 }
 
 function doMove(){
