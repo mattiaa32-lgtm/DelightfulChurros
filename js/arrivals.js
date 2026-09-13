@@ -105,12 +105,11 @@ function renderArrivals(justArrived){
           "<div class='aartist'>" + esc(r.a) + "</div>" +
           "<div class='atitle'>" + esc(r.t) + "</div>" +
           "<select class='acat' data-row='" + r.row + "'>" + opts + "</select>" +
+          /* Category and position are the same question asked twice, so
+             they sit together. Both are suggestions and both can be
+             changed here \u2014 there is no second screen to go through. */
+          "<select class='apos' data-row='" + r.row + "'></select>" +
           "<div class='aplace' data-place='" + r.row + "'></div>" +
-          /* The suggestion is a suggestion. Opening the same panel used
-             for moving a record, prefilled with it, means you can accept
-             it or change it \u2014 rather than filing blind and then having
-             to move it afterwards. */
-          "<button class='chip aplacebtn' data-i='" + r.i + "'>Place it</button>" +
         "</div>" +
       "</div>";
     }).join("") +
@@ -120,37 +119,52 @@ function renderArrivals(justArrived){
     "</div>";
 
   fillArt(el);
-  list.forEach(function(r){ paintPlacement(r); });
-
-  [].forEach.call(el.querySelectorAll(".aplacebtn"), function(b){
-    b.addEventListener("click", function(){
-      var rec = RECS[+this.dataset.i];
-      if (!rec) return;
-      /* Carry the category chosen on this row, and the placement already
-         worked out, so the panel opens on the answer rather than empty. */
-      var sel = this.closest(".arow").querySelector(".acat");
-      var cat = sel ? sel.value : rec.c;
-      var p = suggestPlacement(rec, cat);
-      if (typeof openMove === "function"){
-        openMove(rec, {
-          category: cat,
-          /* "after the record it should follow", or first in the
-             category when it sorts to the top. */
-          choice: p.before ? ("after:" + p.before.row)
-                : p.after  ? ("before:" + p.after.row)
-                : "first"
-        });
-      }
-    });
-  });
+  list.forEach(function(r){ paintPositions(r, r.c); paintPlacement(r); });
 
   [].forEach.call(el.querySelectorAll(".acat"), function(sel){
     sel.addEventListener("change", function(){
-      var rec = RECS.filter(function(x){ return String(x.row) === String(this.dataset.row); }, this)[0];
-      if (rec){ rec.c = this.value; paintPlacement(rec); }
+      var row = this.dataset.row;
+      var rec = RECS.filter(function(x){ return String(x.row) === String(row); })[0];
+      if (!rec) return;
+      rec.c = this.value;
+      /* The positions belong to the category, so they are rebuilt when
+         it changes rather than offering neighbours from the old one. */
+      paintPositions(rec, this.value);
+      paintPlacement(rec);
     });
   });
+
   document.getElementById("arrfile").addEventListener("click", fileArrivals);
+}
+
+/* Fills the position dropdown for one row: every place it could go
+   within the chosen category, with the suggested one selected. */
+function paintPositions(rec, cat){
+  var sel = document.querySelector(".apos[data-row='" + rec.row + "']");
+  if (!sel) return;
+  if (!cat){ sel.innerHTML = "<option>\u2014 pick a category first \u2014</option>";
+             sel.disabled = true; return; }
+  sel.disabled = false;
+
+  var peers = RECS.filter(function(x){
+    return x.c === cat && !isUnfiled(x) && x.row !== rec.row;
+  }).sort(function(x, y){ return (x.pos || 0) - (y.pos || 0); });
+
+  var p = suggestPlacement(rec, cat);
+  var suggested = p.before ? ("after:" + p.before.row)
+                : p.after  ? ("before:" + p.after.row)
+                : "first";
+
+  sel.innerHTML = (peers.length
+    ? "<option value='before:" + peers[0].row + "'>Before " +
+        esc(peers[0].a + " \u2014 " + peers[0].t) + "</option>" +
+      peers.map(function(x){
+        return "<option value='after:" + x.row + "'>After " +
+               esc(x.a + " \u2014 " + x.t) + "</option>";
+      }).join("")
+    : "<option value='first'>First in this category</option>");
+  sel.value = suggested;
+  if (!sel.value) sel.value = sel.options[sel.options.length - 1].value;
 }
 
 function paintPlacement(rec){
@@ -163,9 +177,7 @@ function paintPlacement(rec){
                    "set one in Shelf layout</span>";
     return;
   }
-  var where = p.count
-    ? "position " + p.position + " of " + (p.count + 1)
-    : "first in this category";
+  var where = p.cubeName ? "goes in " + p.cubeName : "";
   /* before/after are records, not strings \u2014 naming the neighbour is
      the useful part, so it needs formatting rather than interpolating */
   var neighbour = "";
@@ -184,13 +196,58 @@ function fileArrivals(){
   var cells = [];
   var skipped = 0;
 
+  /* Honour what was chosen on each row rather than recomputing: the
+     dropdowns are the decision, and recalculating quietly ignored any
+     change. Positions are consecutive from 1 within a cube, so the
+     records after an insertion shift up by one. */
+  var byCube = {};
   list.forEach(function(r){
     if (!r.c){ skipped++; return; }
-    var p = suggestPlacement(r, r.c);
-    if (!p.cube){ skipped++; return; }
-    cells.push({ row: r.row, col: 3, value: r.c });        /* category  */
-    cells.push({ row: r.row, col: 4, value: p.cube });     /* cube      */
-    cells.push({ row: r.row, col: 10, value: p.position * 10 }); /* position */
+    var map = cubeMap();
+    var cube = map[r.c];
+    if (!cube){ skipped++; return; }
+
+    var sel = document.querySelector(".apos[data-row='" + r.row + "']");
+    var choice = sel ? sel.value : null;
+
+    /* Build the cube's running order once, then insert into it. */
+    if (!byCube[cube]){
+      byCube[cube] = RECS.filter(function(x){ return x.k === cube && !isUnfiled(x); })
+                         .sort(function(x, y){ return (x.pos || 0) - (y.pos || 0); });
+    }
+    var order = byCube[cube];
+
+    var at = order.length;
+    if (choice === "first" || !choice){
+      /* first within its category, which is not necessarily first in
+         the cube when the cube holds several categories */
+      at = 0;
+      for (var i = 0; i < order.length; i++){
+        if (order[i].c === r.c){ at = i; break; }
+        at = i + 1;
+      }
+    } else {
+      var parts = String(choice).split(":");
+      for (var j = 0; j < order.length; j++){
+        if (String(order[j].row) === String(parts[1])){
+          at = (parts[0] === "before") ? j : j + 1;
+          break;
+        }
+      }
+    }
+    order.splice(at, 0, r);
+
+    cells.push({ row: r.row, col: 3, value: r.c });      /* category */
+    cells.push({ row: r.row, col: 4, value: cube });     /* cube     */
+  });
+
+  /* One pass at the end, so several arrivals into the same cube
+     renumber against each other rather than fighting. */
+  Object.keys(byCube).forEach(function(cube){
+    byCube[cube].forEach(function(x, i){
+      var pos = i + 1;
+      if (x.pos !== pos) cells.push({ row: x.row, col: 10, value: pos });
+    });
   });
 
   if (!cells.length){
@@ -203,7 +260,7 @@ function fileArrivals(){
       say(err.message === "read-only" ? "Unlock editing first." : "Couldn't write: " + err.message);
       return;
     }
-    var n = cells.length / 3;
+    var n = list.filter(function(r){ return r.c; }).length;
     if (typeof afterRecordAdded === "function") afterRecordAdded();
     say("Filed " + n + " record" + (n === 1 ? "" : "s") +
         (skipped ? ", " + skipped + " still need a category" : "") +
