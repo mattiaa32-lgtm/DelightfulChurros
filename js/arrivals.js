@@ -88,6 +88,11 @@ function renderArrivals(){
           "<div class='atitle'>" + esc(r.t) + "</div>" +
           "<select class='acat' data-row='" + r.row + "'>" + opts + "</select>" +
           "<div class='aplace' data-place='" + r.row + "'></div>" +
+          /* The suggestion is a suggestion. Opening the same panel used
+             for moving a record, prefilled with it, means you can accept
+             it or change it \u2014 rather than filing blind and then having
+             to move it afterwards. */
+          "<button class='chip aplacebtn' data-i='" + r.i + "'>Place it</button>" +
         "</div>" +
       "</div>";
     }).join("") +
@@ -98,6 +103,28 @@ function renderArrivals(){
 
   fillArt(el);
   list.forEach(function(r){ paintPlacement(r); });
+
+  [].forEach.call(el.querySelectorAll(".aplacebtn"), function(b){
+    b.addEventListener("click", function(){
+      var rec = RECS[+this.dataset.i];
+      if (!rec) return;
+      /* Carry the category chosen on this row, and the placement already
+         worked out, so the panel opens on the answer rather than empty. */
+      var sel = this.closest(".arow").querySelector(".acat");
+      var cat = sel ? sel.value : rec.c;
+      var p = suggestPlacement(rec, cat);
+      if (typeof openMove === "function"){
+        openMove(rec, {
+          category: cat,
+          /* "after the record it should follow", or first in the
+             category when it sorts to the top. */
+          choice: p.before ? ("after:" + p.before.row)
+                : p.after  ? ("before:" + p.after.row)
+                : "first"
+        });
+      }
+    });
+  });
 
   [].forEach.call(el.querySelectorAll(".acat"), function(sel){
     sel.addEventListener("change", function(){
