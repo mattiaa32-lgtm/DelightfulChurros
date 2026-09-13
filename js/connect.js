@@ -393,6 +393,14 @@ function doDisconnect(){
                                 (d.toFill === 1 ? "" : "s"));
         var summary = bits.join(", ").replace(/^./, function(c){ return c.toUpperCase(); }) + ".";
         el.textContent = summary;
+        /* Nothing is placed by syncing. Put the new records in front of
+           the person so they decide where each goes \u2014 otherwise records
+           accumulate unfiled and the shelf and the sheet drift apart. */
+        if (d.toAdd && typeof reloadCollection === "function"){
+          reloadCollection(function(){
+            if (typeof reviewArrivals === "function") reviewArrivals(d.toAdd);
+          });
+        }
         /* carry straight on into the original-release-year lookups,
            keeping what the sync just reported */
         fillYears({ el: el, asText: true, keep: summary });
