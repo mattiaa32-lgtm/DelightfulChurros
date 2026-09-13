@@ -68,8 +68,29 @@ function reviewArrivals(count){
   var box = document.getElementById("arrivalsbox");
   if (!box) return;
   box.classList.add("show");
-  renderArrivals(count);
   box.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  /* The sheet is a published CSV and lags a moment behind a write, so
+     the panel was opening before the new rows had arrived and rendering
+     "nothing waiting" against the old collection. Wait for them, and say
+     that is what is happening rather than showing a wrong answer. */
+  var el = document.getElementById("arrivalsbody");
+  var tries = 0;
+  var want = count || 1;
+
+  (function check(){
+    if (arrivals().length >= want || tries >= 8){
+      renderArrivals(count);
+      return;
+    }
+    tries++;
+    if (el && tries === 1){
+      el.innerHTML = "<p class='hint'><span class='spinner'></span> " +
+        "Fetching the new record" + (want === 1 ? "" : "s") + "\u2026</p>";
+    }
+    if (typeof loadSheet === "function" && tries % 2 === 0) loadSheet();
+    setTimeout(check, 1200);
+  })();
 }
 
 function renderArrivals(justArrived){
@@ -261,7 +282,13 @@ function fileArrivals(){
       return;
     }
     var n = list.filter(function(r){ return r.c; }).length;
-    if (typeof afterRecordAdded === "function") afterRecordAdded();
+    /* Placed records belong on the shelf now, so redraw rather than
+       leaving the old view behind. */
+    if (typeof reloadCollection === "function") reloadCollection();
+    if (typeof noteCollectionChanged === "function") noteCollectionChanged();
+    /* Not afterRecordAdded() here — that opens the review, and these
+       records have just been placed. Reload and tell the other devices,
+       nothing more. */
     say("Filed " + n + " record" + (n === 1 ? "" : "s") +
         (skipped ? ", " + skipped + " still need a category" : "") +
         ".");
