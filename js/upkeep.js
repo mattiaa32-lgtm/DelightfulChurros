@@ -32,7 +32,11 @@ function afterRecordAdded(){
      you just added not appearing is the app looking broken; and the
      sheet write has already returned, so there is nothing to wait for
      beyond Google publishing the change. */
-  reloadCollection();
+  reloadCollection(function(){
+    /* An added record has no cube either, so it goes through the same
+       review as anything from a sync. */
+    if (typeof reviewArrivals === "function") reviewArrivals(1);
+  });
   /* Let the other devices know, so they reload too rather than showing a
      collection that is quietly one record behind. */
   if (typeof noteCollectionChanged === "function") noteCollectionChanged();
