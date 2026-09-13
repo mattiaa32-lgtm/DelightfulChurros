@@ -59,7 +59,20 @@ function suggestPlacement(rec, category){
   };
 }
 
-function renderArrivals(){
+/* Opens the review panel and puts it in front of you. Called after any
+   import \u2014 the sync button, the Discogs panel, a manual add \u2014 because a
+   record appearing on the shelf without anyone deciding where it goes is
+   how a collection quietly stops matching the actual shelf. Nothing is
+   filed until you say so. */
+function reviewArrivals(count){
+  var box = document.getElementById("arrivalsbox");
+  if (!box) return;
+  box.classList.add("show");
+  renderArrivals(count);
+  box.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderArrivals(justArrived){
   var el = document.getElementById("arrivalsbody");
   if (!el) return;
   var list = arrivals();
@@ -72,6 +85,11 @@ function renderArrivals(){
 
   var cats = Object.keys(COLORS).sort();
   el.innerHTML =
+    (justArrived
+      ? "<p class='arrnew'><b>" + justArrived + " record" +
+        (justArrived === 1 ? "" : "s") + " just arrived.</b> Nothing has been " +
+        "placed yet \u2014 decide where each one goes below.</p>"
+      : "") +
     "<p class='hint'><b>" + list.length + "</b> record" + (list.length === 1 ? "" : "s") +
       " came in without a place on the shelf. The category is a suggestion from " +
       "Discogs' own genres; the position is where it would fall alphabetically.</p>" +
