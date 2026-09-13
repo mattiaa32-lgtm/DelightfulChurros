@@ -229,10 +229,16 @@ function fillYears(opts){
   opts = opts || {};
   var out = opts.el || document.getElementById("syncout");
   var asText = !!opts.asText;              /* plain text target vs innerHTML */
+  /* A prefix keeps whatever the caller already said. The sync summary
+     was being wiped by "Starting\u2026" a moment after it appeared, so a
+     sync that added three records looked like it had merely started and
+     stopped. */
+  var keep = opts.keep || "";
   function show(t){
     if (!out) return;
-    if (asText) out.textContent = t.replace(/<[^>]+>/g, "");
-    else out.innerHTML = "<p class='hint'>" + t + "</p>";
+    var plain = t.replace(/<[^>]+>/g, "");
+    if (asText) out.textContent = keep ? (keep + " " + plain) : plain;
+    else out.innerHTML = "<p class='hint'>" + (keep ? esc(keep) + " " : "") + t + "</p>";
   }
   if (!isOwner()){ show("Unlock editing first."); return; }
   var btn = document.getElementById("connyears");
@@ -276,7 +282,9 @@ function fillYears(opts){
       if (opts.then) opts.then();
     });
   }
-  show("Starting\u2026");
+  /* Only say "starting" when there is nothing else on screen; otherwise
+     the caller's message stands until there is real progress to add. */
+  if (!keep) show("Starting\u2026");
   step();
 }
 
@@ -383,13 +391,15 @@ function doDisconnect(){
                                    (d.suggested === 1 ? "y" : "ies"));
         if (d.toFill) bits.push("filled " + d.toFill + " blank cell" +
                                 (d.toFill === 1 ? "" : "s"));
-        el.textContent = bits.join(", ").replace(/^./, function(c){ return c.toUpperCase(); }) +
-                         ".";
-        /* carry straight on into the original-release-year lookups */
-        fillYears({ el: el, asText: true });
+        var summary = bits.join(", ").replace(/^./, function(c){ return c.toUpperCase(); }) + ".";
+        el.textContent = summary;
+        /* carry straight on into the original-release-year lookups,
+           keeping what the sync just reported */
+        fillYears({ el: el, asText: true, keep: summary });
       } else {
-        el.textContent = "Already up to date \u2014 nothing new on Discogs.";
-        fillYears({ el: el, asText: true });
+        var summary = "Already up to date \u2014 nothing new on Discogs.";
+        el.textContent = summary;
+        fillYears({ el: el, asText: true, keep: summary });
       }
     })
     .catch(function(err){
