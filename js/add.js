@@ -52,7 +52,9 @@ function renderPlacement(){
     return;
   }
   el.innerHTML =
-    "<div class='placewhere'>Goes in <b>" + esc(p.cubeName) + "</b>, " +
+    /* A preview, not a decision — the placing happens in the review
+       step, where it can be changed. */
+    "<div class='placewhere'>Would go in <b>" + esc(p.cubeName) + "</b>, " +
       "position " + p.position + " of " + (p.count + 1) + " in " + esc(c) + "</div>" +
     "<p class='placenb'>" +
       (p.before ? "After &nbsp;" + esc(p.before.a) + " \u2014 " + esc(p.before.t) + "<br>" : "At the start<br>") +
@@ -172,9 +174,12 @@ var pending = {};   /* the Discogs release currently chosen */
     var id = (document.getElementById("adddiscogs").value || "").trim();
     var msg = document.getElementById("addmsg");
     if (!a || !t) { msg.textContent = "Artist and title are needed."; return; }
-    var p = placeRecord(a, t, c);
-    var cube = p.cube || 1;
-    var row = [a, t, c, cube, id,
+    /* The cube is deliberately left blank. Writing one here placed the
+       record the moment it was saved, so it never reached the review \u2014
+       which is the step where you decide where it actually goes. A
+       record with no cube shows up as an arrival, exactly like one
+       pulled in by a sync. */
+    var row = [a, t, c, "", id,
                pending.cover || "", "",              /* cover, description */
                pending.year || "", pending.year || ""]; /* first released, pressing */
     msg.textContent = "Saving\u2026";
