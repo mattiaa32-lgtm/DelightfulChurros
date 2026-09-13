@@ -1022,3 +1022,8 @@ html,body{max-width:100%;overflow-x:hidden}
 .rec.tappable{cursor:pointer}
 .rec.tappable:hover .rt{color:var(--accent)}
 .aplacebtn{margin-top:7px;padding:5px 11px;font-size:11.5px}
+
+/* a just-arrived notice above the review list */
+.arrnew{font-size:13px;color:var(--text);background:rgba(180,101,58,.1);
+  border:1px solid rgba(180,101,58,.35);border-radius:6px;
+  padding:10px 12px;margin:0 0 12px;line-height:1.5}
