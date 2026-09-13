@@ -22,28 +22,24 @@
 // change your Discogs account, so it requires the owner passphrase, the
 // same gate the sheet writes use — otherwise anyone who opened the
 // shelf could add records to your collection.
+import { getConfig } from "./_sheet.js";
 
 const UA = "ShelfVinylApp/1.0 +https://github.com/";
 
-/* Credentials now come from the OAuth connection stored in the sheet.
+/* Credentials come from the OAuth connection stored in the sheet.
    DISCOGS_TOKEN is still honoured as a fallback so an existing setup
-   keeps working until it's reconnected properly. */
+   keeps working until it's reconnected properly.
+
+   This used a private copy of the sheet reader with no retry, while
+   _sheet.js has one with a two-attempt retry for exactly the transient
+   failure Apps Script produces under load. A single blip therefore read
+   as "Discogs isn't connected" \u2014 which is misleading, since the token
+   is there and the sync using the shared reader worked fine. Same
+   duplication, same class of bug as the three sheet callers before it. */
 async function sheetGet(key) {
-  const url = process.env.SHEET_WEBHOOK_URL, secret = process.env.SHEET_WEBHOOK_SECRET;
-  if (!url || !secret) return null;
   try {
-    const first = await fetch(url, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ secret: secret, action: "getConfig", key: key }),
-      redirect: "manual"
-    });
-    let r = first;
-    if (first.status >= 300 && first.status < 400) {
-      const loc = first.headers.get("location");
-      if (loc) r = await fetch(loc, { method: "GET", redirect: "follow" });
-    }
-    const d = JSON.parse(await r.text());
-    return d && d.value ? d.value : null;
+    const cfg = await getConfig([key]);
+    return (cfg && cfg[key]) ? cfg[key] : null;
   } catch (e) { return null; }
 }
 
@@ -89,9 +85,13 @@ export default async function handler(req, res) {
     : (process.env.DISCOGS_TOKEN
         ? { oauth: false, token: process.env.DISCOGS_TOKEN } : null);
   if (!cred) {
+    /* Distinguish "never connected" from "couldn't read the token just
+       now" — they need different actions from the person reading it. */
     return res.status(400).json({
-      error: "Discogs isn't connected",
-      detail: "Connect your Discogs account from the app first"
+      error: "Couldn't read your Discogs connection",
+      detail: "The token is kept in the sheet's Config tab. If Discogs shows " +
+              "as connected in the app, this was probably a temporary failure " +
+              "reading it — try again. If not, connect Discogs from Settings."
     });
   }
 
