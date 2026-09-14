@@ -45,6 +45,10 @@ function afterRecordAdded(){
     if (typeof fillYears === "function") fillYears({ el: null, asText: true });
     if (typeof takeSnapshot === "function") takeSnapshot(function(){});
     if (typeof sweepValues === "function") sweepValues();
+    /* Years and price were covered; the AI columns were not, so a new
+       record sat there with no description, no score and no pressing
+       note until someone ran Fill in the blanks by hand. */
+    enrichNewRecords();
   }, 3000);
 }
 
@@ -94,6 +98,43 @@ function redrawEverything(){
   });
 }
 
+/* Fills the AI columns for anything missing them. One batch of each,
+   which covers a handful of new arrivals; a larger backlog is what Fill
+   in the blanks is for, and this leaves that alone.
+
+   Runs quietly and one at a time: these share a small per-minute
+   allowance, and firing them together is what exhausts it. */
+function enrichNewRecords(){
+  if (!isOwner() || typeof RECS === "undefined") return;
+
+  var jobs = [];
+  if (RECS.some(function(r){ return !r.desc; })) jobs.push({ mode: "desc", limit: 20 });
+  if (RECS.some(function(r){ return !r.rate; })) jobs.push({ mode: "eval", only: "rate", limit: 12 });
+  if (RECS.some(function(r){ return !r.press; })) jobs.push({ mode: "eval", only: "press", limit: 12 });
+  if (RECS.some(function(r){ return !r.owned; })) jobs.push({ mode: "eval", only: "owned", limit: 12 });
+  if (!jobs.length) return;
+
+  (function next(i){
+    if (i >= jobs.length){
+      if (typeof reloadCollection === "function") reloadCollection();
+      return;
+    }
+    var j = jobs[i];
+    fetch("/api/fill", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.assign({ passphrase: ownerPass() }, j))
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      /* A quota refusal stops the round rather than burning the rest of
+         the allowance on requests that will also be refused. */
+      if (d && d.quota) return;
+      setTimeout(function(){ next(i + 1); }, 4000);
+    })
+    .catch(function(){ setTimeout(function(){ next(i + 1); }, 4000); });
+  })(0);
+}
+
 /* ---- the weekly round -------------------------------------------- */
 function weeklyUpkeep(){
   if (!isOwner() || typeof RECS === "undefined") return;
@@ -124,7 +165,10 @@ function weeklyUpkeep(){
     takeSnapshot(function(err){ if (!err) noteRun("valuesnap"); });
   }
 
-  /* 3. The slow per-record price sweep picks itself up from here. */
+  /* 3. Anything still missing its AI columns. */
+  enrichNewRecords();
+
+  /* 4. The slow per-record price sweep picks itself up from here. */
   if (typeof sweepValues === "function") setTimeout(sweepValues, 20000);
 }
 
