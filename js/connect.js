@@ -22,8 +22,16 @@ function failMsg(x, what){
       return "The sync timed out partway. Anything it managed to write is saved \u2014 " +
              "run it again and it will pick up where it stopped.";
     }
-    return "The " + what + " endpoint returned " + x.status + " and not JSON \u2014 " +
-           "api/discogs-sync.js may not be deployed.";
+    /* Name the endpoint that actually failed. This said
+       api/discogs-sync.js whatever the step was, which sent anyone
+       debugging it to the wrong file. */
+    var file = { sync: "api/discogs-sync.js", years: "api/discogs-years.js",
+                 descriptions: "api/fill.js", ratings: "api/fill.js",
+                 "pressing notes": "api/fill.js", "pressing scores": "api/fill.js",
+                 prices: "api/fill.js" }[what] || "the endpoint";
+    return "The " + what + " step returned " + x.status + " and not JSON \u2014 " +
+           file + " may not be deployed. (A 404 here usually means the file " +
+           "isn't in the repo; 500 means it is, but it threw.)";
   }
   return (x.d.detail ? x.d.error + " \u2014 " + String(x.d.detail).slice(0, 140)
                      : (x.d.error || "Request failed")) + " (HTTP " + x.status + ")";
