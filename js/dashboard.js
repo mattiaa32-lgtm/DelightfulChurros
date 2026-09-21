@@ -125,8 +125,8 @@ function topListsHTML(cat){
         }
         return "<li class='toprow' data-i='" + r.i + "'>" +
           "<span class='topn'>" + (i + 1) + "</span>" +
-          "<span class='topinfo'><b>" + esc(r.a) + "</b>" +
-            "<span>" + esc(r.t) + (sub ? " \u00b7 " + esc(sub) : "") + "</span></span>" +
+          "<span class='topinfo'><b>" + esc(r.t) + "</b>" +
+            "<span>" + esc(r.a) + (sub ? " \u00b7 " + esc(sub) : "") + "</span></span>" +
           "<span class='tops'>" + x.s.toFixed(1) + "</span>" +
         "</li>";
       }).join("") + "</ol>"
@@ -191,8 +191,12 @@ function renderDashComputed(){
          inconsistent (98% over "178 of 178") */
       kpi("Linked to Discogs",Math.round(s.withId/s.total*100)+"%",
           s.withId+" of "+s.total+" \u00b7 "+(s.total-s.withId)+" still to link")+
-    "</div>"+
-    "<div id='toptop'>"+topListsHTML(null)+"</div>"+
+    "</div>";
+  /* The rankings and the decade charts have their own sub-tabs now. */
+  var tt=document.getElementById("toptop");
+  if(tt) tt.innerHTML=topListsHTML(null);
+  var er=document.getElementById("dasheras");
+  if(er) er.innerHTML=
     decadeCard("Master release decades",s.decades,"first",
       "When each album first came out, from the Discogs master \u2014 a reissue "+
       "counts in the decade of the album, not of the repress.",
@@ -359,7 +363,7 @@ function openDecadeDive(dec,kind){
         ? "<div class='ablock'><div class='ktitle'>Records</div><p class='aitem'>"+
           hits.map(function(h){
             var extra=h.other?" ("+(press?"first out ":"pressed ")+h.other+")":"";
-            return h.y+" \u2014 "+esc(h.r.a)+", "+esc(h.r.t)+extra;
+            return h.y+" \u2014 "+esc(h.r.t)+", "+esc(h.r.a)+extra;
           }).join("<br>")+"</p></div>"
         : "<p class='hint'>No release years known for this decade yet.</p>")+
     "</div>";
@@ -386,8 +390,8 @@ function renderCatDive(cat,d){
       (Array.isArray(d.missing)&&d.missing.length?
         "<div class='ablock'><div class='ktitle'>Worth adding</div>"+
         d.missing.map(function(m){
-          return "<div class='missrow'><div><b>"+esc(m.artist||"")+"</b> \u2014 "+
-            esc(m.title||"")+(m.why?"<span class='aex'>"+esc(m.why)+"</span>":"")+"</div>"+
+          return "<div class='missrow'><div><b>"+esc(m.title||"")+"</b> \u2014 "+
+            esc(m.artist||"")+(m.why?"<span class='aex'>"+esc(m.why)+"</span>":"")+"</div>"+
             wantBtn({artist:m.artist,title:m.title,fits:cat,why:m.why||""})+"</div>";
         }).join("")+"</div>":"")+
     "</div>";
@@ -456,6 +460,27 @@ document.getElementById("view-dash").addEventListener("click",function(e){
   var cat=el.getAttribute("data-cat")||el.dataset.cat;
   if(cat)openCatDive(cat);
 });
+/* ---- sub-tabs ---- */
+var dashSub = "over";
+function showDashSub(k){
+  dashSub = k;
+  [].forEach.call(document.querySelectorAll("#dashtabs .subtab"), function(b){
+    var on = b.dataset.s === k;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  [].forEach.call(document.querySelectorAll("#view-dash .dashpane"), function(p){
+    p.hidden = p.dataset.s !== k;
+  });
+  /* A deep dive belongs to the view it was opened from; carrying it into
+     another sub-tab would put a category's detail under the decade chart. */
+  var dive = document.getElementById("dashdive");
+  if (dive) dive.hidden = true;
+}
+[].forEach.call(document.querySelectorAll("#dashtabs .subtab"), function(b){
+  b.addEventListener("click", function(){ showDashSub(this.dataset.s); });
+});
+
 document.getElementById("dashrefresh").addEventListener("click",function(e){
   e.preventDefault();loadAssessment(true);});
 
