@@ -34,6 +34,8 @@ function gapReport(){
   return g;
 }
 
+var gapsLastNote = "";
+
 function renderGaps(){
   var el = document.getElementById("gapsbody");
   if (!el) return;
@@ -104,7 +106,11 @@ function renderGaps(){
         "<div class='addrow' style='margin-top:12px'>" +
           "<button class='chip' id='gapsfill'>Fill in what's missing</button>" +
           "<button class='chip gapsstop' id='gapsstop' hidden>Stop</button>" +
-          "<span class='hint' id='gapsmsg'></span>" +
+          /* Keeps the last result across the redraw below. The panel is
+             rebuilt a moment after a run to refresh its counts, and that
+             used to wipe the message \u2014 so an error flashed for under two
+             seconds and vanished, which read as a silent crash. */
+          "<span class='hint' id='gapsmsg'>" + esc(gapsLastNote || "") + "</span>" +
         "</div>"
       : "<p class='hint' style='margin-top:12px'>Nothing left that the app can fill.</p>");
 
@@ -150,6 +156,7 @@ function fillGaps(){
   var btn = document.getElementById("gapsfill");
   function say(t){ if (msg) msg.textContent = t; }
   if (!isOwner()){ say("Unlock editing first."); return; }
+  gapsLastNote = "";
 
   var want = {};
   [].forEach.call(document.querySelectorAll(".gapcb"), function(cb){
@@ -179,7 +186,8 @@ function fillGaps(){
     var st = document.getElementById("gapsstop");
     if (st) st.hidden = true;
     setProgress(0, 0);
-    say(note || "Done.");
+    gapsLastNote = note || "Done.";
+    say(gapsLastNote);
     setTimeout(function(){
       if (typeof loadSheet === "function") loadSheet();
       setTimeout(renderGaps, 1500);
@@ -241,7 +249,10 @@ function fillGaps(){
     /* Smaller batches for values: Discogs' window is the constraint, so
        shorter runs with the remaining-quota check between them get
        further than long sprints that trip the limit. */
-    var size = isValue ? 20 : isEval ? 12 : 20;
+    /* Pressing scores look each copy up on Discogs before asking the AI,
+       so they run in smaller batches to stay well inside the server's
+       time limit. */
+    var size = isValue ? 20 : step === "owned" ? 6 : isEval ? 12 : 20;
     var extra = isEval ? { only: step } : {};
     var total = 0, written = 0;
     (function batch(){
