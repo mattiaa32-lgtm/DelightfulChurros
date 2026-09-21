@@ -263,7 +263,8 @@ function loadDaily(force){
   }
   discBusy=true;
   document.getElementById("discbody").innerHTML=
-    "<p class='hint'><span class='dots'><span></span><span></span><span></span></span> Finding something good\u2026</p>";
+    "<p class='hint'><span class='dots'><span></span><span></span><span></span></span> Finding something good\u2026</p>"+
+    (typeof skeletonHTML==="function"?skeletonHTML("card",3):"");
   aiFetchUser(API_BASE+"recommend",{
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({mode:"discover",records:collectionPayload(),count:3,
