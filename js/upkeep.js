@@ -135,6 +135,49 @@ function enrichNewRecords(){
   })(0);
 }
 
+/* ---- ready before you look ----------------------------------------
+   Discover and the radar used to generate only when their tab was
+   opened, so the picks were never waiting for you and the radar sat
+   empty until someone thought to visit it.
+
+   Now the first unlocked device to open the app each day makes the
+   day's picks, and the first each week runs the radar. Both are
+   published to the sheet, so every other device \u2014 including guest ones
+   \u2014 simply receives them.
+
+   Only unlocked devices generate. Neither endpoint checks the
+   passphrase, and a guest scanning the shelf's QR code should not be
+   the one spending the day's AI allowance.
+
+   Staggered: the picks are one request, the radar is three grounded
+   ones with pauses between, and the capable models allow only a few
+   requests a minute. */
+var lastUpkeepDay = null;
+
+function readyUpkeep(){
+  if (typeof isOwner !== "function" || !isOwner()) return;
+  if (typeof RECS === "undefined" || !RECS.length) return;
+
+  var today = (typeof todayKey === "function") ? todayKey()
+            : new Date().toISOString().slice(0, 10);
+  if (lastUpkeepDay === today) return;       /* once per day per session */
+  lastUpkeepDay = today;
+
+  /* Today's picks: loadDaily checks this device, then the sheet, and
+     only asks the AI if nobody has made today's set yet. */
+  setTimeout(function(){
+    if (typeof loadDaily === "function") loadDaily(false);
+  }, 8000);
+
+  /* The radar, when it is a week old. Same order: local, shared, search. */
+  setTimeout(function(){
+    if (typeof loadRadar !== "function" || typeof radarCache !== "function") return;
+    var c = radarCache();
+    var every = (typeof RADAR_EVERY_MS !== "undefined") ? RADAR_EVERY_MS : 7 * 86400000;
+    if (!c || !c.at || Date.now() - c.at > every) loadRadar(false);
+  }, 40000);
+}
+
 /* ---- the weekly round -------------------------------------------- */
 function weeklyUpkeep(){
   if (!isOwner() || typeof RECS === "undefined") return;
@@ -170,6 +213,15 @@ function weeklyUpkeep(){
 
   /* 4. The slow per-record price sweep picks itself up from here. */
   if (typeof sweepValues === "function") setTimeout(sweepValues, 20000);
+}
+
+if (typeof onDataReady === "function"){
+  onDataReady(function(){ setTimeout(readyUpkeep, 2000); });
+  /* The day can turn over while the app sits open in a tab or on a
+     phone's home screen; coming back to it is when to notice. */
+  document.addEventListener("visibilitychange", function(){
+    if (document.visibilityState === "visible") readyUpkeep();
+  });
 }
 
 if (typeof onDataReady === "function"){
