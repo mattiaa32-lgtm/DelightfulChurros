@@ -362,7 +362,46 @@ function applyRows(rows){
    Once the Apps Script write-back is configured, /api/sheet can read
    the sheet directly, which is live. So: try the live read first, and
    fall back to the CSV if write-back isn't set up or the call fails. */
-function loadSheet(){
+/* Applies a batch of sheet cells to the in-memory collection, so a
+   change shows at once instead of after a round trip to Google and a
+   full reload. Column numbers are the sheet's (1-based). Only the
+   columns the app itself writes are handled; anything else waits for
+   the next read, which always follows. */
+function applyCellsLocally(cells){
+  if (!cells || !cells.length || typeof RECS === "undefined") return false;
+  var byRow = {};
+  RECS.forEach(function(r){ byRow[r.row] = r; });
+  var touched = false;
+  cells.forEach(function(c){
+    var r = byRow[c.row];
+    if (!r) return;
+    var v = c.value;
+    switch (+c.col){
+      case 3:  r.c = String(v || ""); break;
+      case 4:
+        var k = parseInt(v, 10);
+        if (k > 0){ r.k = k; r.cubeSet = true; } else { r.cubeSet = false; }
+        break;
+      case 7:  r.desc = String(v || "") || null; break;
+      case 8:  r.fy = String(v || ""); break;
+      case 10: r.pos = (v === "" || v == null) ? null : +v; break;
+      case 11: r.rate = String(v || "") || null; break;
+      case 12: r.press = String(v || "") || null; break;
+      case 13: r.owned = String(v || "") || null; break;
+      case 14: r.val = parseFloat(String(v || "").replace(/[^0-9.]/g, "")) || null; break;
+      default: return;
+    }
+    touched = true;
+  });
+  return touched;
+}
+
+/* `done` is called once the rows are in RECS. Callers used to wait a
+   fixed time and hope \u2014 1.5 seconds, then 4 more if nothing seemed to
+   have changed \u2014 which was right when the app read a published copy
+   that lagged behind, and is just delay now that it reads the sheet
+   live. */
+function loadSheet(done){
   fetch("/api/sheet",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
@@ -375,17 +414,19 @@ function loadSheet(){
       return r.map(function(c){ return c==null ? "" : String(c); });
     }));
     markDataReady();
+    if (typeof done === "function") done(true);
   })
-  .catch(function(){ loadSheetCSV(); });
+  .catch(function(){ loadSheetCSV(done); });
 }
 
-function loadSheetCSV(){
-  if(!SHEET_CSV_URL){ markDataReady(); return; }
+function loadSheetCSV(done){
+  if(!SHEET_CSV_URL){ markDataReady(); if (typeof done === "function") done(false); return; }
   /* a cache-buster on top of no-store: the published CSV is served by
      Google's own cache, which ignores request headers */
   var url = SHEET_CSV_URL + (SHEET_CSV_URL.indexOf("?")>-1?"&":"?") + "_=" + Date.now();
   fetch(url,{cache:"no-store"})
     .then(function(res){ if(!res.ok) throw 0; return res.text(); })
-    .then(function(txt){ applyRows(parseCSV(txt)); markDataReady(); })
-    .catch(function(){ markDataReady(); });
+    .then(function(txt){ applyRows(parseCSV(txt)); markDataReady();
+                         if (typeof done === "function") done(true); })
+    .catch(function(){ markDataReady(); if (typeof done === "function") done(false); });
 }
