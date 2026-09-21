@@ -57,17 +57,20 @@ function afterRecordAdded(){
    immediately, once a few seconds later \u2014 and the second pass is
    harmless if the first already caught it. */
 function reloadCollection(cb){
+  /* Redraws the moment the sheet answers, rather than after a fixed
+     1.5-second wait \u2014 the read is live through Apps Script, so there is
+     nothing to wait for. Retries once, briefly, only if the change it
+     expected has not arrived yet. */
   var before = (typeof RECS !== "undefined") ? RECS.length : 0;
+  if (typeof loadSheet !== "function"){ if (cb) cb(before); return; }
 
   function pass(n){
-    if (typeof loadSheet !== "function") return;
-    loadSheet();
-    setTimeout(function(){
+    loadSheet(function(){
       var now = (typeof RECS !== "undefined") ? RECS.length : 0;
       redrawEverything();
-      if (now === before && n < 2){ setTimeout(function(){ pass(n + 1); }, 4000); }
+      if (now === before && n < 2 && cb){ setTimeout(function(){ pass(n + 1); }, 1500); }
       else if (cb) cb(now);
-    }, 1500);
+    });
   }
   pass(1);
 }
@@ -78,7 +81,8 @@ function redrawEverything(){
    ["renderCubePicker", null],
    ["renderCatChips", null],
    ["renderFilingBanner", null],
-   ["renderDashComputed", null]
+   ["renderDashComputed", null],
+   ["redrawTopCat", null]
   ].forEach(function(f){
     if (typeof window[f[0]] === "function"){
       try { window[f[0]](); } catch (e) {}
