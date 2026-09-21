@@ -22,7 +22,9 @@
 
 var SYNC_INDEX = "gen_index";
 var SYNC_POLL_MS = 45000;
-var SHARED_KEYS = ["shelfShape", "cubeMap", "catOrder", "gear"];
+/* shelfView was pushed on every change but never listed here, so its
+   "same view on every device" comment was not true. */
+var SHARED_KEYS = ["shelfShape", "cubeMap", "catOrder", "gear", "shelfView"];
 
 var syncHandlers = {};
 var syncSeen = {};
