@@ -80,6 +80,96 @@ function donutSVG(cats,total){
     "<text x='90' y='86' text-anchor='middle' class='dnum'>"+total+"</text>"+
     "<text x='90' y='103' text-anchor='middle' class='dlab'>records</text></svg>";
 }
+/* ---- the best of it ----------------------------------------------
+   Two rankings of what you own: by how good the album is (column K) and
+   by how good your copy is (column M). They answer different questions
+   \u2014 a landmark album on a thin reissue ranks high on one and low on the
+   other \u2014 so they are shown side by side rather than blended.
+
+   Computed from the sheet, not asked of the AI: the scores are already
+   there, so this costs nothing and appears at once. */
+var topMode = "rate";
+
+function scoreOf(raw){
+  var m = /^\s*(\d+(?:\.\d+)?)/.exec(String(raw || ""));
+  return m ? parseFloat(m[1]) : null;
+}
+
+function topRecords(list, field, n){
+  return list
+    .map(function(r){ return { r: r, s: scoreOf(r[field]) }; })
+    .filter(function(x){ return x.s !== null; })
+    .sort(function(a, b){
+      if (b.s !== a.s) return b.s - a.s;
+      return recordSortKey(a.r).localeCompare(recordSortKey(b.r));
+    })
+    .slice(0, n || 10);
+}
+
+/* `cat` narrows it to one category; without it, the whole collection. */
+function topListsHTML(cat){
+  var pool = cat ? RECS.filter(function(r){ return r.c === cat; }) : RECS;
+  var field = topMode === "owned" ? "owned" : "rate";
+  var rows = topRecords(pool, field, 10);
+  var scored = pool.filter(function(r){ return scoreOf(r[field]) !== null; }).length;
+
+  var body = rows.length
+    ? "<ol class='toplist'>" + rows.map(function(x, i){
+        var r = x.r;
+        /* For the pressing ranking, name the copy \u2014 that is what is
+           being scored, and two copies of one album can differ a lot. */
+        var sub = "";
+        if (field === "owned"){
+          var parts = String(r.owned).split("\u2014");
+          sub = parts[1] ? parts[1].trim() : "";
+        }
+        return "<li class='toprow' data-i='" + r.i + "'>" +
+          "<span class='topn'>" + (i + 1) + "</span>" +
+          "<span class='topinfo'><b>" + esc(r.a) + "</b>" +
+            "<span>" + esc(r.t) + (sub ? " \u00b7 " + esc(sub) : "") + "</span></span>" +
+          "<span class='tops'>" + x.s.toFixed(1) + "</span>" +
+        "</li>";
+      }).join("") + "</ol>"
+    : "<p class='hint'>No " + (field === "owned" ? "pressing" : "record") +
+      " scores" + (cat ? " in this category" : "") + " yet \u2014 fill them from " +
+      "<b>Fill in the blanks</b>.</p>";
+
+  return "<div class='topcard'>" +
+    "<div class='tophead'>" +
+      "<div class='ktitle'>Top 10" + (cat ? " in " + esc(cat) : "") + "</div>" +
+      "<div class='topseg'>" +
+        "<button class='topsegb" + (field === "rate" ? " on" : "") + "' data-m='rate'>Album</button>" +
+        "<button class='topsegb" + (field === "owned" ? " on" : "") + "' data-m='owned'>Pressing</button>" +
+      "</div>" +
+    "</div>" +
+    "<p class='hint topexpl'>" + (field === "rate"
+      ? "Ranked by how good the album is."
+      : "Ranked by how good your copy is \u2014 label, mastering, era.") +
+      (scored < pool.length ? " " + scored + " of " + pool.length + " scored." : "") + "</p>" +
+    body +
+  "</div>";
+}
+
+function redrawTopAll(){
+  var el = document.getElementById("toptop");
+  if (!el) return;
+  el.innerHTML = topListsHTML(null);
+  wireTopLists(el, redrawTopAll);
+}
+
+/* Wires the toggle and the rows inside `scope`, redrawing via `redraw`. */
+function wireTopLists(scope, redraw){
+  if (!scope) return;
+  [].forEach.call(scope.querySelectorAll(".topsegb"), function(b){
+    b.addEventListener("click", function(){ topMode = this.dataset.m; redraw(); });
+  });
+  [].forEach.call(scope.querySelectorAll(".toprow"), function(li){
+    li.addEventListener("click", function(){
+      if (typeof open === "function") open(+this.dataset.i);
+    });
+  });
+}
+
 function renderDashComputed(){
   var s=computedStats();
   document.getElementById("dashstats").innerHTML=
@@ -102,6 +192,7 @@ function renderDashComputed(){
       kpi("Linked to Discogs",Math.round(s.withId/s.total*100)+"%",
           s.withId+" of "+s.total+" \u00b7 "+(s.total-s.withId)+" still to link")+
     "</div>"+
+    "<div id='toptop'>"+topListsHTML(null)+"</div>"+
     decadeCard("Master release decades",s.decades,"first",
       "When each album first came out, from the Discogs master \u2014 a reissue "+
       "counts in the decade of the album, not of the repress.",
@@ -109,6 +200,7 @@ function renderDashComputed(){
     decadeCard("My pressings by decade",s.pdecades,"press",
       "When the specific copy on your shelf was pressed, from its Discogs release.",
       s.pyearsKnown,s.total,s.noId);
+  wireTopLists(document.getElementById("toptop"), redrawTopAll);
 }
 /* Both decade charts share one renderer; `kind` decides which drill-down
    opens when a bar is tapped. */
@@ -290,6 +382,7 @@ function renderCatDive(cat,d){
       (Array.isArray(d.canonical_held)&&d.canonical_held.length?
         "<div class='ablock'><div class='ktitle'>Key holdings</div><p class='aitem'>"+
         d.canonical_held.map(esc).join("<br>")+"</p></div>":"")+
+      "<div id='topcat'>"+topListsHTML(cat)+"</div>"+
       (Array.isArray(d.missing)&&d.missing.length?
         "<div class='ablock'><div class='ktitle'>Worth adding</div>"+
         d.missing.map(function(m){
@@ -302,6 +395,12 @@ function renderCatDive(cat,d){
   el.scrollIntoView({behavior:"smooth",block:"start"});
   document.getElementById("diveclose").addEventListener("click",function(){
     el.hidden=true;});
+  (function redraw(){
+    var t = document.getElementById("topcat");
+    if (!t) return;
+    t.innerHTML = topListsHTML(cat);
+    wireTopLists(t, redraw);
+  })();
 }
 var diveBusy=false;
 function openCatDive(cat){
@@ -312,7 +411,18 @@ function openCatDive(cat){
   diveBusy=true;
   var el=document.getElementById("dashdive");
   el.hidden=false;
-  el.innerHTML="<p class='hint'><span class='dots'><span></span><span></span><span></span></span> Looking at "+esc(cat)+"\u2026</p>";
+  /* The top-10 lists need no AI, so they appear at once while the
+     written assessment is still being generated. */
+  el.innerHTML="<div class='assess'><div class='divehead'><span class='ra'>"+esc(cat)+"</span></div>"+
+    "<div id='topcat'>"+topListsHTML(cat)+"</div>"+
+    "<p class='hint'><span class='dots'><span></span><span></span><span></span></span> "+
+    "Writing the assessment\u2026</p></div>";
+  (function redraw(){
+    var t = document.getElementById("topcat");
+    if (!t) return;
+    t.innerHTML = topListsHTML(cat);
+    wireTopLists(t, redraw);
+  })();
   aiFetchUser(API_BASE+"analyze",{
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({mode:"category",category:cat,records:collectionPayload()})
