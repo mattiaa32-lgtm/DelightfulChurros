@@ -1033,3 +1033,36 @@ html,body{max-width:100%;overflow-x:hidden}
   border:1px solid rgba(180,101,58,.35);border-radius:6px;
   padding:10px 12px;margin:0 0 12px;line-height:1.5}
 .apos{margin-top:6px;width:100%;font-size:12.5px}
+
+/* ================================================================
+   Phones: no stray zoom, and overlays that scroll on their own
+   ================================================================ */
+
+/* iOS zooms into any field under 16px when it is tapped, and does not
+   zoom back out \u2014 so one tap into the search box left the whole page
+   slightly too large for the screen. 16px on touch screens stops it,
+   without disabling pinch-zoom for anyone who wants it. */
+@media (pointer: coarse){
+  input, select, textarea, #q, #askq, #wantq{font-size:16px}
+}
+
+/* Overlays scroll inside themselves and stop there. Without this,
+   reaching the end of a sheet carried on scrolling the page behind it,
+   which is what happened when heading down to the Close button. */
+.card, .chatpanel, .setpanel, .movepanel, .chatlog, #chatlog{
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* dvh is the height actually visible, excluding the browser's own
+   toolbars. vh includes the area underneath them, so a sheet sized in
+   vh put its Close button just out of reach on a phone. The vh lines
+   stay as a fallback for browsers without dvh. */
+.card{max-height:92vh;max-height:92dvh}
+.chatpanel{max-height:92vh;max-height:92dvh}
+.setpanel{max-height:88vh;max-height:88dvh;overflow-y:auto}
+.movepanel{max-height:88vh;max-height:88dvh;overflow-y:auto}
+
+/* The page behind an open overlay stays put. */
+html.locked, html.locked body{overflow:hidden;overscroll-behavior:none}
+body.locked{position:fixed;left:0;right:0;width:100%}
