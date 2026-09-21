@@ -1066,3 +1066,30 @@ html,body{max-width:100%;overflow-x:hidden}
 /* The page behind an open overlay stays put. */
 html.locked, html.locked body{overflow:hidden;overscroll-behavior:none}
 body.locked{position:fixed;left:0;right:0;width:100%}
+
+/* ================================================================
+   The top of the screen on a phone
+   The page draws under the status bar (black-translucent), and the
+   header's top padding was exactly the status bar's height. So the
+   first row sat right on the strip where iOS blurs and fades web
+   content, which is why the title and buttons looked out of focus.
+   A little clearance moves them out of it.
+   ================================================================ */
+header{padding-top:max(14px, calc(env(safe-area-inset-top, 0px) + 12px))}
+
+@media (max-width:560px){
+  /* The row was overfull: the count wrapped onto two lines and the
+     Discogs badge was cut to "ZU\u2026". The username adds nothing on a
+     phone \u2014 the badge's colour already says connected or not \u2014 so it
+     becomes an icon, and the count stays on one line. */
+  .brand{gap:8px;flex-wrap:nowrap}
+  .brand h1{font-size:20px;flex:0 0 auto}
+  .count{white-space:nowrap;flex:0 0 auto;font-size:11.5px}
+  .connbadge{padding:5px 8px;min-width:0}
+  .connbadge span{display:none}
+  .ownerbtn{padding:5px 9px;font-size:10px;letter-spacing:.08em;white-space:nowrap}
+  .gearbtn{flex:0 0 auto}
+}
+@media (max-width:360px){
+  .count{display:none}
+}
