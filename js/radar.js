@@ -179,8 +179,8 @@ function renderRadar(items, note){
             "<div class='rtop'><span class='rart' data-a=\"" + esc(r.artist || "") +
               "\" data-t=\"" + esc(r.title || "") + "\"></span>" +
             "<span class='rinfo'>" +
-              "<span class='ra'>" + esc(r.artist || "") + "</span>" +
               "<div class='rt'>" + esc(r.title || "") + "</div>" +
+              "<span class='ra'>" + esc(r.artist || "") + "</span>" +
               "<div class='rmeta'>" + esc([r.kind, r.when].filter(Boolean).join(" \u00b7 ")) + "</div>" +
             "</span>" +
             (sc ? "<span class='radarscore'>" + sc.toFixed(1) + "</span>" : "") +
