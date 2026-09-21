@@ -254,7 +254,7 @@ function fillGaps(){
        time limit. */
     var size = isValue ? 20 : step === "owned" ? 6 : isEval ? 12 : 20;
     var extra = isEval ? { only: step } : {};
-    var total = 0, written = 0;
+    var total = 0, written = 0, busyTries = 0;
     (function batch(){
       fetch(endpoint, {
         method:"POST", headers:{"Content-Type":"application/json"},
@@ -264,7 +264,27 @@ function fillGaps(){
       .then(readJSON)
       .then(function(x){
         var d = x.d;
-        if (!x.ok || !d || !d.ok) return finish(failMsg(x, noun + "s"));
+        /* Google's sheet service being busy is temporary. Wait, then try
+           the same batch again \u2014 safe, because everything is written
+           once and a batch only picks up what is still blank. Three tries
+           before giving up, so a genuine outage still ends the run. */
+        if (!x.ok && d && d.busy && busyTries < 3 && !gapsAborted){
+          busyTries++;
+          var pause = 15 * busyTries;
+          say("Google's sheet service is busy \u2014 waiting " + pause + "s and trying again (" +
+              busyTries + " of 3). " + written + " " + noun + (written === 1 ? "" : "s") +
+              " written so far.");
+          setTimeout(batch, pause * 1000);
+          return;
+        }
+        if (!x.ok || !d || !d.ok){
+          if (d && d.busy) return finish("Google's sheet service stayed busy, so the run " +
+            "stopped after " + written + " " + noun + (written === 1 ? "" : "s") +
+            ". Everything written is saved \u2014 press again in a few minutes and it " +
+            "carries on from there.");
+          return finish(failMsg(x, noun + "s"));
+        }
+        busyTries = 0;
         written += (d.filled !== undefined) ? d.filled : (d.priced || 0);
         total = Math.max(total, written + d.remaining);
         setProgress(written, total || 1);
