@@ -147,7 +147,7 @@ function renderValueTab(){
                 s.n + " record" + (s.n === 1 ? "" : "s")) +
               valTile("Median record", ccy(s.median), "half are worth more") +
               (s.dearest ? valTile("Dearest", ccy(s.dearest.val),
-                s.dearest.a + " \u2014 " + s.dearest.t) : "")) +
+                s.dearest.t + " \u2014 " + s.dearest.a) : "")) +
         "</div>"
       : "<p class='hint'>Nothing priced in this selection yet.</p>") +
     "<div id='valchart'></div>" +
@@ -223,7 +223,7 @@ function valFilters(){
         priced.map(function(r){
           return "<option value='" + r.row + "'" +
             (valFilter.row === r.row ? " selected" : "") + ">" +
-            esc(r.a + " \u2014 " + r.t) + "</option>";
+            esc(r.t + " \u2014 " + r.a) + "</option>";
         }).join("") + "</select>";
     })() +
   "</div>";
