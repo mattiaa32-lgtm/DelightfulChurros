@@ -123,8 +123,8 @@ function renderArrivals(justArrived){
       return "<div class='arow' data-row='" + r.row + "' data-i='" + r.i + "'>" +
         artBox(r, "arart") +
         "<div class='ameta'>" +
-          "<div class='aartist'>" + esc(r.a) + "</div>" +
           "<div class='atitle'>" + esc(r.t) + "</div>" +
+          "<div class='aartist'>" + esc(r.a) + "</div>" +
           "<select class='acat' data-row='" + r.row + "'>" + opts + "</select>" +
           /* Category and position are the same question asked twice, so
              they sit together. Both are suggestions and both can be
@@ -178,10 +178,10 @@ function paintPositions(rec, cat){
 
   sel.innerHTML = (peers.length
     ? "<option value='before:" + peers[0].row + "'>Before " +
-        esc(peers[0].a + " \u2014 " + peers[0].t) + "</option>" +
+        esc(peers[0].t + " \u2014 " + peers[0].a) + "</option>" +
       peers.map(function(x){
         return "<option value='after:" + x.row + "'>After " +
-               esc(x.a + " \u2014 " + x.t) + "</option>";
+               esc(x.t + " \u2014 " + x.a) + "</option>";
       }).join("")
     : "<option value='first'>First in this category</option>");
   sel.value = suggested;
