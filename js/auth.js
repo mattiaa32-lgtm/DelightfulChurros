@@ -130,6 +130,23 @@ function sheetWrite(action, payload, cb){
     if (cb) cb(new Error("read-only"), null);
     return;
   }
+  /* Show the change now rather than after Google has answered and the
+     whole sheet has been re-read. The network still confirms it; if the
+     write fails, the collection is re-read so the screen goes back to
+     what the sheet actually holds. */
+  var optimistic = action === "setCells" && payload && payload.cells &&
+                   typeof applyCellsLocally === "function" &&
+                   applyCellsLocally(payload.cells);
+  if (optimistic && typeof redrawEverything === "function") redrawEverything();
+  var userCb = cb;
+  cb = function(err, d){
+    if (err && optimistic && typeof loadSheet === "function"){
+      loadSheet(function(){
+        if (typeof redrawEverything === "function") redrawEverything();
+      });
+    }
+    if (userCb) userCb(err, d);
+  };
   fetch("/api/sheet", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
