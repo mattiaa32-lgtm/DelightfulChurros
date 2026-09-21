@@ -5,11 +5,14 @@
    showing a record that isn't on the shelf. */
 var chatStarted=false,chatHistory=[],chatBusy=false;
 var chatMode="shelf";   /* "shelf" = play what I own, "new" = discover */
+/* A mix of "what should I play" and ordinary questions, so it is clear
+   the chat is for both. */
 var SUGGESTIONS={
-  shelf:["Something for a slow Sunday morning","I've got 90 minutes","Something loud",
-         "Cooking dinner","Late night, lights low","Surprise me"],
-  new:["More like my Coltrane records","Something heavier than I usually go",
-       "Deep cuts in jazz-funk","Surprise me with something obscure"]
+  shelf:["Something for a slow Sunday morning","I've got 90 minutes",
+         "Which Pink Floyd do I own most of?","What makes a good first pressing?",
+         "Late night, lights low","Surprise me"],
+  new:["More like my Coltrane records","Where do I start with krautrock?",
+       "Something heavier than I usually go","Who played on Bitches Brew?"]
 };
 function renderPrompts(){
   document.getElementById("prompts").innerHTML=SUGGESTIONS[chatMode].map(function(s){
@@ -32,8 +35,8 @@ function setChatIntro(){
   var el=document.getElementById("chatintro");
   if(!el)return;
   el.textContent = chatMode==="shelf"
-    ? "Picking from the records you own."
-    : "Looking beyond your collection.";
+    ? "Ask anything about music or your collection. Suggestions come from what you own."
+    : "Ask anything about music. Suggestions go beyond what you own.";
 }
 function startChat(){
   chatStarted=true;
@@ -43,6 +46,27 @@ function startChat(){
     addBubble("ai","What are you in the mood for? Tell me a vibe, an activity, or how long you've got.");
   }
 }
+/* Records they don't own, drawn as the same cards as the daily picks.
+   Only when the answer actually suggests some \u2014 a general question
+   gets a reply and nothing more. */
+function renderNewPicks(recs){
+  if(!Array.isArray(recs)||!recs.length)return;
+  rememberSeen(recs);
+  var log=document.getElementById("chatlog"),wrap=document.createElement("div");
+  wrap.className="picks";
+  wrap.innerHTML=recs.map(recCardHTML).join("");
+  [].forEach.call(wrap.querySelectorAll(".rec"),function(card,i){
+    card.classList.add("tappable");
+    card.addEventListener("click",function(ev){
+      if(ev.target.closest("a,button"))return;   /* links and Save still work */
+      openSuggested(recs[i]);
+    });
+  });
+  log.appendChild(wrap);
+  fillRecArt(wrap);
+  wrap.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
 function addBubble(who,text){
   var log=document.getElementById("chatlog"),d=document.createElement("div");
   d.className="bub "+(who==="me"?"me":who==="err"?"ai err":"ai");
@@ -83,62 +107,14 @@ function sendAsk(text){
   var thinking=addBubble("ai","");
   thinking.innerHTML="<span class='dots'><span></span><span></span><span></span></span>";
 
-  if(chatMode==="new"){
-    /* discover mode: same endpoint and card layout as the daily picks,
-       but driven by what they just asked for */
-    aiFetchUser(API_BASE+"recommend",{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({mode:"discover",records:collectionPayload(),count:3,
-        brief:text,avoid:seenList(),
-        adventurous:document.getElementById("advtoggle").getAttribute("aria-pressed")==="true",
-        seed:"chat-"+Date.now()})
-    }).then(function(res){
-      if(res.status===429){return res.json().catch(function(){return {};})
-      .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;throw e;});}
-      if(!res.ok)return aiFail(res);
-      return res.json();
-    }).then(function(recs){
-      thinking.remove();
-      if(!Array.isArray(recs)||!recs.length){
-        addBubble("ai","Nothing came to mind for that \u2014 try describing it differently?");
-        chatBusy=false;return;
-      }
-      rememberSeen(recs);
-      addBubble("ai","Three you don't own yet:");
-      var log=document.getElementById("chatlog"),wrap=document.createElement("div");
-      wrap.className="picks";
-      wrap.innerHTML=recs.map(recCardHTML).join("");
-      /* A suggested record should open like one on the shelf. If you own
-         it, that is literally the shelf card \u2014 cube, position, what sits
-         either side. If you don't, the same sheet built from what the
-         suggestion knows, so the two read alike. */
-      [].forEach.call(wrap.querySelectorAll(".rec"),function(card,i){
-        card.classList.add("tappable");
-        card.addEventListener("click",function(ev){
-          if(ev.target.closest("a,button"))return;   /* links and Save still work */
-          openSuggested(recs[i]);
-        });
-      });
-      log.appendChild(wrap);
-      fillRecArt(wrap);
-      wrap.scrollIntoView({behavior:"smooth",block:"nearest"});
-      chatBusy=false;
-    }).catch(function(err){
-      thinking.remove();
-      addBubble("err",err.message==="busy"
-        ? (err.quota==="daily"
-          ? "That's the free tier's daily quota \u2014 it resets at midnight Pacific, not in a few minutes."
-          : "Hit the per-minute rate limit \u2014 give it a minute and try again.")
-        : aiErrText(err, "the recommender"));
-      chatBusy=false;
-    });
-    return;
-  }
-
   chatHistory.push({role:"user",text:text});
   aiFetchUser(API_BASE+"recommend",{
     method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({mode:"mood",records:collectionPayload(),
+    /* One conversation for both modes, so switching between them
+       doesn't lose the thread; "scope" tells the server whether
+       suggestions come from the shelf or from beyond it. */
+    body:JSON.stringify({mode:"mood",scope:chatMode==="new"?"new":"shelf",
+                         records:collectionPayload(),
                          history:chatHistory.slice(0,-1),message:text})
   }).then(function(res){
     if(res.status===429){return res.json().catch(function(){return {};})
@@ -150,7 +126,8 @@ function sendAsk(text){
     var reply=(d&&d.reply)?d.reply:"I couldn't come up with something there \u2014 try rephrasing?";
     addBubble("ai",reply);
     chatHistory.push({role:"assistant",text:reply});
-    renderPicks(d&&d.picks);
+    if(chatMode==="new") renderNewPicks(d&&d.picks);
+    else renderPicks(d&&d.picks);
     chatBusy=false;
   }).catch(function(err){
     thinking.remove();
