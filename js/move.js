@@ -136,16 +136,20 @@ function doMove(){
 
   if (!cells.length){ msg.textContent = "It's already there."; return; }
 
+  /* Moved on screen straight away; the sheet catches up behind it. */
+  var catWas = moveFor.c;
+  if (typeof applyLocally === "function") applyLocally(cells);
   msg.textContent = "Moving\u2026";
   sheetWrite("setCells", { cells: cells }, function(err){
     if (err){
       msg.textContent = err.message === "read-only"
         ? "Unlock editing first." : "Couldn't write: " + err.message;
+      if (typeof reloadCollection === "function") reloadCollection();   /* undo the preview */
       return;
     }
     if (typeof reloadCollection === "function") reloadCollection();
     msg.textContent = "Moved to position " + (at + 1) +
-      (cat !== moveFor.c ? " in " + cat : "") + ".";
+      (cat !== catWas ? " in " + cat : "") + ".";
   });
 }
 
