@@ -312,8 +312,8 @@ function openSuggested(rec){
   var q = encodeURIComponent((rec.artist || "") + " " + (rec.title || ""));
   card.innerHTML =
     "<div class='chead'><div class='cart' id='sugart'></div>" +
-      "<div><div class='ca'>" + esc(rec.artist || "") + "</div>" +
-      "<h2 class='ct'>" + esc(rec.title || "") + "</h2>" +
+      "<div><h2 class='ct'>" + esc(rec.title || "") + "</h2>" +
+      "<div class='ca'>" + esc(rec.artist || "") + "</div>" +
       "<div class='hint'>" +
         esc([rec.year, rec.genre].filter(Boolean).join(" \u00b7 ")) +
         (rec.fits ? " \u00b7 fits " + esc(rec.fits) : "") +
