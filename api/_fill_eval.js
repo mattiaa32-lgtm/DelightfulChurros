@@ -54,7 +54,13 @@ async function releaseIdentity(id, auth) {
     const plant = (d.companies || [])
       .filter(function (c) { return /pressed by|made by|manufactured by|lacquer cut/i.test(c.entity_type_name || ""); })
       .map(function (c) { return c.entity_type_name + ": " + c.name; }).slice(0, 3);
-    return [
+    /* A short name for the copy, for the sheet and the card: what you
+       would say out loud. The full evidence below is for the model only
+       \u2014 written to the sheet it turned a pressing score into a paragraph
+       of matrix codes. */
+    const short = [d.country || "", lab.name || "", lab.catno || "",
+                   d.year ? String(d.year) : ""].filter(Boolean).join(" \u00b7 ");
+    const full = [
       d.country ? "country " + d.country : "",
       lab.name ? "label " + lab.name : "",
       lab.catno ? "cat " + lab.catno : "",
@@ -65,7 +71,40 @@ async function releaseIdentity(id, auth) {
       plant.length ? plant.join("; ") : "",
       matrix.length ? "matrix/runout " + matrix.join(" | ") : ""
     ].filter(Boolean).join(" \u00b7 ").slice(0, 700);
+    return { full: full, short: short };
   } catch (e) { return null; }
+}
+
+/* Pulls complete "N": {...} entries out of a JSON object that was cut
+   off part-way. Brace-counting with string awareness, so braces inside
+   the text of a "why" do not throw it off. */
+function salvageNumbered(raw) {
+  const text = raw.replace(/```json/gi, "").replace(/```/g, "");
+  const out = {};
+  const re = /"(\d+)"\s*:\s*\{/g;
+  let m, found = 0;
+  while ((m = re.exec(text))) {
+    let i = m.index + m[0].length - 1, depth = 0, inStr = false, esc = false;
+    for (; i < text.length; i++) {
+      const c = text[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (c === "\\") esc = true;
+        else if (c === '"') inStr = false;
+        continue;
+      }
+      if (c === '"') inStr = true;
+      else if (c === "{") depth++;
+      else if (c === "}") { depth--; if (depth === 0) break; }
+    }
+    if (depth !== 0) break;                      /* this one was cut off */
+    try {
+      out[m[1]] = JSON.parse(text.slice(m.index + m[0].length - 1, i + 1));
+      found++;
+      re.lastIndex = i + 1;
+    } catch (e) { break; }
+  }
+  return found ? out : null;
 }
 
 const SYSTEM = [
@@ -213,6 +252,8 @@ export async function handler(req, res) {
        from the model. One paginated pass covers the whole collection. */
     let pressingOf = {};
     let cfgAuth = null;
+    /* the long form, shown to the model and nowhere else */
+    const evidenceOf = {};
     if (only !== "rate" && only !== "press") {   /* identity needed for the owned score */
       try {
         const cfg = await getConfig(["discogs_token", "discogs_secret", "discogs_user"]);
@@ -223,6 +264,11 @@ export async function handler(req, res) {
           };
           cfgAuth = auth;     /* kept for the per-release lookups below */
           let page = 1, pages = 1;
+          /* A pressing-score run looks each record up individually below,
+             which covers everything this listing gives and more. Skipping
+             the listing there saves several requests and seconds that the
+             batch cannot spare. */
+          if (only === "owned") pages = 0;
           while (page <= pages && page <= 40) {
             const r = await fetch("https://api.discogs.com/users/" +
               encodeURIComponent(cfg.discogs_user) +
@@ -260,19 +306,30 @@ export async function handler(req, res) {
 
     /* Full release details for just this batch, where a pressing score
        is being asked for. Paced gently: Discogs allows 60 a minute. */
+    /* Bounded in time as well as count. The sheet is written only after
+       the AI replies, so a batch that overruns the server's time limit
+       is cut off and saves nothing at all \u2014 which is how a run could
+       start, work, and leave the sheet empty. Whatever has not been
+       looked up when the budget runs out goes to the model with the
+       details it has. */
     if (only !== "rate" && only !== "press" && cfgAuth) {
+      const t0 = Date.now();
       for (const it of chunk) {
         if (it.haveOwned || !it.id) continue;
+        if (Date.now() - t0 > 20000) break;
         const full = await releaseIdentity(it.id, cfgAuth);
-        if (full) pressingOf[it.id] = full;
-        await new Promise(function (r) { setTimeout(r, 1100); });
+        if (full){
+          evidenceOf[it.id] = full.full;
+          if (full.short) pressingOf[it.id] = full.short;   /* the name goes to the sheet */
+        }
+        await new Promise(function (r) { setTimeout(r, 700); });
       }
     }
     const listing = chunk.map(function (it, n) {
       /* The copy they own, identified from Discogs — label, catalogue
          number and year. This is what the owned-pressing score is
          judged against, so it has to reach the model. */
-      var owned = (it.id && pressingOf[it.id]) || "";
+      var owned = (it.id && (evidenceOf[it.id] || pressingOf[it.id])) || "";
       return (n + 1) + ". " + it.artist + " \u2014 " + it.title +
              (it.year ? " (" + it.year + ")" : "") +
              "\n   their copy: " + (owned || "unknown");
@@ -282,9 +339,22 @@ export async function handler(req, res) {
       return JSON.stringify({
         system_instruction: { parts: [{ text: SYSTEM }] },
         contents: [{ role: "user", parts: [{ text:
-          "Assess these " + chunk.length + " albums:\n\n" + listing }] }],
+          "Assess these " + chunk.length + " albums:\n\n" + listing +
+          /* When only one column is being filled, ask for only that. The
+             full answer \u2014 score, reason, preferred pressing and the copy's
+             score \u2014 is three or four times longer, and a long reply is
+             what got cut off and lost the whole batch. */
+          (only === "owned"
+            ? '\n\nReturn ONLY the "owned" object for each, e.g. ' +
+              '{"1":{"owned":{"score":8.5,"why":"..."}}}. Keep "why" to one sentence.'
+            : only === "rate"
+              ? '\n\nReturn ONLY "rating" and "why" for each.'
+              : only === "press"
+                ? '\n\nReturn ONLY "pressing" for each.'
+                : "") }] }],
         generationConfig: {
-          maxOutputTokens: 180 * chunk.length + 400,
+          /* Generous: a reply that runs out of room is cut off mid-JSON. */
+          maxOutputTokens: 400 * chunk.length + 800,
           temperature: 0,        /* as repeatable as the API allows */
           seed: 7,
           responseMimeType: "application/json",
@@ -310,10 +380,22 @@ export async function handler(req, res) {
     try {
       parsed = JSON.parse(String(out.text || "").replace(/```json/gi, "").replace(/```/g, "").trim());
     } catch (e) { parsed = null; }
+    /* A reply cut off part-way still holds every entry before the break.
+       Throwing all of it away over the last, half-written one meant a
+       batch of twelve could write nothing at all \u2014 and the next run
+       asked for the same twelve and failed the same way. Keep what is
+       whole; the rest are still blank and come round in the next batch. */
+    let salvaged = false;
+    if (!parsed) {
+      parsed = salvageNumbered(String(out.text || ""));
+      salvaged = !!parsed;
+    }
     if (!parsed) {
       return res.status(502).json({
-        error: "unparseable reply",
-        detail: String(out.text || "").slice(0, 200)
+        error: "the reply couldn't be read",
+        detail: String(out.text || "").slice(0, 200),
+        hint: "Nothing complete arrived. Run it again; if it keeps happening, " +
+              "the batch may be too large for the model's reply length."
       });
     }
 
@@ -360,7 +442,8 @@ export async function handler(req, res) {
     const remaining = Math.max(0, todo.length - filled);
     return res.status(200).json({
       ok: true, filled: filled, checked: chunk.length,
-      remaining: remaining, done: remaining === 0
+      remaining: remaining, done: remaining === 0,
+      partial: salvaged
     });
   } catch (err) {
     return res.status(502).json({ error: String(err && err.message ? err.message : err) });
