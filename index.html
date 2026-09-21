@@ -31,12 +31,13 @@
         </svg>
       </button></div>
     <div class="tabs" id="tabs">
+      <!-- What you own first, then what you might get, then the rest. -->
       <button class="tab" data-v="shelf" aria-pressed="true">Shelf</button>
+      <button class="tab" data-v="dash" aria-pressed="false">Collection</button>
       <button class="tab" data-v="discover" aria-pressed="false">Discover</button>
       <button class="tab" data-v="radar" aria-pressed="false">Radar</button>
       <button class="tab" data-v="value" aria-pressed="false">Value</button>
       <button class="tab" data-v="want" aria-pressed="false">Wantlist</button>
-      <button class="tab" data-v="dash" aria-pressed="false">Collection</button>
       <button class="tab" data-v="hifi" aria-pressed="false">Setup</button>
     </div>
     <div id="shelfhead">
@@ -282,8 +283,11 @@ Settings are behind the gear, top right.
           <line x1="12" y1="17.5" x2="12" y2="21"></line>
         </svg>
       </button>
-      <input id="askq" type="text" autocomplete="off"
-             placeholder="What are you in the mood for?" aria-label="Ask for a listening suggestion">
+      <!-- A text area rather than an input: a one-line field scrolled
+           sideways and hid what you had written, and on a phone the
+           return key sent the message. -->
+      <textarea id="askq" rows="1" autocomplete="off"
+             placeholder="What are you in the mood for?" aria-label="Ask for a listening suggestion"></textarea>
       <button class="iconbtn" id="asksend" aria-label="Send">&#8593;</button>
     </div>
   </div>
@@ -325,7 +329,7 @@ Settings are behind the gear, top right.
 <script src="js/ptr.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/app.js"></script>
-<script src="js/ptr.js"></script>
+
 <script>
 /* Offline support. Registered last and guarded, so a browser without
    service workers (or a page opened over file://) just carries on. */
