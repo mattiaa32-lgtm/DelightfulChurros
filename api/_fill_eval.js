@@ -402,7 +402,21 @@ export async function handler(req, res) {
     const cells = [];
     let filled = 0;
     chunk.forEach(function (it, n) {
-      const v = parsed[String(n + 1)] || parsed[n + 1];
+      /* Models answer in more than one shape, and every shape the code
+         did not expect meant a batch that "succeeded" while writing
+         nothing \u2014 then asked for the same records again, forever. So
+         the reply is normalised before it is read:
+           an array instead of numbered keys;
+           the fields without their "owned" wrapper (which the request
+             for "only the owned object" all but invites);
+           a bare number where an object was expected. */
+      let v = Array.isArray(parsed) ? parsed[n] : (parsed[String(n + 1)] || parsed[n + 1]);
+      if (v == null) return;
+      if (typeof v === "number") v = { owned: { score: v } };
+      if (only === "owned" && v && v.owned === undefined && v.score !== undefined) {
+        v = { owned: { score: v.score, why: v.why || v.reason || "" } };
+      }
+      if (v && typeof v.owned === "number") v.owned = { score: v.owned };
       if (!v) return;
       let wrote = false;
       if (!it.haveRating && v.rating !== undefined && v.rating !== null) {
@@ -438,6 +452,19 @@ export async function handler(req, res) {
     });
 
     if (cells.length) await sheetCall({ action: "setCells", cells: cells });
+
+    /* A batch that read a reply but could use none of it must not report
+       success: the app would ask for the same records again and loop
+       without end, which is exactly what "it starts and nothing gets
+       written" was. Say so, with a sample of what came back, so the next
+       report names the real problem instead of a guess. */
+    if (filled === 0 && chunk.length) {
+      return res.status(502).json({
+        error: "the model replied, but in a form nothing could be written from",
+        detail: String(out.text || "").slice(0, 300),
+        model: out.model || null
+      });
+    }
 
     const remaining = Math.max(0, todo.length - filled);
     return res.status(200).json({
