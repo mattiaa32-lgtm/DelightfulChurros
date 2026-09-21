@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- "black" rather than "black-translucent": with translucent the page
+     drew underneath the status bar, and iOS blurs and fades web content
+     in that strip. Clearance helped only partly, because the fade reaches
+     a variable distance below the bar. With "black" the page starts
+     below the status bar, so nothing of ours is ever in that zone.
+     iOS reads this when the app is added to the home screen, so an
+     already-installed copy needs removing and re-adding to pick it up. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#12100E">
 <title>Shelf</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
