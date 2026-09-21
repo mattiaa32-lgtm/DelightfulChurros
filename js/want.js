@@ -131,8 +131,8 @@ function renderWantView(){
     (got.length
       ? "<div class='gotsec'><div class='ktitle'>Arrived \u2014 now on the shelf</div>" +
         got.slice().reverse().map(function(e){
-          return "<div class='gotrow'>" + esc(e.artist || "") + " \u2014 " +
-                 esc(e.title || "") + "</div>";
+          return "<div class='gotrow'>" + esc(e.title || "") + " \u2014 " +
+                 esc(e.artist || "") + "</div>";
         }).join("") +
         "<div class='addrow' style='margin-top:10px'>" +
           "<button class='chip' id='wantclear'>Clear these " + got.length + "</button>" +
@@ -360,8 +360,8 @@ function wantSearch(){
           " data-cover=\"" + esc(h.thumb || "") + "\">" +
           (h.thumb ? "<img src='" + esc(h.thumb) + "' alt='' loading='lazy'>"
                    : "<span class='wantnoart'></span>") +
-          "<span class='wantinfo'><b>" + esc(artist) + "</b>" +
-          "<span>" + esc(title) +
+          "<span class='wantinfo'><b>" + esc(title) + "</b>" +
+          "<span>" + esc(artist) +
             (h.year ? " \u00b7 " + esc(String(h.year)) : "") +
             (h.label ? " \u00b7 " + esc(h.label) : "") + "</span></span>" +
           "<span class='wantpick'>" +
