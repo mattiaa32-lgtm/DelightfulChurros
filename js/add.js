@@ -57,8 +57,8 @@ function renderPlacement(){
     "<div class='placewhere'>Would go in <b>" + esc(p.cubeName) + "</b>, " +
       "position " + p.position + " of " + (p.count + 1) + " in " + esc(c) + "</div>" +
     "<p class='placenb'>" +
-      (p.before ? "After &nbsp;" + esc(p.before.a) + " \u2014 " + esc(p.before.t) + "<br>" : "At the start<br>") +
-      (p.after ? "Before " + esc(p.after.a) + " \u2014 " + esc(p.after.t) : "At the end") +
+      (p.before ? "After &nbsp;" + esc(p.before.t) + " \u2014 " + esc(p.before.a) + "<br>" : "At the start<br>") +
+      (p.after ? "Before " + esc(p.after.t) + " \u2014 " + esc(p.after.a) : "At the end") +
     "</p>" +
     "<p class='hint'>Filed under \u201c" + esc(artistSortKey(a).split(" ")[0]) + "\u201d.</p>";
 }
@@ -156,7 +156,7 @@ var pending = {};   /* the Discogs release currently chosen */
       document.getElementById("adddiscogs").value = id;
       pending = d || {};
       document.getElementById("addresults").innerHTML =
-        "<p class='hint'>Selected: " + esc((d.artist || "") + " \u2014 " + (d.title || "")) +
+        "<p class='hint'>Selected: " + esc((d.title || "") + " \u2014 " + (d.artist || "")) +
         (d.year ? " (" + esc(String(d.year)) + ")" : "") + "</p>";
       renderPlacement();
     })
