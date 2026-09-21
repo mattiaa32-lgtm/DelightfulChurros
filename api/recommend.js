@@ -164,12 +164,15 @@ export default async function handler(req, res) {
     history.forEach(function (m) {
       contents.push({
         role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: String(m.text || "").slice(0, 2000) }]
+        parts: [{ text: String(m.text || "").slice(0, 12000) }]
       });
     });
     contents.push({
       role: "user",
-      parts: [{ text: String(payload.message || "").slice(0, 2000) }]
+      /* Was 2,000 characters, which silently cut long messages short.
+         This is a guard against runaway input, not a limit anyone
+         writing a message should meet. */
+      parts: [{ text: String(payload.message || "").slice(0, 12000) }]
     });
   } else {
     const cats = [];
