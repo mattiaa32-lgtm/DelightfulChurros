@@ -473,6 +473,9 @@ export async function handler(req, res) {
       partial: salvaged
     });
   } catch (err) {
-    return res.status(502).json({ error: String(err && err.message ? err.message : err) });
+    /* busy: Google's sheet service answered with its error page. Worth
+       waiting and trying the same batch again, and the app does so. */
+    return res.status(502).json({ error: String(err && err.message ? err.message : err),
+                                  busy: !!(err && err.busy) });
   }
 }
