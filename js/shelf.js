@@ -15,8 +15,10 @@ var COLLECTION_LOADING = true;
 (function(){
   var res = document.getElementById("results");
   if (res && !res.innerHTML.trim()){
-    res.innerHTML = "<div class='loading'><span class='spinner'></span>" +
-      "<span>Gathering your collection\u2026</span></div>";
+    res.innerHTML = (typeof skeletonHTML === "function"
+        ? skeletonHTML(shelfView() === "grid" ? "tile" : "row", 8)
+        : "<div class='loading'><span class='spinner'></span>" +
+          "<span>Gathering your collection\u2026</span></div>");
   }
 })();
 
@@ -24,8 +26,10 @@ function render(){
   if (COLLECTION_LOADING && !RECS.length){
     var res = document.getElementById("results");
     if (res) res.innerHTML =
-      "<div class='loading'><span class='spinner'></span>" +
-      "<span>Gathering your collection\u2026</span></div>";
+      (typeof skeletonHTML === "function"
+        ? skeletonHTML(shelfView() === "grid" ? "tile" : "row", 8)
+        : "<div class='loading'><span class='spinner'></span>" +
+          "<span>Gathering your collection\u2026</span></div>");
     return;
   }
   var q=document.getElementById("q").value.trim();
@@ -53,9 +57,33 @@ function render(){
     }
     el.innerHTML="<p class='empty'>Nothing matching \u201c"+esc(q)+"\u201d.<br>"+
       "Try part of the artist name, or one word from the title.</p>";return;}
-  el.innerHTML=list.map(rowHTML).join("");
+  SHELF_ORDER=list.map(function(r){return r.i;});
+  var grid=shelfView()==="grid";
+  el.classList.toggle("grid",grid);
+  el.innerHTML=list.map(grid?tileHTML:rowHTML).join("");
   fillArt(el);
+  paintViewToggle();
 }
+/* List or cover grid. Kept in the shared settings, so the shelf looks
+   the same on every device. */
+function shelfView(){
+  try { return localStorage.getItem("shelfView") === "grid" ? "grid" : "list"; }
+  catch (e) { return "list"; }
+}
+
+/* The records currently on screen, in order. Swiping through the card
+   follows this \u2014 so it walks the cube or search you are looking at,
+   not the whole collection. */
+var SHELF_ORDER = [];
+
+/* A cover, large, with the title and artist beneath: how a crate is
+   browsed. The same click handler as a row, so it opens the same card. */
+function tileHTML(r){
+  return "<button class='row tile' data-i='"+r.i+"'>"+artBox(r,"tileart")+
+    "<span class='tmeta'><span class='title'>"+esc(r.t)+"</span>"+
+    "<span class='artist'>"+esc(r.a)+"</span></span></button>";
+}
+
 function rowHTML(r){
   return "<button class='row' data-i='"+r.i+"'>"+artBox(r)+
     /* Title first: the album is what you are looking for, the artist
@@ -93,8 +121,19 @@ function scoreBlock(label, raw){
   "</div>";
 }
 
-function open(i){
+/* Where this record sits in what is on screen. Opened from somewhere
+   else \u2014 the chat, the Top 10 \u2014 it isn't in the current list, so the
+   whole shelf is the sequence instead. */
+var CARD_I=null;
+function cardOrder(){
+  return SHELF_ORDER.length ? SHELF_ORDER : RECS.map(function(r){return r.i;});
+}
+function open(i, dir){
   var r=RECS[i];
+  CARD_I=i;
+  var order=cardOrder();
+  if(order.indexOf(i)<0) order=RECS.map(function(x){return x.i;});
+  var pos=order.indexOf(i);
   var inCube=RECS.filter(function(x){return x.k===r.k;});
   var before=inCube[r.p-2],after=inCube[r.p];
   var nb="";
@@ -108,11 +147,20 @@ function open(i){
              encodeURIComponent(artistQ(r.a)+" "+titleQ(r.t));
   document.getElementById("card").innerHTML=
     "<div class='grab'></div>"+
-    "<div class='head'>"+artBox(r)+"<div class='hmeta'>"+
+    /* The sleeve leads: it is the most recognisable thing about a
+       record. It is also where you swipe \u2014 sideways for the next
+       record on the shelf, down to close. */
+    "<div class='hero'>"+
+      "<button class='heronav prev' aria-label='Previous record'"+(pos>0?"":" disabled")+">\u2039</button>"+
+      artBox(r,"heroart")+
+      "<button class='heronav next' aria-label='Next record'"+(pos>-1&&pos<order.length-1?"":" disabled")+">\u203a</button>"+
+    "</div>"+
+    (order.length>1&&pos>-1?"<div class='herocount'>"+(pos+1)+" of "+order.length+"</div>":"")+
+    "<div class='hmeta'>"+
       (r.d?"":"<div class='wish'>Not on the shelf yet</div>")+
       "<div class='d-title' id='dtitle'>"+esc(r.t)+"</div>"+
       "<div class='d-artist'>"+esc(r.a)+"</div>"+
-      "<div class='d-desc' data-i='"+r.i+"'>"+(r.desc?esc(r.desc):"")+"</div></div></div>"+
+      "<div class='d-desc' data-i='"+r.i+"'>"+(r.desc?esc(r.desc):"")+"</div></div>"+
     "<div class='shelf'>"+holes(r)+"</div>"+
     /* Three separate judgements, each labelled, because a bare number
        above "Pressing score" reads as if the two are the same thing.
@@ -152,49 +200,104 @@ function open(i){
     (isOwner() ? "<button class='chip owner-only' id='movebtn' data-i='"+r.i+"'>Move this record</button>" : "")+
     "<button class='close'>Close</button>";
   document.getElementById("sheet").classList.add("open");
-  fillArt(document.getElementById("card"));
+  var cardEl=document.getElementById("card");
+  /* Slide in from the side it came from, so moving through records
+     reads as moving along the shelf. */
+  cardEl.classList.remove("slide-l","slide-r");
+  if(dir){ void cardEl.offsetWidth; cardEl.classList.add(dir>0?"slide-l":"slide-r"); }
+  if(dir) cardEl.scrollTop=0;
+  cardEl.querySelector(".heronav.prev").addEventListener("click",function(e){e.stopPropagation();step(-1);});
+  cardEl.querySelector(".heronav.next").addEventListener("click",function(e){e.stopPropagation();step(1);});
+  fillArt(cardEl);
   /* This record's own price history, from the weekly readings. */
   var rv = document.querySelector("#card .recval");
   if (rv && typeof drawRecordValue === "function") drawRecordValue(rv, r);
   upgradeDetailArt(r);
   upgradeDetailDesc(r);
 }
-function close(){document.getElementById("sheet").classList.remove("open");}
+function close(){document.getElementById("sheet").classList.remove("open");CARD_I=null;}
+
+/* The next or previous record in the current sequence. */
+function step(dir){
+  if(CARD_I===null)return;
+  var order=cardOrder();
+  if(order.indexOf(CARD_I)<0) order=RECS.map(function(x){return x.i;});
+  var to=order[order.indexOf(CARD_I)+dir];
+  if(to===undefined)return;
+  open(to,dir);
+}
 
 document.getElementById("results").addEventListener("click",function(e){
   var b=e.target.closest(".row");if(b)open(+b.dataset.i);});
 document.getElementById("sheet").addEventListener("click",function(e){
   if(e.target.id==="sheet"||e.target.classList.contains("close"))close();});
-document.addEventListener("keydown",function(e){if(e.key==="Escape")close();});
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape")close();
+  /* Arrow keys walk the shelf while a card is open. */
+  if(CARD_I!==null&&document.getElementById("sheet").classList.contains("open")){
+    if(e.key==="ArrowRight"){e.preventDefault();step(1);}
+    if(e.key==="ArrowLeft"){e.preventDefault();step(-1);}
+  }
+});
 
-/* ---- drag the card down to dismiss it, from the handle or the header ---- */
+/* ---- gestures on the card ----------------------------------------
+   Sideways moves to the neighbouring record; down closes the card.
+   The handle and the cover take both directions. The rest of the card
+   scrolls normally, and still passes a clearly sideways swipe through,
+   so you can browse without aiming for the cover.
+
+   The direction is decided from the first few pixels of movement and
+   then held, so a slightly diagonal swipe does not do both at once. */
 (function(){
   var sheetEl=document.getElementById("sheet"),card=document.getElementById("card");
-  var dragging=false,startY=0,startT=0,lastY=0,lastT=0;
+  var g=null;
+
   card.addEventListener("pointerdown",function(e){
-    if(!e.target.closest(".grab,.head"))return;
-    dragging=true;
-    startY=lastY=e.clientY; startT=lastT=e.timeStamp;
-    card.style.transition="none";
-    if(card.setPointerCapture)card.setPointerCapture(e.pointerId);
+    if(e.target.closest("a,button,select,input,textarea,label,.svc"))return;
+    var both=!!e.target.closest(".grab,.hero");
+    g={both:both,axis:null,x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY,
+       t0:e.timeStamp,t:e.timeStamp,id:e.pointerId};
   });
+
   card.addEventListener("pointermove",function(e){
-    if(!dragging)return;
-    lastY=e.clientY; lastT=e.timeStamp;
-    var dy=Math.max(0,lastY-startY);
-    card.style.transform="translateY("+dy+"px)";
-    sheetEl.style.opacity=String(Math.max(0.4,1-dy/500));
+    if(!g||e.pointerId!==g.id)return;
+    g.x=e.clientX;g.y=e.clientY;g.t=e.timeStamp;
+    var dx=g.x-g.x0,dy=g.y-g.y0;
+    if(!g.axis){
+      if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
+      if(Math.abs(dx)>Math.abs(dy)*1.2) g.axis="x";
+      else if(g.both&&dy>0) g.axis="y";
+      else { g=null; return; }          /* an ordinary vertical scroll */
+      card.style.transition="none";
+      if(card.setPointerCapture)card.setPointerCapture(e.pointerId);
+    }
+    if(g.axis==="x"){
+      card.style.transform="translateX("+dx*0.6+"px)";
+    } else {
+      var d=Math.max(0,dy);
+      card.style.transform="translateY("+d+"px)";
+      sheetEl.style.opacity=String(Math.max(0.4,1-d/500));
+    }
   });
-  function release(){
-    if(!dragging)return;
-    dragging=false;
-    var dy=Math.max(0,lastY-startY),dt=Math.max(1,lastT-startT),v=dy/dt;
-    card.style.transition=""; sheetEl.style.opacity="";
-    if(dy>90||(dy>36&&v>0.5))close();
-    card.style.transform="";
+
+  function release(e){
+    if(!g)return;
+    var dx=g.x-g.x0,dy=g.y-g.y0,dt=Math.max(1,g.t-g.t0),axis=g.axis;
+    g=null;
+    card.style.transition="";sheetEl.style.opacity="";card.style.transform="";
+    if(axis==="x"){
+      var v=Math.abs(dx)/dt;
+      if(Math.abs(dx)>70||(Math.abs(dx)>30&&v>0.5)) step(dx<0?1:-1);
+    } else if(axis==="y"){
+      var vy=dy/dt;
+      if(dy>90||(dy>36&&vy>0.5))close();
+    }
   }
   card.addEventListener("pointerup",release);
-  card.addEventListener("pointercancel",release);
+  card.addEventListener("pointercancel",function(){
+    if(!g)return; g=null;
+    card.style.transition="";sheetEl.style.opacity="";card.style.transform="";
+  });
 })();
 
 document.getElementById("q").addEventListener("input",render);
@@ -278,3 +381,28 @@ function resolvedDesc(r){
    them to tell "not resolved" from "resolved but not yet in the sheet". */
 
 /* ---- optional Google Sheet ---- */
+
+
+/* ---- list or grid -------------------------------------------------- */
+function paintViewToggle(){
+  var b=document.getElementById("viewtoggle");
+  if(!b)return;
+  var grid=shelfView()==="grid";
+  b.setAttribute("aria-pressed",grid?"true":"false");
+  b.setAttribute("aria-label",grid?"Show as a list":"Show as a grid of covers");
+  b.title=grid?"Show as a list":"Show as a grid of covers";
+  /* shows the view you would switch TO */
+  b.innerHTML=grid
+    ? "<svg viewBox='0 0 16 16' width='15' height='15' aria-hidden='true'><rect x='1' y='2.5' width='14' height='2' rx='1' fill='currentColor'/><rect x='1' y='7' width='14' height='2' rx='1' fill='currentColor'/><rect x='1' y='11.5' width='14' height='2' rx='1' fill='currentColor'/></svg>"
+    : "<svg viewBox='0 0 16 16' width='15' height='15' aria-hidden='true'><rect x='1' y='1' width='6' height='6' rx='1' fill='currentColor'/><rect x='9' y='1' width='6' height='6' rx='1' fill='currentColor'/><rect x='1' y='9' width='6' height='6' rx='1' fill='currentColor'/><rect x='9' y='9' width='6' height='6' rx='1' fill='currentColor'/></svg>";
+}
+(function(){
+  var b=document.getElementById("viewtoggle");
+  if(!b)return;
+  b.addEventListener("click",function(){
+    try{localStorage.setItem("shelfView",shelfView()==="grid"?"list":"grid");}catch(e){}
+    if(typeof pushShared==="function")pushShared();   /* same view on every device */
+    render();
+  });
+  paintViewToggle();
+})();
