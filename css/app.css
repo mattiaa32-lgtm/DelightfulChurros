@@ -1115,3 +1115,52 @@ header{padding-top:max(14px, calc(env(safe-area-inset-top, 0px) + 12px))}
 .topinfo span{font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tops{flex:0 0 auto;font-size:16px;font-weight:600;color:var(--accent);
   letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+
+/* ================================================================
+   Title first, artist second \u2014 everywhere
+   The album is what you are scanning for; the artist says which one.
+   So the title leads, bold and larger, and the artist sits beneath it
+   in a lighter, smaller, regular weight. Previously the artist led in
+   spaced capitals, which made the list read as a list of bands.
+   One set of rules for every place a record appears, so they cannot
+   drift apart again.
+   ================================================================ */
+
+/* shelf list */
+.meta .title{font-size:16px;font-weight:600;color:var(--text);line-height:1.3;
+  letter-spacing:-.01em;-webkit-line-clamp:2}
+.meta .artist{display:block;font-family:var(--sans);font-size:13px;font-weight:400;
+  letter-spacing:0;text-transform:none;color:var(--muted);margin:2px 0 0}
+
+/* record card, and the chat's card for a record you don't own */
+.d-title,.ct{font-size:22px;font-weight:600;line-height:1.25;margin:4px 0 0;
+  letter-spacing:-.015em;color:var(--text)}
+.d-artist,.ca{font-family:var(--sans);font-size:15px;font-weight:400;letter-spacing:0;
+  text-transform:none;color:var(--muted);margin:4px 0 0}
+
+/* Discover, radar, wantlist and chat suggestions */
+.rinfo .rt{font-size:16px;font-weight:600;line-height:1.3;color:var(--text)}
+.rinfo .ra{display:block;font-family:var(--sans);font-size:13px;font-weight:400;
+  letter-spacing:0;text-transform:none;color:var(--muted);margin:2px 0 0}
+.rinfo .rmeta{margin-top:4px}
+
+/* new arrivals */
+.atitle{font-size:15.5px;font-weight:600;color:var(--text);margin:0}
+.aartist{font-size:13px;letter-spacing:0;text-transform:none;color:var(--muted);margin:2px 0 8px}
+
+/* top 10 and the wantlist search */
+.topinfo b{font-size:15px;font-weight:600;color:var(--text)}
+.topinfo span{font-size:12.5px}
+.wantinfo b{font-size:14.5px;font-weight:600;color:var(--text)}
+
+/* ---- sub-tabs within a tab ---- */
+.subtabs{display:flex;gap:4px;margin:4px 0 16px;padding:3px;
+  border:1px solid var(--line);border-radius:9px;overflow-x:auto;scrollbar-width:none}
+.subtabs::-webkit-scrollbar{display:none}
+.subtab{flex:1 0 auto;background:transparent;border:0;border-radius:6px;
+  padding:8px 12px;font-family:var(--sans);font-size:12.5px;color:var(--muted);
+  cursor:pointer;white-space:nowrap}
+.subtab.on{background:var(--surface2);color:var(--text);font-weight:600}
+.subtab:hover:not(.on){color:var(--text)}
+/* the first card in a pane doesn't need its own top rule */
+.dashpane > div > .topcard:first-child{margin-top:0;padding-top:0;border-top:0}
