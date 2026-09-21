@@ -1164,3 +1164,84 @@ header{padding-top:max(14px, calc(env(safe-area-inset-top, 0px) + 12px))}
 .subtab:hover:not(.on){color:var(--text)}
 /* the first card in a pane doesn't need its own top rule */
 .dashpane > div > .topcard:first-child{margin-top:0;padding-top:0;border-top:0}
+.topmore{display:block;width:100%;margin-top:10px;padding:10px;background:transparent;
+  border:1px dashed var(--line);border-radius:7px;color:var(--muted);cursor:pointer;
+  font-family:var(--sans);font-size:12.5px}
+.topmore:hover{color:var(--accent);border-color:var(--accent)}
+/* the rank column widens for three-digit positions */
+.topn{flex-basis:1.9em}
+
+/* ================================================================
+   The record card's cover, and the cover grid
+   Both were built in the markup but their styles never landed, so the
+   card's cover drew at list-thumbnail size (46px) with bare arrows
+   beside it, and the grid would have rendered as an unstyled list.
+   ================================================================ */
+
+/* ---- the card: the sleeve leads ---- */
+.hero{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 10px;
+  touch-action:pan-y}
+.heroart{width:min(62vw,280px);height:min(62vw,280px);border-radius:6px;flex:0 0 auto;
+  box-shadow:0 16px 34px -14px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.04)}
+.heroart .ph{font-size:56px}
+.heronav{flex:0 0 auto;width:34px;height:34px;border-radius:50%;
+  background:transparent;border:1px solid var(--line);color:var(--muted);
+  font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;padding:0 0 2px}
+.heronav:hover:not(:disabled){color:var(--text);border-color:var(--muted)}
+.heronav:disabled{opacity:.2;cursor:default}
+.herocount{text-align:center;font-size:11px;color:var(--dim);letter-spacing:.08em;
+  margin:0 0 14px;font-variant-numeric:tabular-nums}
+.hmeta{text-align:center;margin-bottom:6px}
+.hmeta .d-desc{text-align:left}
+@media (max-width:380px){
+  .heronav{width:28px;height:28px;font-size:17px}
+  .heroart{width:58vw;height:58vw}
+}
+
+/* ---- the shelf as a grid of covers ---- */
+.results.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:18px 14px;padding-top:14px}
+@media (max-width:560px){
+  .results.grid{grid-template-columns:repeat(2,1fr);gap:16px 12px}
+}
+.row.tile{display:flex;flex-direction:column;align-items:stretch;gap:8px;
+  padding:0;border:0;text-align:left}
+.tileart{width:100%;height:auto;aspect-ratio:1;border-radius:5px;
+  box-shadow:0 10px 22px -12px rgba(0,0,0,.7)}
+.tileart .ph{font-size:34px}
+.tmeta{display:flex;flex-direction:column;min-width:0}
+.tmeta .title{font-size:14px;font-weight:600;color:var(--text);line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tmeta .artist{display:block;font-family:var(--sans);font-size:12px;font-weight:400;
+  letter-spacing:0;text-transform:none;color:var(--muted);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.tile:hover .tmeta .title{color:var(--accent)}
+/* the cube marker has no room on a tile */
+.row.tile .mini{display:none}
+
+/* the list/grid switch sits beside search */
+#viewtoggle{flex:0 0 auto}
+#viewtoggle[aria-pressed="true"]{color:var(--accent);border-color:rgba(180,101,58,.5)}
+
+/* ---- placeholders ---- */
+.sk{display:block;background:var(--surface2);border-radius:4px;position:relative;overflow:hidden}
+/* a slow sheen, so it reads as loading rather than as broken */
+.sk::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.045),transparent);
+  transform:translateX(-100%);animation:sheen 1.4s ease-in-out infinite}
+@keyframes sheen{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion: reduce){ .sk::after{animation:none} }
+.sk-wrap{padding-top:12px}
+.sk-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.sk-card{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.sk-thumb{width:46px;height:46px;flex:0 0 auto}
+.sk-card .sk-thumb{width:64px;height:64px}
+.sk-lines{flex:1 1 auto;display:flex;flex-direction:column;gap:7px;min-width:0}
+.sk-line{height:12px}
+.sk-line.thin{height:9px}
+.sk-tile{display:flex;flex-direction:column;gap:7px}
+.sk-cover{width:100%;aspect-ratio:1;border-radius:5px}
+.sk-text{display:flex;flex-direction:column;gap:9px;padding-top:4px}
+.w35{width:35%}.w40{width:40%}.w45{width:45%}.w55{width:55%}.w60{width:60%}
+.w70{width:70%}.w80{width:80%}.w90{width:90%}.w95{width:95%}.w100{width:100%}
