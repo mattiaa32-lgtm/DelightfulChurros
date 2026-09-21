@@ -1,5 +1,5 @@
 /* =================== tabs & bootstrap =================== */
-var VIEWS=["shelf","discover","radar","value","want","dash","hifi"];
+var VIEWS=["shelf","dash","discover","radar","value","want","hifi"];
 function showView(v){
   VIEWS.forEach(function(n){
     var el=document.getElementById("view-"+n);
