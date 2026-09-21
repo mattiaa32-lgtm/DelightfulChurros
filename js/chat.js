@@ -3,16 +3,27 @@
    but we still resolve every pick against RECS before rendering \u2014 if
    it invents or mangles one, it simply doesn't appear rather than
    showing a record that isn't on the shelf. */
-var chatStarted=false,chatHistory=[],chatBusy=false;
-var chatMode="shelf";   /* "shelf" = play what I own, "new" = discover */
+var chatStarted=false,chatBusy=false;
+var chatMode="shelf";   /* "shelf" = what to play, "new" = ask anything */
+/* Two separate conversations. Each keeps its own messages and its own
+   history, so switching back to one carries on from its last message
+   rather than mixing a request for tonight's record into a question
+   about Krautrock. */
+var chatHistories={shelf:[],new:[]};
+function chatHistoryFor(m){ return chatHistories[m||chatMode]; }
+function chatLog(){ return document.getElementById("chatlog-"+chatMode); }
+/* Each chat opens with its own greeting, once. */
+var CHAT_GREETING={
+  shelf:"What are you in the mood for? A vibe, an activity, or how long you've got.",
+  new:"Ask me anything about music \u2014 an artist, a label, a pressing \u2014 or what to discover next."
+};
 /* A mix of "what should I play" and ordinary questions, so it is clear
    the chat is for both. */
 var SUGGESTIONS={
-  shelf:["Something for a slow Sunday morning","I've got 90 minutes",
-         "Which Pink Floyd do I own most of?","What makes a good first pressing?",
-         "Late night, lights low","Surprise me"],
-  new:["More like my Coltrane records","Where do I start with krautrock?",
-       "Something heavier than I usually go","Who played on Bitches Brew?"]
+  shelf:["Something for a slow Sunday morning","I've got 90 minutes","Something loud",
+         "My best-sounding pressings","Late night, lights low","Surprise me"],
+  new:["Where do I start with krautrock?","What do you think of my pressings?",
+       "More like my Coltrane records","Who played on Bitches Brew?"]
 };
 function renderPrompts(){
   document.getElementById("prompts").innerHTML=SUGGESTIONS[chatMode].map(function(s){
@@ -21,10 +32,14 @@ function renderPrompts(){
 function setChatMode(m){
   if(chatMode===m)return;
   chatMode=m;
+  [].forEach.call(document.querySelectorAll(".chatlog"),function(l){
+    l.hidden = l.id !== "chatlog-"+m;
+  });
+  greetIfNew();
   [].forEach.call(document.querySelectorAll("#chatmode .chip"),function(b){
     b.setAttribute("aria-pressed",b.dataset.m===m);});
   document.getElementById("askq").placeholder = m==="shelf"
-    ? "What are you in the mood for?" : "What kind of thing are you after?";
+    ? "What are you in the mood for?" : "Ask anything about music";
   renderPrompts();
   setChatIntro();
 }
@@ -35,16 +50,18 @@ function setChatIntro(){
   var el=document.getElementById("chatintro");
   if(!el)return;
   el.textContent = chatMode==="shelf"
-    ? "Ask anything about music or your collection. Suggestions come from what you own."
-    : "Ask anything about music. Suggestions go beyond what you own.";
+    ? "Picks what to play from your shelf, knowing how each record sounds and how good your copy is."
+    : "Questions about music and your collection, and records to discover.";
+}
+function greetIfNew(){
+  var log=chatLog();
+  if(log && !log.children.length) addBubble("ai",CHAT_GREETING[chatMode]);
 }
 function startChat(){
   chatStarted=true;
   renderPrompts();
   setChatIntro();
-  if(!chatHistory.length){
-    addBubble("ai","What are you in the mood for? Tell me a vibe, an activity, or how long you've got.");
-  }
+  greetIfNew();
 }
 /* Records they don't own, drawn as the same cards as the daily picks.
    Only when the answer actually suggests some \u2014 a general question
@@ -52,7 +69,7 @@ function startChat(){
 function renderNewPicks(recs){
   if(!Array.isArray(recs)||!recs.length)return;
   rememberSeen(recs);
-  var log=document.getElementById("chatlog"),wrap=document.createElement("div");
+  var log=chatLog(),wrap=document.createElement("div");
   wrap.className="picks";
   wrap.innerHTML=recs.map(recCardHTML).join("");
   [].forEach.call(wrap.querySelectorAll(".rec"),function(card,i){
@@ -68,7 +85,7 @@ function renderNewPicks(recs){
 }
 
 function addBubble(who,text){
-  var log=document.getElementById("chatlog"),d=document.createElement("div");
+  var log=chatLog(),d=document.createElement("div");
   d.className="bub "+(who==="me"?"me":who==="err"?"ai err":"ai");
   d.textContent=text;
   log.appendChild(d);
@@ -93,7 +110,7 @@ function renderPicks(picks){
     if(k>-1&&idxs.indexOf(k)<0)idxs.push(k);
   });
   if(!idxs.length)return;
-  var log=document.getElementById("chatlog"),wrap=document.createElement("div");
+  var log=chatLog(),wrap=document.createElement("div");
   wrap.className="picks";
   wrap.innerHTML=idxs.map(function(k){return rowHTML(RECS[k]);}).join("");
   log.appendChild(wrap);
@@ -107,15 +124,18 @@ function sendAsk(text){
   var thinking=addBubble("ai","");
   thinking.innerHTML="<span class='dots'><span></span><span></span><span></span></span>";
 
-  chatHistory.push({role:"user",text:text});
+  /* The chat this message belongs to, fixed now: if you switch while it
+     is still thinking, the answer still lands in the right thread. */
+  var askedIn=chatMode, hist=chatHistoryFor(askedIn);
+  hist.push({role:"user",text:text});
   aiFetchUser(API_BASE+"recommend",{
     method:"POST",headers:{"Content-Type":"application/json"},
     /* One conversation for both modes, so switching between them
        doesn't lose the thread; "scope" tells the server whether
        suggestions come from the shelf or from beyond it. */
-    body:JSON.stringify({mode:"mood",scope:chatMode==="new"?"new":"shelf",
+    body:JSON.stringify({mode:"mood",scope:askedIn==="new"?"new":"shelf",
                          records:collectionPayload(),
-                         history:chatHistory.slice(0,-1),message:text})
+                         history:hist.slice(0,-1),message:text})
   }).then(function(res){
     if(res.status===429){return res.json().catch(function(){return {};})
       .then(function(q){var e=new Error("busy");e.quota=q&&q.quota;throw e;});}
@@ -125,8 +145,8 @@ function sendAsk(text){
     thinking.remove();
     var reply=(d&&d.reply)?d.reply:"I couldn't come up with something there \u2014 try rephrasing?";
     addBubble("ai",reply);
-    chatHistory.push({role:"assistant",text:reply});
-    if(chatMode==="new") renderNewPicks(d&&d.picks);
+    hist.push({role:"assistant",text:reply});
+    if(askedIn==="new") renderNewPicks(d&&d.picks);
     else renderPicks(d&&d.picks);
     chatBusy=false;
   }).catch(function(err){
