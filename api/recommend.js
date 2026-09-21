@@ -31,8 +31,8 @@ const CHAT_RULES = [
   "  about music gets a real answer \u2014 not a record suggestion in its place.",
   "- Suggest records only when they ask for one, or when a suggestion",
   "  genuinely helps answer the question. Most general questions need none.",
-  "- Match the length to the question: a sentence or two for a quick one,",
-  "  a few short paragraphs for something that deserves it. No essays.",
+  "- Be concise. Two to four sentences is the default. Go longer only when",
+  "  they ask for depth or detail. Never repeat yourself.",
   "- It is a conversation: earlier messages are included, so follow on",
   "  naturally from them rather than starting over each time.",
   "- Be accurate. If you are not sure of a fact, date or pressing detail,",
@@ -43,45 +43,59 @@ const CHAT_RULES = [
   "  how much of an artist, what sits in which genre."
 ].join("\n");
 
+/* "What to play": one job, done well. It sees far more about each record
+   than the general chat \u2014 description, album score, pressing score, year
+   \u2014 so it can choose on how records actually sound and how good the
+   copy is, not just on genre. Answers are short and always come back as
+   records from the shelf. */
 const MOOD_SYSTEM = [
-  "You are a friendly, knowledgeable music companion \u2014 the record-shop regular",
-  "who knows this person's vinyl collection, which is listed below.",
+  "You help someone choose what to play right now from THEIR OWN vinyl",
+  "collection, listed below with what is known about each record: year,",
+  "a short description, an album score out of 10, and a score for their",
+  "particular copy.",
   "",
-  CHAT_RULES,
+  "- Only suggest records from the list. Never invent one.",
+  "- Use what you know about each record, not just its genre: how it sounds,",
+  "  how good it is, and how good their copy is when sound quality matters.",
+  "- Treat one LP as roughly 40 minutes, one side as roughly 20. If they say",
+  "  how long they have, pick a set that fits and say roughly how long it runs.",
+  "- If they give a mood, activity or weather, lead with that, not genre.",
+  "- Pick decisively: 1-3 records unless they ask for more.",
+  "- Be brief: one or two sentences overall, with one short clause per pick",
+  "  on why it fits. The records appear as cards, so do not describe them.",
+  "- If what they want is unclear, ask one short question and leave picks",
+  "  empty.",
+  "- Plain text, no markdown.",
   "",
-  "When you do suggest something to play:",
-  "- Only suggest records that appear in the collection list. Never invent one.",
-  "- Treat one LP as roughly 40 minutes, one side as roughly 20. If they say how",
-  "  long they have, pick a set that fits and say roughly how long it runs.",
-  "- If they give a mood, activity or weather, lead with that rather than genre.",
-  "- Pick decisively: 1-3 records unless they ask for more, each with one short",
-  "  clause on why it fits.",
-  "",
-  "Reply with ONLY a JSON object, no markdown fences, in exactly this shape:",
+  "Reply with ONLY a JSON object, no other text before or after it:",
   '{"reply":"your answer","picks":[{"artist":"...","title":"..."}]}',
-  "Copy artist and title in picks exactly as they appear in the collection list",
-  "so the app can find them. picks is empty whenever you are not suggesting",
-  "something to play \u2014 which, for a general question, is usually."
+  "Copy artist and title in picks exactly as they appear in the list."
 ].join("\n");
 
-/* The same companion, for records they do NOT own. It used to return
-   three cards whatever was typed, with no reply and no memory of the
-   conversation. */
+/* "Ask": everything that isn't choosing what to play \u2014 questions about
+   music, artists, labels, pressings, hi-fi; discovering records they
+   don't own; and broader questions about the collection itself. */
 const NEW_CHAT_SYSTEM = [
   "You are a friendly, knowledgeable music companion for a serious vinyl",
-  "collector. Their collection is listed below; use it to understand their",
-  "taste. In this conversation they are looking beyond what they own.",
+  "collector. Their collection is listed below with what is known about",
+  "each record; use it to understand their taste and to answer questions",
+  "about what they own.",
   "",
   CHAT_RULES,
   "",
-  "When you do suggest records:",
-  "- Suggest albums they do NOT already own. Never one from the list below.",
+  "Recommending records:",
+  "- When they want suggestions, recommend albums they do NOT already own,",
+  "  and put each one in picks \u2014 every album you recommend must be in picks,",
+  "  or it will not appear as a card. Keep the reply itself short; the card",
+  "  carries the detail.",
   "- Genuinely significant records: classics of their genre, revered cult",
   "  albums, important deep cuts. Niche is welcome, random is not.",
   "- Only albums you are confident exist, with the correct artist.",
   "- Up to 3 unless they ask for more.",
+  "- When the question is about records they already own, answer in the",
+  "  reply and leave picks empty.",
   "",
-  "Reply with ONLY a JSON object, no markdown fences, in exactly this shape:",
+  "Reply with ONLY a JSON object, no other text before or after it:",
   '{"reply":"your answer","picks":[{"artist":"...","title":"...","year":"1973",',
   '"genre":"short label","fits":"one of their category names, copied exactly",',
   '"sounds":"2-3 sentences on what it sounds like",',
@@ -128,6 +142,36 @@ const DISCOVER_SYSTEM = [
   "'pressing_search' is extra words to narrow a Discogs search, or an empty string."
 ].join("\n");
 
+/* The first complete JSON object in a piece of text, optionally one that
+   has a given key. String-aware, so braces inside quoted text don't
+   throw the count off. */
+function extractObject(text, needKey) {
+  const t = String(text || "");
+  for (let i = t.indexOf("{"); i > -1; i = t.indexOf("{", i + 1)) {
+    let depth = 0, inStr = false, esc = false, j = i;
+    for (; j < t.length; j++) {
+      const c = t[j];
+      if (inStr) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === '"') inStr = false; continue; }
+      if (c === '"') inStr = true;
+      else if (c === "{") depth++;
+      else if (c === "}") { depth--; if (depth === 0) break; }
+    }
+    if (depth !== 0) continue;
+    try {
+      const o = JSON.parse(t.slice(i, j + 1));
+      if (o && typeof o === "object" && !Array.isArray(o) && (!needKey || needKey in o)) return o;
+    } catch (e) { /* not this one */ }
+  }
+  return null;
+}
+function extractArray(text) {
+  const t = String(text || "");
+  const a = t.indexOf("["), b = t.lastIndexOf("]");
+  if (a < 0 || b <= a) return null;
+  try { const v = JSON.parse(t.slice(a, b + 1)); return Array.isArray(v) ? v : null; }
+  catch (e) { return null; }
+}
+
 function collectionLines(records) {
   if (!Array.isArray(records)) return "";
   return records
@@ -136,7 +180,15 @@ function collectionLines(records) {
       const a = String(r.a || "").slice(0, 80);
       const t = String(r.t || "").slice(0, 80);
       const c = String(r.c || "").slice(0, 40);
-      return "- " + a + " \u2014 " + t + (c ? " [" + c + "]" : "");
+      /* Year, album score, the copy's score and a short description, when
+         the sheet has them: what choosing well depends on. */
+      const bits = [];
+      if (r.y) bits.push(String(r.y).slice(0, 4));
+      if (r.s) bits.push("album " + String(r.s).slice(0, 4));
+      if (r.p) bits.push("copy " + String(r.p).slice(0, 80));
+      return "- " + a + " \u2014 " + t + (c ? " [" + c + "]" : "") +
+             (bits.length ? " (" + bits.join("; ") + ")" : "") +
+             (r.d ? ": " + String(r.d).slice(0, 160) : "");
     })
     .join("\n");
 }
@@ -296,44 +348,37 @@ export default async function handler(req, res) {
     let parsed = null;
     try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
 
+    /* Models sometimes answer in prose and then append the JSON, or wrap
+       the JSON in a sentence. The whole text then fails to parse, and the
+       old fallback returned all of it as the reply \u2014 so the answer
+       appeared twice, the second time as raw JSON, and any recommended
+       record never became a card. Look for the JSON object inside the
+       text first. (This block also held a stray copy of the "one" mode's
+       request-building code, left by an earlier edit that replaced both
+       copies of a matching line; it is gone.) */
+    if (!parsed && mode !== "discover") {
+      parsed = extractObject(raw, mode === "mood" ? "reply" : null);
+    }
+    if (!parsed && mode === "discover") {
+      parsed = extractArray(raw);
+    }
+
     if (!parsed) {
-      // Model didn't return usable JSON. For mood we can still show the
-      // prose; for discover there's nothing safe to render.
-      if (mode === "one") {
-    const artist = String(payload.artist || "").slice(0, 120);
-    const title = String(payload.title || "").slice(0, 160);
-    if (!artist && !title) return res.status(400).json({ error: "artist or title required" });
-
-    system = [
-      "You describe one record for a collector who has just added it to their",
-      "wantlist. Reply with ONLY a JSON object, no markdown fences:",
-      '{"year":"","genre":"","sounds":"","fits":"","why":"","pressing":"",',
-      ' "pressing_why":""}',
-      "",
-      '  "sounds"  two or three sentences on what the record sounds like.',
-      '  "fits"    which ONE of their categories it belongs in, copied exactly',
-      "            from the list below.",
-      '  "why"     one or two sentences on why it suits this collection,',
-      "            naming records they already own where that is the reason.",
-      '  "pressing" which pressing is worth hunting for \u2014 label and era, in',
-      "            words that can be searched. Say plainly if there is no",
-      "            consensus rather than inventing one.",
-      '  "pressing_why" one sentence on why that pressing.',
-      "",
-      "Write about the record. Do not begin with \"The collector\" or describe",
-      "them in the third person.",
-      "",
-      "THEIR CATEGORIES:\n" + (payload.categories || []).join("\n"),
-      "",
-      "THEIR COLLECTION:\n" + collection
-    ].join("\n");
-
-    contents.push({ role: "user", parts: [{ text:
-      "Describe this record: " + artist + " \u2014 " + title }] });
-  } else if (mode === "mood") {
-        return res.status(200).json({ reply: raw, picks: [] });
+      if (mode === "mood") {
+        /* Genuinely no JSON: show the prose, and only the prose. */
+        const prose = raw.split(/\{\s*"reply"/)[0].trim();
+        return res.status(200).json({ reply: prose || raw.trim(), picks: [] });
       }
       return res.status(502).json({ error: "unparseable reply" });
+    }
+
+    /* A chat answer must have a reply string and a picks list, whatever
+       the model sent. */
+    if (mode === "mood") {
+      parsed = {
+        reply: String((parsed && parsed.reply) || "").trim(),
+        picks: Array.isArray(parsed && parsed.picks) ? parsed.picks : []
+      };
     }
 
     return res.status(200).json(parsed);
