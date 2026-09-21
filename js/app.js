@@ -23,11 +23,26 @@ document.getElementById("tabs").addEventListener("click",function(e){
 
 /* payload shared by the AI views: just enough for the model to work
    with, never the whole record objects */
+/* What the chat and recommenders know about each record. It used to be
+   artist, title and genre \u2014 enough to match names, not to choose well.
+   The description, album score and pressing score are already in the
+   sheet, and they are what "something that sounds great tonight"
+   actually depends on. Trimmed, so two hundred records stay a modest
+   request. */
 function collectionPayload(){
+  function num(raw){ var m=/^\s*(\d+(?:\.\d+)?)/.exec(String(raw||"")); return m?m[1]:""; }
   return RECS.map(function(r){
     var o={a:r.a,t:r.t,c:r.c};
     var y=cachedYear(r);
     if(y)o.y=y;
+    if(r.desc)o.d=String(r.desc).replace(/\s+/g," ").slice(0,160);
+    var s=num(r.rate); if(s)o.s=s;
+    if(r.owned){
+      /* score, and which copy it is: "8.0 Germany · Vertigo · 6360 050 · 1971" */
+      var parts=String(r.owned).split("\u2014");
+      var ps=num(parts[0]);
+      if(ps)o.p=ps+(parts[1]?" "+parts[1].trim().slice(0,70):"");
+    }
     return o;
   });
 }
