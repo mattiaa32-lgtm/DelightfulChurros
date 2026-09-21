@@ -163,9 +163,31 @@ function sendAsk(text){
   });
 }
 document.getElementById("asksend").addEventListener("click",function(){
-  var el=document.getElementById("askq");sendAsk(el.value);el.value="";});
+  var el=document.getElementById("askq");
+  if(!el.value.trim())return;
+  sendAsk(el.value);el.value="";sizeAsk();});
+/* Grows with what you write, up to about four lines, then scrolls \u2014
+   the same way most chat boxes behave. */
+function sizeAsk(){
+  var el=document.getElementById("askq");
+  if(!el)return;
+  el.style.height="auto";
+  var max=parseFloat(getComputedStyle(el).lineHeight||"20")*4+22;
+  el.style.height=Math.min(el.scrollHeight,max)+"px";
+  el.style.overflowY=el.scrollHeight>max?"auto":"hidden";
+}
+document.getElementById("askq").addEventListener("input",sizeAsk);
+
+/* With a keyboard, Enter sends and Shift+Enter starts a new line. On a
+   touch screen there is no Shift, and the return key sending the
+   message is what made long messages go out half-written \u2014 so there
+   return adds a line, and the arrow button sends. */
+var ASK_TOUCH=window.matchMedia&&window.matchMedia("(pointer: coarse)").matches;
 document.getElementById("askq").addEventListener("keydown",function(e){
-  if(e.key==="Enter"){sendAsk(this.value);this.value="";}});
+  if(e.key!=="Enter"||e.shiftKey||ASK_TOUCH||e.isComposing)return;
+  e.preventDefault();
+  if(!this.value.trim())return;
+  sendAsk(this.value);this.value="";sizeAsk();});
 document.getElementById("prompts").addEventListener("click",function(e){
   var b=e.target.closest(".chip");if(b)sendAsk(b.dataset.s);});
 
@@ -257,6 +279,7 @@ document.getElementById("chatmode").addEventListener("click",function(e){
     for(var i=e.resultIndex;i<e.results.length;i++)txt+=e.results[i][0].transcript;
     var el=document.getElementById("askq");
     el.value=(base?base+" ":"")+txt.trim();
+    if(typeof sizeAsk==="function")sizeAsk();
   };
   rec.onerror=function(){stop();};
   rec.onend=function(){stop();};
