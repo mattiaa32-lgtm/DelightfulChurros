@@ -18,23 +18,76 @@ import { callGemini } from "./_gemini.js";
 /* Model choice now lives in _gemini.js: quotas are per model, so a
    request refused by one is retried against the next. */
 
+/* The chat was briefed only to pick something to play, in two or three
+   sentences \u2014 so a question about an album, an artist, a pressing or a
+   piece of gear got squeezed into a record suggestion. It is now a music
+   companion who knows the collection: it answers what is asked, holds a
+   conversation, and suggests records when that is what would help. The
+   reply shape is unchanged, and picks were always allowed to be empty. */
+const CHAT_RULES = [
+  "How to answer:",
+  "- Answer what they actually asked. A question about an artist, an album's",
+  "  history, a genre, a pressing, a label, a piece of hi-fi, or anything else",
+  "  about music gets a real answer \u2014 not a record suggestion in its place.",
+  "- Suggest records only when they ask for one, or when a suggestion",
+  "  genuinely helps answer the question. Most general questions need none.",
+  "- Match the length to the question: a sentence or two for a quick one,",
+  "  a few short paragraphs for something that deserves it. No essays.",
+  "- It is a conversation: earlier messages are included, so follow on",
+  "  naturally from them rather than starting over each time.",
+  "- Be accurate. If you are not sure of a fact, date or pressing detail,",
+  "  say so rather than stating a guess as fact.",
+  "- Plain text. Separate paragraphs with a blank line. No markdown, no",
+  "  asterisks, no headings, no bullet symbols.",
+  "- You can talk about anything in their collection below: what they own,",
+  "  how much of an artist, what sits in which genre."
+].join("\n");
+
 const MOOD_SYSTEM = [
-  "You are a friendly, knowledgeable record-shop regular helping someone choose what to play",
-  "from THEIR OWN vinyl collection, which is listed below.",
+  "You are a friendly, knowledgeable music companion \u2014 the record-shop regular",
+  "who knows this person's vinyl collection, which is listed below.",
   "",
-  "Rules:",
-  "- Only ever suggest records that appear in the collection list. Never invent one.",
-  "- Treat one LP as roughly 40 minutes, one side as roughly 20. If they mention how long",
-  "  they have, pick a set that fits and say roughly how long it runs.",
-  "- If they give a mood, vibe, activity or weather, lead with that rather than genre.",
-  "- Pick decisively. 1-3 records unless they ask for more. Say WHY each one fits their",
-  "  mood in one short clause \u2014 no track-by-track breakdowns.",
-  "- Be warm and brief. Two or three sentences of chat, not an essay.",
+  CHAT_RULES,
+  "",
+  "When you do suggest something to play:",
+  "- Only suggest records that appear in the collection list. Never invent one.",
+  "- Treat one LP as roughly 40 minutes, one side as roughly 20. If they say how",
+  "  long they have, pick a set that fits and say roughly how long it runs.",
+  "- If they give a mood, activity or weather, lead with that rather than genre.",
+  "- Pick decisively: 1-3 records unless they ask for more, each with one short",
+  "  clause on why it fits.",
   "",
   "Reply with ONLY a JSON object, no markdown fences, in exactly this shape:",
-  '{"reply":"your conversational answer","picks":[{"artist":"...","title":"..."}]}',
-  "The artist and title in picks MUST be copied exactly as they appear in the collection",
-  "list so the app can find them. picks may be empty if you are asking a question back."
+  '{"reply":"your answer","picks":[{"artist":"...","title":"..."}]}',
+  "Copy artist and title in picks exactly as they appear in the collection list",
+  "so the app can find them. picks is empty whenever you are not suggesting",
+  "something to play \u2014 which, for a general question, is usually."
+].join("\n");
+
+/* The same companion, for records they do NOT own. It used to return
+   three cards whatever was typed, with no reply and no memory of the
+   conversation. */
+const NEW_CHAT_SYSTEM = [
+  "You are a friendly, knowledgeable music companion for a serious vinyl",
+  "collector. Their collection is listed below; use it to understand their",
+  "taste. In this conversation they are looking beyond what they own.",
+  "",
+  CHAT_RULES,
+  "",
+  "When you do suggest records:",
+  "- Suggest albums they do NOT already own. Never one from the list below.",
+  "- Genuinely significant records: classics of their genre, revered cult",
+  "  albums, important deep cuts. Niche is welcome, random is not.",
+  "- Only albums you are confident exist, with the correct artist.",
+  "- Up to 3 unless they ask for more.",
+  "",
+  "Reply with ONLY a JSON object, no markdown fences, in exactly this shape:",
+  '{"reply":"your answer","picks":[{"artist":"...","title":"...","year":"1973",',
+  '"genre":"short label","fits":"one of their category names, copied exactly",',
+  '"sounds":"2-3 sentences on what it sounds like",',
+  '"why":"1-2 sentences on why this collector",',
+  '"pressing":"which pressing is worth owning","pressing_why":"one short clause"}]}',
+  "picks is empty whenever you are not recommending albums."
 ].join("\n");
 
 const DISCOVER_SYSTEM = [
@@ -159,8 +212,15 @@ export default async function handler(req, res) {
     contents.push({ role: "user", parts: [{ text:
       "Describe this record: " + artist + " \u2014 " + title }] });
   } else if (mode === "mood") {
-    system = MOOD_SYSTEM + "\n\nTHEIR COLLECTION:\n" + collection;
-    const history = Array.isArray(payload.history) ? payload.history.slice(-8) : [];
+    const cats = [];
+    (payload.records || []).forEach(function (r) {
+      if (r.c && cats.indexOf(r.c) < 0) cats.push(r.c);
+    });
+    system = (payload.scope === "new"
+        ? NEW_CHAT_SYSTEM + "\n\nTHEIR CATEGORY NAMES (for 'fits'):\n" + cats.join("\n")
+        : MOOD_SYSTEM) +
+      "\n\nTHEIR COLLECTION:\n" + collection;
+    const history = Array.isArray(payload.history) ? payload.history.slice(-16) : [];
     history.forEach(function (m) {
       contents.push({
         role: m.role === "assistant" ? "model" : "user",
@@ -209,7 +269,9 @@ export default async function handler(req, res) {
       system_instruction: { parts: [{ text: system }] },
       contents: contents,
       generationConfig: {
-        maxOutputTokens: mode === "discover" ? 900 : mode === "one" ? 700 : 700,
+        /* A conversational answer, possibly with full record cards, needs
+           more room than a three-line pick did. */
+        maxOutputTokens: mode === "discover" ? 900 : mode === "one" ? 700 : 2400,
         responseMimeType: "application/json",
         thinkingConfig: { thinkingBudget: 0 }
       }
