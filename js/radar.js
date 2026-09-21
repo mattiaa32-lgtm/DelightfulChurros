@@ -274,6 +274,12 @@ function loadRadar(force, skipShared){
   var seen = {};
 
   function runPass(i){
+    /* Three grounded searches in a row are the heaviest thing the app
+       does; if a fill starts, hold off until it is done. */
+    if (typeof userJobRunning === "function" && userJobRunning()){
+      setTimeout(function(){ runPass(i); }, 30000);
+      return;
+    }
     if (i >= passes.length){
       if (!collected.length){
         renderRadar(null, failures[0] || "Nothing found this time.");
