@@ -288,20 +288,24 @@ Settings are behind the gear, top right.
     <div class="movebody" id="movebody"></div>
   </div>
 </div>
-<button id="fab" aria-label="Ask what to play">&#9835;</button>
-<div class="chatwrap" id="chatwrap" hidden role="dialog" aria-modal="true" aria-label="Ask what to play">
+<button id="fab" aria-label="Chat">&#9835;</button>
+<div class="chatwrap" id="chatwrap" hidden role="dialog" aria-modal="true" aria-label="Chat">
   <div class="chatpanel" id="chatpanel">
     <div class="chathead">
       <div class="grab" id="chatgrab"></div>
-      <div class="chattitle">Ask</div>
+      <div class="chattitle">Chat</div>
+      <!-- Two chats with different jobs: one picks what to play from the
+           shelf, the other takes everything else. Each keeps its own
+           conversation. -->
       <div class="chips" id="chatmode">
-        <button class="chip" data-m="shelf" aria-pressed="true">From my shelf</button>
-        <button class="chip" data-m="new" aria-pressed="false">Something new</button>
+        <button class="chip" data-m="shelf" aria-pressed="true">What to play</button>
+        <button class="chip" data-m="new" aria-pressed="false">Ask anything</button>
       </div>
       <button class="chatclose" id="chatclose" aria-label="Close">&#215;</button>
     </div>
     <div class="chatintro" id="chatintro"></div>
-    <div class="chatlog" id="chatlog"></div>
+    <div class="chatlog" id="chatlog-shelf"></div>
+    <div class="chatlog" id="chatlog-new" hidden></div>
     <div class="prompts" id="prompts"></div>
     <div class="askrow">
       <button class="iconbtn" id="askmic" aria-label="Dictate" hidden>
