@@ -260,7 +260,8 @@ function loadRadar(force, skipShared){
     return;
   }
 
-  el.innerHTML = "<p class='hint'>Searching for upcoming pressings\u2026 " +
+  el.innerHTML = (typeof skeletonHTML === "function" ? skeletonHTML("card", 3) : "") +
+    "<p class='hint'>Searching for upcoming pressings\u2026 " +
     "this takes a minute, in three passes.</p>";
 
   /* Three separate searches rather than one doing three jobs. Each gets
@@ -287,7 +288,7 @@ function loadRadar(force, skipShared){
       (p === "new" ? "new albums" : p === "reissue" ? "reissues" : "your wantlist") +
       " (" + (i + 1) + " of 3)" +
       (collected.length ? " \u2014 " + collected.length + " found so far" : "") +
-      "</p>";
+      "</p>" + (typeof skeletonHTML === "function" ? skeletonHTML("card", 3) : "");
 
     fetch("/api/radar", {
       method: "POST", headers: { "Content-Type": "application/json" },
