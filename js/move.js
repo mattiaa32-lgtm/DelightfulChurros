@@ -23,7 +23,7 @@ function openMove(rec, pre){
   movePre = pre || null;
   var wrap = document.getElementById("movewrap");
   if (!wrap) return;
-  document.getElementById("movetitle").textContent = rec.a + " \u2014 " + rec.t;
+  document.getElementById("movetitle").textContent = rec.t + " \u2014 " + rec.a;
   document.getElementById("movebody").innerHTML =
     "<p class='hint'>Currently " + (rec.pos || "unplaced") + " in " +
       esc(CUBE_NAMES[rec.k] || ("cube " + rec.k)) + ".</p>" +
@@ -68,10 +68,10 @@ function fillMoveTargets(){
   }
   sel.innerHTML =
     "<option value='before:" + peers[0].row + "'>Before " +
-      esc(peers[0].a + " \u2014 " + peers[0].t) + "</option>" +
+      esc(peers[0].t + " \u2014 " + peers[0].a) + "</option>" +
     peers.map(function(p){
       return "<option value='after:" + p.row + "'>After " +
-             esc(p.a + " \u2014 " + p.t) + "</option>";
+             esc(p.t + " \u2014 " + p.a) + "</option>";
     }).join("");
   /* A caller's suggestion wins over "at the end", provided it is still
      one of the options after any category change. */
