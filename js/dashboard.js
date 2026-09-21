@@ -89,6 +89,9 @@ function donutSVG(cats,total){
    Computed from the sheet, not asked of the AI: the scores are already
    there, so this costs nothing and appears at once. */
 var topMode = "rate";
+/* Collapsed to ten by default; expanding ranks everything that has a
+   score. One setting for both views, like the album/pressing switch. */
+var topShowAll = false;
 
 function scoreOf(raw){
   var m = /^\s*(\d+(?:\.\d+)?)/.exec(String(raw || ""));
@@ -110,7 +113,7 @@ function topRecords(list, field, n){
 function topListsHTML(cat){
   var pool = cat ? RECS.filter(function(r){ return r.c === cat; }) : RECS;
   var field = topMode === "owned" ? "owned" : "rate";
-  var rows = topRecords(pool, field, 10);
+  var rows = topRecords(pool, field, topShowAll ? Infinity : 10);
   var scored = pool.filter(function(r){ return scoreOf(r[field]) !== null; }).length;
 
   var body = rows.length
@@ -136,7 +139,8 @@ function topListsHTML(cat){
 
   return "<div class='topcard'>" +
     "<div class='tophead'>" +
-      "<div class='ktitle'>Top 10" + (cat ? " in " + esc(cat) : "") + "</div>" +
+      "<div class='ktitle'>" + (topShowAll ? "All, ranked" : "Top 10") +
+        (cat ? " in " + esc(cat) : "") + "</div>" +
       "<div class='topseg'>" +
         "<button class='topsegb" + (field === "rate" ? " on" : "") + "' data-m='rate'>Album</button>" +
         "<button class='topsegb" + (field === "owned" ? " on" : "") + "' data-m='owned'>Pressing</button>" +
@@ -147,7 +151,22 @@ function topListsHTML(cat){
       : "Ranked by how good your copy is \u2014 label, mastering, era.") +
       (scored < pool.length ? " " + scored + " of " + pool.length + " scored." : "") + "</p>" +
     body +
+    /* Only offered when there is more than ten to show. */
+    (scored > 10
+      ? "<button class='topmore'>" + (topShowAll
+          ? "Show the top 10 only"
+          : "Show all " + scored + " ranked") + "</button>"
+      : "") +
   "</div>";
+}
+
+/* Redraws an open category ranking, so a record added or scored while
+   you are looking at one shows up in it. */
+function redrawTopCat(){
+  var t = document.getElementById("topcat");
+  if (!t || !t.dataset.cat) return;
+  t.innerHTML = topListsHTML(t.dataset.cat);
+  wireTopLists(t, redrawTopCat);
 }
 
 function redrawTopAll(){
@@ -162,6 +181,11 @@ function wireTopLists(scope, redraw){
   if (!scope) return;
   [].forEach.call(scope.querySelectorAll(".topsegb"), function(b){
     b.addEventListener("click", function(){ topMode = this.dataset.m; redraw(); });
+  });
+  var more = scope.querySelector(".topmore");
+  if (more) more.addEventListener("click", function(){
+    topShowAll = !topShowAll;
+    redraw();
   });
   [].forEach.call(scope.querySelectorAll(".toprow"), function(li){
     li.addEventListener("click", function(){
@@ -274,7 +298,8 @@ function loadAssessment(force){
   }
   dashBusy=true;
   document.getElementById("dashjudge").innerHTML=
-    "<p class='hint'><span class='dots'><span></span><span></span><span></span></span> Assessing the collection\u2026</p>";
+    "<p class='hint'><span class='dots'><span></span><span></span><span></span></span> Assessing the collection\u2026</p>"+
+    (typeof skeletonHTML==="function"?skeletonHTML("text",5):"");
   aiFetchUser(API_BASE+"analyze",{
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({mode:"collection",records:collectionPayload()})
@@ -386,7 +411,7 @@ function renderCatDive(cat,d){
       (Array.isArray(d.canonical_held)&&d.canonical_held.length?
         "<div class='ablock'><div class='ktitle'>Key holdings</div><p class='aitem'>"+
         d.canonical_held.map(esc).join("<br>")+"</p></div>":"")+
-      "<div id='topcat'>"+topListsHTML(cat)+"</div>"+
+      "<div id='topcat' data-cat=\""+esc(cat)+"\">"+topListsHTML(cat)+"</div>"+
       (Array.isArray(d.missing)&&d.missing.length?
         "<div class='ablock'><div class='ktitle'>Worth adding</div>"+
         d.missing.map(function(m){
@@ -418,7 +443,7 @@ function openCatDive(cat){
   /* The top-10 lists need no AI, so they appear at once while the
      written assessment is still being generated. */
   el.innerHTML="<div class='assess'><div class='divehead'><span class='ra'>"+esc(cat)+"</span></div>"+
-    "<div id='topcat'>"+topListsHTML(cat)+"</div>"+
+    "<div id='topcat' data-cat=\""+esc(cat)+"\">"+topListsHTML(cat)+"</div>"+
     "<p class='hint'><span class='dots'><span></span><span></span><span></span></span> "+
     "Writing the assessment\u2026</p></div>";
   (function redraw(){
