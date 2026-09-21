@@ -177,14 +177,33 @@ Settings are behind the gear, top right.
   <div id="view-dash" hidden>
     <div class="dischead">
       <div><div class="disctitle">Collection</div>
-        <div class="hint">Counts are live from your sheet; the assessment updates when records change.</div></div>
+        <div class="hint">Live from your sheet.</div></div>
     </div>
-    <div id="dashstats"></div>
-    <div class="dischead"><div><div class="disctitle">Assessment</div></div></div>
-    <div id="dashjudge"></div>
+    <!-- Four views of one collection, rather than one long page: the
+         tab had grown to a chart, four figures, two rankings, two decade
+         charts and a written assessment, which is a lot to scroll past
+         on a phone to reach the part you wanted. -->
+    <div class="subtabs" id="dashtabs" role="tablist">
+      <button class="subtab on" data-s="over" role="tab" aria-selected="true">Overview</button>
+      <button class="subtab" data-s="top" role="tab" aria-selected="false">Top 10</button>
+      <button class="subtab" data-s="eras" role="tab" aria-selected="false">Eras</button>
+      <button class="subtab" data-s="judge" role="tab" aria-selected="false">Assessment</button>
+    </div>
+    <div class="dashpane" data-s="over">
+      <div id="dashstats"></div>
+      <p class="foot">Tap a category in the chart or legend for a deep dive.</p>
+    </div>
+    <div class="dashpane" data-s="top" hidden><div id="toptop"></div></div>
+    <div class="dashpane" data-s="eras" hidden>
+      <div id="dasheras"></div>
+      <p class="foot">Tap a decade to see which records are in it.</p>
+    </div>
+    <div class="dashpane" data-s="judge" hidden>
+      <div id="dashjudge"></div>
+      <p class="foot"><a href="#" id="dashrefresh">Regenerate assessment</a></p>
+    </div>
+    <!-- Deep dives open beneath whichever view you tapped from. -->
     <div id="dashdive" hidden></div>
-    <p class="foot">Tap a category in the chart or legend for a deep dive.<br>
-      <a href="#" id="dashrefresh">Regenerate assessment</a></p>
   </div>
 
   <div id="view-radar" hidden>
