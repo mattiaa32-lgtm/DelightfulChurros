@@ -1282,3 +1282,5 @@ header{padding-top:max(14px, calc(env(safe-area-inset-top, 0px) + 12px))}
 /* Chat answers can run to a few paragraphs now; keep the breaks. */
 .bub{white-space:pre-wrap;overflow-wrap:anywhere}
 .bub.ai{line-height:1.5}
+/* Only the current chat's thread shows. */
+.chatlog[hidden]{display:none !important}
