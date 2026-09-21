@@ -135,7 +135,12 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);
 .askrow{display:flex;gap:8px;position:sticky;bottom:0;background:var(--bg);
   padding:8px 0 max(10px,env(safe-area-inset-bottom))}
 #askq{flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);color:var(--text);
-  border-radius:999px;padding:11px 15px;font-size:14px;font-family:var(--sans);outline:none}
+  border-radius:18px;padding:10px 15px;font-size:14px;line-height:1.45;font-family:var(--sans);
+  outline:none;resize:none;overflow-y:hidden;display:block;
+  /* wraps instead of scrolling sideways */
+  white-space:pre-wrap;overflow-wrap:anywhere}
+/* the buttons sit at the bottom as the box grows */
+.askrow{align-items:flex-end}
 #askq:focus{border-color:var(--accent)}
 
 /* discover */
