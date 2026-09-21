@@ -159,8 +159,8 @@ function recCardHTML(r){
       "<span class='rart' data-a=\""+esc(r.artist||"")+"\" data-t=\""+esc(r.title||"")+"\""+
         (r.cover?" data-cover=\""+esc(r.cover)+"\"":"")+"></span>"+
       "<span class='rinfo'>"+
-        "<span class='ra'>"+esc(r.artist||"")+"</span>"+
         "<div class='rt'>"+esc(r.title||"")+"</div>"+
+        "<span class='ra'>"+esc(r.artist||"")+"</span>"+
         (meta?"<div class='rmeta'>"+esc(meta)+"</div>":"")+
         (r.fits?"<span class='rfit'>Fits: "+esc(r.fits)+"</span>":"")+
       "</span>"+
