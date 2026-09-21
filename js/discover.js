@@ -243,8 +243,11 @@ function loadDaily(force){
        today's three. Two devices each generating their own meant two
        different sets of "today's picks", and two AI requests for one
        day's worth of suggestions. */
-    if(!discCheckedShared){
-      discCheckedShared=true;
+    /* Per day, not per session: the app can stay open across midnight,
+       and a session-long flag would then skip the shared check and
+       generate a second set when another device had already made one. */
+    if(discCheckedShared!==todayKey()){
+      discCheckedShared=todayKey();
       sharedPicks(function(p){
         if(p&&p.recs&&p.recs.length){
           try{localStorage.setItem(key,JSON.stringify(p.recs));}catch(e){}
