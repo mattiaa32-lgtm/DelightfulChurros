@@ -145,6 +145,9 @@ function noteCollectionChanged(){
 
 /* ---- one poll, three questions ---- */
 function pollShared(){
+  /* A fill reloads the collection when it finishes; checking the sheet
+     every 45 seconds in the meantime only adds to the load on it. */
+  if (typeof userJobRunning === "function" && userJobRunning()) return;
   readConfig(SYNC_INDEX, function(idx){
     if (!idx) return;
 
