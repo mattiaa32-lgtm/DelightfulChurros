@@ -110,15 +110,19 @@ function redrawEverything(){
    allowance, and firing them together is what exhausts it. */
 function enrichNewRecords(){
   if (!isOwner() || typeof RECS === "undefined") return;
+  if (userJobRunning()) return;
 
   var jobs = [];
   if (RECS.some(function(r){ return !r.desc; })) jobs.push({ mode: "desc", limit: 20 });
   if (RECS.some(function(r){ return !r.rate; })) jobs.push({ mode: "eval", only: "rate", limit: 12 });
   if (RECS.some(function(r){ return !r.press; })) jobs.push({ mode: "eval", only: "press", limit: 12 });
-  if (RECS.some(function(r){ return !r.owned; })) jobs.push({ mode: "eval", only: "owned", limit: 12 });
+  if (RECS.some(function(r){ return !r.owned; })) jobs.push({ mode: "eval", only: "owned", limit: 6 });
   if (!jobs.length) return;
 
   (function next(i){
+    /* A fill started while this was running: it covers the same ground,
+       so stop rather than compete with it. */
+    if (userJobRunning()) return;
     if (i >= jobs.length){
       if (typeof reloadCollection === "function") reloadCollection();
       return;
@@ -160,6 +164,7 @@ var lastUpkeepDay = null;
 
 function readyUpkeep(){
   if (typeof isOwner !== "function" || !isOwner()) return;
+  if (userJobRunning()){ setTimeout(readyUpkeep, 60000); return; }
   if (typeof RECS === "undefined" || !RECS.length) return;
 
   var today = (typeof todayKey === "function") ? todayKey()
@@ -185,6 +190,7 @@ function readyUpkeep(){
 /* ---- the weekly round -------------------------------------------- */
 function weeklyUpkeep(){
   if (!isOwner() || typeof RECS === "undefined") return;
+  if (userJobRunning()){ setTimeout(weeklyUpkeep, 60000); return; }
 
   /* 1. Discogs first: anything bought since last time. */
   if (due("sync")){
