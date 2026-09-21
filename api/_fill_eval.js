@@ -25,6 +25,49 @@ import { callGemini } from "./_gemini.js";
 
 const BATCH = 12;
 
+/* The collection listing gives label, catalogue number and year \u2014 but
+   not the country, and nothing that tells one pressing from another. A
+   1971 German Vertigo and a 1971 UK Vertigo share label, catalogue
+   number and year, so from the listing alone they are the same record,
+   and the model defaulted to the UK first press.
+
+   The release record has what actually separates them: country, the
+   matrix and runout etchings, the rights society (GEMA for Germany,
+   MCPS for the UK, BIEM, and so on), and who pressed it. One request per
+   record, and only for the handful being scored in this batch. */
+async function releaseIdentity(id, auth) {
+  try {
+    const r = await fetch("https://api.discogs.com/releases/" + id, { headers: auth });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const lab = (d.labels || [])[0] || {};
+    const fmt = (d.formats || [])[0] || {};
+    const ids = (d.identifiers || []);
+    const pick = function (re) {
+      return ids.filter(function (x) { return re.test(String(x.type || "")); })
+                .map(function (x) {
+                  return (x.description ? x.description + ": " : "") + x.value;
+                }).slice(0, 4);
+    };
+    const matrix = pick(/matrix|runout/i);
+    const rights = pick(/rights society/i);
+    const plant = (d.companies || [])
+      .filter(function (c) { return /pressed by|made by|manufactured by|lacquer cut/i.test(c.entity_type_name || ""); })
+      .map(function (c) { return c.entity_type_name + ": " + c.name; }).slice(0, 3);
+    return [
+      d.country ? "country " + d.country : "",
+      lab.name ? "label " + lab.name : "",
+      lab.catno ? "cat " + lab.catno : "",
+      d.released ? "released " + d.released : (d.year ? "year " + d.year : ""),
+      (fmt.descriptions || []).length ? "format " + fmt.descriptions.join(", ") : "",
+      fmt.text ? "(" + fmt.text + ")" : "",
+      rights.length ? "rights society " + rights.join("; ") : "",
+      plant.length ? plant.join("; ") : "",
+      matrix.length ? "matrix/runout " + matrix.join(" | ") : ""
+    ].filter(Boolean).join(" \u00b7 ").slice(0, 700);
+  } catch (e) { return null; }
+}
+
 const SYSTEM = [
   "You assess records for a serious vinyl collector's own catalogue.",
   "You will be given a numbered list of albums. Assess EVERY one.",
@@ -54,6 +97,16 @@ const SYSTEM = [
   "",
   "CONSISTENCY: the owned score and the pressing recommendation are shown",
   "side by side, so they must agree. If their copy IS the pressing you would",
+  "IDENTIFYING THEIR COPY: the same label and catalogue number were often",
+  "pressed in several countries at once \u2014 a Vertigo 6360 050 exists as a",
+  "UK, a German and a Dutch first press, and they are different records.",
+  "Identify the copy from the evidence given, in this order: matrix/runout",
+  "etchings, country, rights society (GEMA = Germany, MCPS = UK, SACEM =",
+  "France, BIEM = continental Europe), pressing plant, release date. Never",
+  "assume the UK or US pressing when the country says otherwise, and name",
+  "the country you identified in the pressing score's reasoning. If the",
+  "evidence is thin, say which pressing it most likely is and that it is",
+  "not certain.",
   "recommend, say so and score it high \u2014 do not recommend a pressing they",
   "already own as though they lacked it. If Discogs gives no reissue or",
   "repress marking and the year matches the original release, treat it as an",
@@ -159,6 +212,7 @@ export async function handler(req, res) {
        is fact rather than inference \u2014 only the judgement of it comes
        from the model. One paginated pass covers the whole collection. */
     let pressingOf = {};
+    let cfgAuth = null;
     if (only !== "rate" && only !== "press") {   /* identity needed for the owned score */
       try {
         const cfg = await getConfig(["discogs_token", "discogs_secret", "discogs_user"]);
@@ -167,6 +221,7 @@ export async function handler(req, res) {
             "Authorization": oauthAuth(cfg.discogs_token, cfg.discogs_secret || ""),
             "User-Agent": "ShelfVinylApp/1.0", "Accept": "application/json"
           };
+          cfgAuth = auth;     /* kept for the per-release lookups below */
           let page = 1, pages = 1;
           while (page <= pages && page <= 40) {
             const r = await fetch("https://api.discogs.com/users/" +
@@ -202,6 +257,17 @@ export async function handler(req, res) {
     }
 
     const chunk = todo.slice(0, limit);
+
+    /* Full release details for just this batch, where a pressing score
+       is being asked for. Paced gently: Discogs allows 60 a minute. */
+    if (only !== "rate" && only !== "press" && cfgAuth) {
+      for (const it of chunk) {
+        if (it.haveOwned || !it.id) continue;
+        const full = await releaseIdentity(it.id, cfgAuth);
+        if (full) pressingOf[it.id] = full;
+        await new Promise(function (r) { setTimeout(r, 1100); });
+      }
+    }
     const listing = chunk.map(function (it, n) {
       /* The copy they own, identified from Discogs — label, catalogue
          number and year. This is what the owned-pressing score is
