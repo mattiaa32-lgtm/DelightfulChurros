@@ -36,7 +36,19 @@ export async function sheetCall(payload, opts) {
   const secret = process.env.SHEET_WEBHOOK_SECRET;
   if (!url || !secret) throw new Error("sheet is not configured");
 
-  const attempts = (opts && opts.attempts) || 2;
+  /* Apps Script sometimes answers with Google's own HTML error page
+     instead of the script's JSON, usually when it is briefly overloaded.
+     Two tries 0.7s apart was not enough to outlast that. But the page can
+     come back AFTER the script has already run, so only operations that
+     are safe to repeat get the longer retry: reading, and writes that set
+     cells to fixed values. Appending a row is not safe to repeat \u2014 a
+     retry could add it twice \u2014 so it keeps the single short retry, and
+     the reload that follows shows whether it landed. */
+  const REPEATABLE = ["read", "getConfig", "getConfigAll", "setConfig", "setCells",
+                      "setRows", "ping", "readValues", "valueSnap", "backup"];
+  const safe = REPEATABLE.indexOf(String(payload && payload.action)) > -1;
+  const attempts = (opts && opts.attempts) || (safe ? 4 : 2);
+  const pauses = [1000, 2500, 5000];
   let lastRaw = "";
 
   for (let n = 0; n < attempts; n++) {
@@ -61,23 +73,35 @@ export async function sheetCall(payload, opts) {
       try { d = JSON.parse(text); } catch (e) { d = null; }
 
       if (d) {
-        if (d.error) throw new Error(d.error);
+        if (d.error){
+          /* The script ran and refused (unauthorised, unknown action):
+             repeating the request would get the same answer. */
+          const se = new Error(d.error); se.script = true; throw se;
+        }
         return d;
       }
 
-      // Not JSON: usually the transient Drive page. Pause and try again.
+      // Not JSON: usually Google's error page. Pause, longer each time.
       if (n < attempts - 1) {
-        await new Promise((res) => setTimeout(res, 700));
+        await new Promise((res) => setTimeout(res, pauses[n] || 5000));
         continue;
       }
     } catch (err) {
-      // A real error from the script (unauthorised, unknown action) is
-      // final — only retry when we got something unparseable back.
-      if (err && err.message && !/^sheet returned/.test(err.message)) throw err;
+      // A refusal from the script itself is final. Anything else \u2014 a
+      // dropped connection, a timeout \u2014 is worth another attempt.
+      if (err && err.script) throw err;
       if (n >= attempts - 1) throw err;
-      await new Promise((res) => setTimeout(res, 700));
+      await new Promise((res) => setTimeout(res, pauses[n] || 5000));
     }
   }
 
-  throw new Error("sheet returned: " + String(lastRaw).slice(0, 160));
+  /* Say what it means rather than pasting Google's HTML. The raw text is
+     kept on the error for anyone debugging. */
+  const looksLikePage = /^\s*<!DOCTYPE|<html/i.test(String(lastRaw));
+  const e = new Error(looksLikePage
+    ? "Google's sheet service is busy and returned an error page instead of data"
+    : "sheet returned: " + String(lastRaw).slice(0, 160));
+  e.busy = looksLikePage;
+  e.raw = String(lastRaw).slice(0, 300);
+  throw e;
 }
