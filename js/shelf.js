@@ -58,8 +58,10 @@ function render(){
 }
 function rowHTML(r){
   return "<button class='row' data-i='"+r.i+"'>"+artBox(r)+
-    "<span class='meta'><span class='artist'>"+esc(r.a)+"</span>"+
-    "<span class='title'>"+esc(r.t)+"</span></span>"+
+    /* Title first: the album is what you are looking for, the artist
+       tells you which one. Same order everywhere a record appears. */
+    "<span class='meta'><span class='title'>"+esc(r.t)+"</span>"+
+    "<span class='artist'>"+esc(r.a)+"</span></span>"+
     (r.d?"":"<span class='badge'>Wanted</span>")+mini(r)+"</button>";
 }
 
@@ -96,9 +98,9 @@ function open(i){
   var inCube=RECS.filter(function(x){return x.k===r.k;});
   var before=inCube[r.p-2],after=inCube[r.p];
   var nb="";
-  nb+=before?"After <b>"+esc(before.a)+" \u2014 "+esc(before.t)+"</b>.<br>"
+  nb+=before?"After <b>"+esc(before.t)+"</b> \u2014 "+esc(before.a)+".<br>"
             :"First record in the cube.<br>";
-  nb+=after?"Before <b>"+esc(after.a)+" \u2014 "+esc(after.t)+"</b>."
+  nb+=after?"Before <b>"+esc(after.t)+"</b> \u2014 "+esc(after.a)+"."
            :"Last record in the cube.";
   var sp="https://open.spotify.com/search/"+encodeURIComponent(artistQ(r.a)+" "+titleQ(r.t));
   var dc=r.d?"https://www.discogs.com/release/"+r.d
@@ -108,8 +110,8 @@ function open(i){
     "<div class='grab'></div>"+
     "<div class='head'>"+artBox(r)+"<div class='hmeta'>"+
       (r.d?"":"<div class='wish'>Not on the shelf yet</div>")+
-      "<div class='d-artist'>"+esc(r.a)+"</div>"+
       "<div class='d-title' id='dtitle'>"+esc(r.t)+"</div>"+
+      "<div class='d-artist'>"+esc(r.a)+"</div>"+
       "<div class='d-desc' data-i='"+r.i+"'>"+(r.desc?esc(r.desc):"")+"</div></div></div>"+
     "<div class='shelf'>"+holes(r)+"</div>"+
     /* Three separate judgements, each labelled, because a bare number
