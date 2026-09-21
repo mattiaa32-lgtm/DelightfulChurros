@@ -1278,3 +1278,7 @@ header{padding-top:max(14px, calc(env(safe-area-inset-top, 0px) + 12px))}
 .results.grid > .row.tile > .art.tileart > img{object-fit:cover}
 .results.grid > .row.tile > .art.tileart > .ph{display:flex;align-items:center;justify-content:center}
 .results.grid > .row.tile > .tmeta{display:block;min-width:0;margin-top:8px}
+
+/* Chat answers can run to a few paragraphs now; keep the breaks. */
+.bub{white-space:pre-wrap;overflow-wrap:anywhere}
+.bub.ai{line-height:1.5}
