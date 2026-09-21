@@ -367,6 +367,20 @@ function applyRows(rows){
    full reload. Column numbers are the sheet's (1-based). Only the
    columns the app itself writes are handled; anything else waits for
    the next read, which always follows. */
+/* True while a job the user started is running \u2014 a Fill in the
+   blanks run. Every background job asks this before doing anything, and
+   stands aside if so.
+
+   Background work was added one job at a time (enrichment, the day's
+   picks, the radar, the sync check, the price sweep) and only the price
+   sweep ever checked. So a manual fill ran alongside a second copy of
+   itself filling the same records, doubling the AI requests against a
+   limit of a few a minute and piling sheet calls onto Google until it
+   returned its error page. That is what stopped fills part-way. */
+function userJobRunning(){
+  return (typeof gapsRunning !== "undefined" && !!gapsRunning);
+}
+
 function applyCellsLocally(cells){
   if (!cells || !cells.length || typeof RECS === "undefined") return false;
   var byRow = {};
