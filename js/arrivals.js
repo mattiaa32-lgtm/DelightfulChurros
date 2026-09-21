@@ -88,8 +88,10 @@ function reviewArrivals(count){
       el.innerHTML = "<p class='hint'><span class='spinner'></span> " +
         "Fetching the new record" + (want === 1 ? "" : "s") + "\u2026</p>";
     }
-    if (typeof loadSheet === "function" && tries % 2 === 0) loadSheet();
-    setTimeout(check, 1200);
+    /* Read again and check as soon as the answer is in, rather than on
+       a fixed timer. */
+    if (typeof loadSheet === "function") loadSheet(function(){ setTimeout(check, 250); });
+    else setTimeout(check, 1200);
   })();
 }
 
@@ -208,6 +210,22 @@ function paintPlacement(rec){
     where + neighbour + "</span>";
 }
 
+/* Applies sheet cells to the records in memory, so the screen can
+   change before the write returns. Column numbers are the sheet's:
+   3 category, 4 cube, 10 position. */
+function applyLocally(cells){
+  var byRow = {};
+  RECS.forEach(function(r){ byRow[r.row] = r; });
+  cells.forEach(function(c){
+    var r = byRow[c.row];
+    if (!r) return;
+    if (c.col === 3) r.c = c.value;
+    if (c.col === 4){ r.k = +c.value; r.cubeSet = true; }
+    if (c.col === 10) r.pos = +c.value;
+  });
+  if (typeof redrawEverything === "function") redrawEverything();
+}
+
 function fileArrivals(){
   var msg = document.getElementById("arrmsg");
   function say(t){ if (msg) msg.textContent = t; }
@@ -275,10 +293,17 @@ function fileArrivals(){
     say(skipped ? "Give them a category first." : "Nothing to file.");
     return;
   }
+  /* Show the result at once and write in the background. The shelf
+     used to wait for the write AND a fresh read of the sheet before
+     anything moved; now the records are placed on screen immediately,
+     and the reload afterwards simply confirms it. If the write fails,
+     the reload puts back what the sheet actually holds. */
+  applyLocally(cells);
   say("Filing\u2026");
   sheetWrite("setCells", { cells: cells }, function(err){
     if (err){
       say(err.message === "read-only" ? "Unlock editing first." : "Couldn't write: " + err.message);
+      if (typeof reloadCollection === "function") reloadCollection();   /* undo the preview */
       return;
     }
     var n = list.filter(function(r){ return r.c; }).length;
