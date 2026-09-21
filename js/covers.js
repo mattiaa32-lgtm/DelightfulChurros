@@ -419,3 +419,36 @@ function fillArt(scope){
   kill.forEach(cacheDel);
   cacheSet("yfixPurged","2");
 })();
+
+
+/* ---- placeholders while things load --------------------------------
+   Grey shapes the size of what is coming, instead of a spinner and a
+   sentence. The page does not jump when the real content arrives,
+   because it takes the space the placeholder already held \u2014 and a
+   list that is visibly about to appear reads as faster than a spinner
+   that could mean anything. */
+function skeletonHTML(kind, n){
+  var one;
+  if (kind === "tile"){
+    one = "<div class='sk-tile'><span class='sk sk-cover'></span>" +
+          "<span class='sk sk-line w70'></span><span class='sk sk-line w45'></span></div>";
+    return "<div class='results grid sk-wrap'>" + new Array(n || 6).fill(one).join("") + "</div>";
+  }
+  if (kind === "card"){
+    one = "<div class='sk-card'><span class='sk sk-thumb'></span><div class='sk-lines'>" +
+          "<span class='sk sk-line w60'></span><span class='sk sk-line w40'></span>" +
+          "<span class='sk sk-line w90 thin'></span><span class='sk sk-line w80 thin'></span>" +
+          "</div></div>";
+    return "<div class='sk-wrap'>" + new Array(n || 3).fill(one).join("") + "</div>";
+  }
+  if (kind === "text"){
+    return "<div class='sk-wrap sk-text'>" +
+      ["w90","w100","w80","w95","w60"].slice(0, n || 5).map(function(w){
+        return "<span class='sk sk-line thin " + w + "'></span>";
+      }).join("") + "</div>";
+  }
+  /* rows, as on the shelf list */
+  one = "<div class='sk-row'><span class='sk sk-thumb'></span><div class='sk-lines'>" +
+        "<span class='sk sk-line w55'></span><span class='sk sk-line w35'></span></div></div>";
+  return "<div class='sk-wrap'>" + new Array(n || 8).fill(one).join("") + "</div>";
+}
